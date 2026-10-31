@@ -28,6 +28,9 @@
 
 AllCops:
   TargetRubyVersion: 3.4
+  Exclude:
+    - "local/**/*"
+    - "vendor/**/*"
   NewCops: enable
   SuggestExtensions: false
 

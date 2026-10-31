@@ -11,7 +11,7 @@ Ruby style: the `ruby` skill (4-space indentation, double quotes,
 ## Traps
 
 - `a, b = call or return` is a syntax error; assign to one name first.
-- A constant defined inside a `Data.define … do` block lands in the
+- A constant defined inside a Data.define block lands in the
   enclosing module, not the class: reopen the class for constants.
 - `Data#with` is a method: no member may be named `with` (hence
   `Reading#context`).
