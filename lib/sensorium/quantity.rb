@@ -8,12 +8,20 @@ module Sensorium
     #             is trusted less by drift × its age
     #   max_age   minutes after which a reading is not used
     #   outlier   how many σ off the others a sensor is dropped
+    #   floor     the least σ a reading is given, however tight its
+    #             offset was learned (a quarter of sigma unless set)
     #   transform Transform::Identity, Transform::AbsoluteHumidity…
     Quantity = Data.define(:name, :unit, :sigma, :drift, :max_age,
-                           :outlier, :transform) do
-        def initialize(unit: nil, max_age: 60, outlier: 3,
-                       transform: Transform::Identity, **)
-            super
+                           :outlier, :floor, :transform)
+
+    class Quantity
+        DEFAULTS = { unit: nil, max_age: 60, outlier: 3, floor: nil,
+                     transform: Transform::Identity }.freeze
+
+        def initialize(name:, sigma:, **settings)
+            given = DEFAULTS.merge(settings)
+            super(**given, name: name.to_s, sigma:,
+                           floor: given[:floor] || (sigma / 4.0))
         end
 
         # The readings taken into the transform's space, those it cannot

@@ -2,8 +2,36 @@
 
 module Sensorium
     # What a learning found, for one quantity: the regimes it covered,
-    # [Offset], [Shift].
+    # [Offset], [Shift]. What it replaces of what was kept (gone): the
+    # offsets of the sensors it learned again, and of a location whose
+    # reference it found changed; nothing of a location or a regime it
+    # learned nothing in, so a span that barely touches a regime, or a
+    # sensor short of samples this time, loses nothing.
     Learned = Data.define(:quantity, :regimes, :offsets, :shifts) do
+        # The keys of the kept offsets that give way to this learning,
+        # and of those it brings.
+        def gone(kept)
+            keys = offsets.to_set { Learned.key(it) }
+            given = kept.select { replaced?(it, keys) }
+            given.to_set { Learned.key(it) } | keys
+        end
+
+        # Whether a kept Offset's location and regime were learned again,
+        # and either it was, or against another reference.
+        def replaced?(offset, keys)
+            reference = references[[offset.location, offset.regime]]
+            reference && (reference != offset.reference ||
+                          keys.include?(Learned.key(offset)))
+        end
+
+        # { [location, regime] => reference } of what was learned.
+        def references
+            offsets.to_h { [[it.location, it.regime], it.reference] }
+        end
+
+        # [location, device, regime] of an Offset or a Shift.
+        def self.key(row) = [row.location, row.device, row.regime]
+
         # An Offset's values from the Fit's models, as kept.
         def self.values(model, plain)
             { **terms(model), **widths(model.residuals.values),

@@ -40,12 +40,21 @@ class OffsetTest < Minitest::Test
         assert_in_delta 2.0 / P10_P90, found.sigma
     end
 
-    # The aircon's shift on top, and its wider spread when it is wider.
+    # The aircon's shift on top of the plain offset it was learned over,
+    # and its wider spread when it is wider.
     def test_the_aircon_shifts_and_widens
         found = offset(neighbour: nil, coefficient: nil)
                 .correct(19.0, shifts: [shift])
-        assert_in_delta 19.0 + 0.5 + 1.0, found.value
+        assert_in_delta 19.0 + 0.8 + 1.0, found.value
         assert_in_delta 3.0 / P10_P90, found.sigma
+    end
+
+    # The neighbour known and the heating on: still the plain offset
+    # under the aircon, not the full model.
+    def test_a_shift_is_over_the_plain_offset_whatever_else_holds
+        found = offset.correct(19.0, on: %w[heating], neighbour: 15.0,
+                                     shifts: [shift])
+        assert_in_delta 19.0 + 0.8 + 1.0, found.value
     end
 
     private

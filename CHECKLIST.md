@@ -3,10 +3,10 @@
 ## Gates
 
 - [ ] `bundle exec rake` passes: tests, then RuboCop.
-- [ ] If the learner or the fit changed: `Presets.room` still learns
-  what it learned on real history (DESIGN.md, "It learns what
-  ClimatControl learned"): same offsets and neighbours, constants
-  within 0.01.
+- [ ] If the learner or the fit changed, does the room preset still
+  learn on real history what DESIGN.md's "What it learns against
+  ClimatControl" says, or does that section need rewriting? The run
+  needs a house's database, so it is not part of the suite.
 
 ## Documents
 

@@ -2,19 +2,12 @@
 
 require "test_helper"
 require "sensorium/store/sequel"
-require "support/fake_house"
+require "support/winter"
 
-# The same behaviour from each store: a learning replaces the regimes it
-# covers, an Offset comes back as kept, settings are set and reset.
+# The same behaviour from each store: an Offset comes back as kept,
+# settings are set and reset (what a learning replaces:
+# store_keep_test.rb).
 module StoreBehaviour
-    # Learned once, for every store.
-    def self.learned
-        @learned ||= Sensorium::Learner.new(
-            FakeHouse.new, Sensorium::Presets.room,
-            from: FakeHouse::START, to: FakeHouse::START + (10 * 86_400)
-        ).learn
-    end
-
     def test_a_learning_comes_back
         keep(learned)
         assert_equal sorted(learned.offsets),
@@ -26,19 +19,6 @@ module StoreBehaviour
         keep(learned)
         assert_empty @store.offsets("humidity")
         assert_equal %w[winter], @store.learned("temperature").keys
-    end
-
-    def test_a_learning_keeps_the_regimes_it_does_not_cover
-        keep(learned)
-        keep(learned.with(regimes: %w[summer], offsets: [], shifts: []))
-        refute_empty @store.offsets("temperature")
-    end
-
-    def test_a_learning_replaces_the_regimes_it_covers
-        keep(learned)
-        keep(learned.with(offsets: learned.offsets.first(1), shifts: []))
-        assert_equal 1, @store.offsets("temperature").size
-        assert_empty @store.shifts("temperature")
     end
 
     def test_a_location_is_set_and_reset
@@ -56,7 +36,7 @@ module StoreBehaviour
 
     private
 
-    def learned = StoreBehaviour.learned
+    def learned = Winter.learned
 
     def keep(learned)
         @store.keep(learned, from: FakeHouse::START, to: FakeHouse::START,
@@ -79,6 +59,12 @@ class SequelStoreTest < Minitest::Test
 
     def setup
         @store = Sensorium::Store::Sequel.new(Sequel.sqlite)
+    end
+
+    def test_without_migrate_no_table_is_made
+        db = Sequel.sqlite
+        Sensorium::Store::Sequel.new(db, migrate: false)
+        assert_empty db.tables
     end
 
     def test_the_tables_can_be_named

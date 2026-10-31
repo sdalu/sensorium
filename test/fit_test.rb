@@ -51,6 +51,34 @@ class FitTest < Minitest::Test
         assert_in_delta 0.3, model.switches["b"], 0.02
     end
 
+    # A neighbour that covers only the calm bins, and follows nothing:
+    # it would narrow the spread only by leaving the rough bins out.
+    def test_a_neighbour_is_judged_on_the_bins_it_covers
+        rough = BINS.last(190).to_set
+        random = Random.new(3)
+        gaps = BINS.first(810).to_h { [it, random.rand * 10] }
+        model = fit(gain: false, candidates: { "n" => gaps }) do |bin|
+            rough.include?(bin) ? 5 + Math.sin(bin) : 0.0
+        end
+        assert_nil model.neighbour
+    end
+
+    # Followed exactly, but seen on half the bins only.
+    def test_a_neighbour_must_cover_most_bins
+        half = @gaps.select { |bin, _| bin.even? }
+        model = fit(candidates: { "n" => half }) { -0.2 * @gaps[it] }
+        assert_nil model.neighbour
+    end
+
+    # Followed, on for 200 bins: enough to narrow, short of 300.
+    def test_a_switch_needs_enough_bins_on
+        few = BINS.first(200).to_set
+        model = fit(switches: { "few" => few }, min_part: 300) do |bin|
+            few.include?(bin) ? 3.0 : 0.0
+        end
+        assert_empty model.switches
+    end
+
     private
 
     def neighbour(bin) = 10 + (5 * Math.cos(bin / 37.0))
@@ -66,11 +94,11 @@ class FitTest < Minitest::Test
         end
     end
 
-    def fit(switches: {}, gain: true)
+    def fit(switches: {}, candidates: { "n" => @gaps }, **settings)
         diffs = BINS.to_h { [it, yield(it) + @noise[it]] }
         setup = Sensorium::Setup.new(quantity: Sensorium::Presets::TEMPERATURE,
-                                     gain:)
+                                     **settings)
         Sensorium::Fit.new(diffs, setup, levels: @reference, switches:,
-                                         candidates: { "n" => @gaps }).model
+                                         candidates:).model
     end
 end

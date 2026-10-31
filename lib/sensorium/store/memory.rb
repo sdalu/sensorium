@@ -5,8 +5,10 @@ module Sensorium
     # A store answers, each for one quantity (its name):
     #   offsets(quantity)                  [Offset]
     #   shifts(quantity)                   [Shift]
-    #   learned(quantity)                  { regime => [from, to, at] }
-    #   keep(learned, from:, to:, at:)     replaces the regimes covered
+    #   learned(quantity)                  { regime => [from, to, at] } of
+    #                                      the latest learning kept in it
+    #   keep(learned, from:, to:, at:)     replaces what Learned#gone
+    #                                      says
     #   locations(quantity)                { name => Location }, those set
     #   set_location(quantity, name, settings)
     #                                      settings: { key => value, nil
@@ -25,18 +27,16 @@ module Sensorium
             def shifts(quantity)  = @shifts.select { it.quantity == quantity }
 
             def learned(quantity)
-                @spans.filter_map do |(q, regime), span|
-                    [regime, span] if q == quantity
-                end.to_h
+                offsets(quantity).map { [it.regime, @spans[key(it)]] }
+                                 .group_by(&:first)
+                                 .transform_values { latest(it) }
             end
 
             def keep(learned, from:, to:, at: Time.now)
-                gone = ->(row) { gone?(row, learned) }
-                @offsets = @offsets.reject(&gone) + learned.offsets
-                @shifts  = @shifts.reject(&gone) + learned.shifts
-                learned.regimes.each do |regime|
-                    @spans[[learned.quantity, regime]] = [from, to, at]
-                end
+                drop = dropped(learned)
+                @offsets = @offsets.reject(&drop) + learned.offsets
+                @shifts  = @shifts.reject(&drop) + learned.shifts
+                learned.offsets.each { @spans[key(it)] = [from, to, at] }
             end
 
             def locations(quantity)
@@ -55,10 +55,19 @@ module Sensorium
 
             private
 
-            def gone?(row, learned)
-                row.quantity == learned.quantity &&
-                    learned.regimes.include?(row.regime)
+            def key(row) = [row.quantity, *Learned.key(row)]
+
+            # Whether a kept offset or shift gives way to the learning.
+            def dropped(learned)
+                gone = learned.gone(offsets(learned.quantity))
+                lambda do |row|
+                    row.quantity == learned.quantity &&
+                        gone.include?(Learned.key(row))
+                end
             end
+
+            # The span of the latest learning: [[regime, [from, to, at]]].
+            def latest(rows) = rows.map(&:last).max_by(&:last)
         end
     end
 end

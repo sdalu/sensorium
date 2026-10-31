@@ -22,16 +22,36 @@ house-specific became configuration:
 | constants | `Setup` and `Quantity` settings |
 | `sensor_rooms` | `sensor_locations`, by quantity |
 
-## It learns what ClimatControl learned
+## What it learns against ClimatControl
 
-With `Presets.room`, sensorium learns what `Sensing` learned. The
-tests ported from ClimatControl (learner, fusion, offset, season,
-stats) pass unchanged in substance. On MadHouse's real history
-(2025-10-31 to 2026-10-31), both found the same 26 offsets with the
-same neighbours and heating terms, constants and coefficients within
-0.01 (sensorium rounds to 3 decimals, ClimatControl to 2), and the
-same 17 aircon shifts within 0.005. No gain term was kept: for
-temperature it narrows nothing, as ClimatControl had found.
+With `Presets.room`, sensorium learns what `Sensing` learned, but for
+the departures below, which are corrections. On MadHouse's real
+history (2025-10-31 to 2026-10-31), both found the same 26 offsets and
+17 aircon shifts; 25 offsets have the same neighbours and heating
+terms, constants and coefficients within 0.01 (sensorium rounds to 3
+decimals, ClimatControl to 2), the shifts within 0.005. The 26th,
+downstairs Airzone in winter, follows the garage's other sensor
+(branch, not keith-richards): judged over the same bins, it narrows
+more. No gain term was kept: for temperature it narrows nothing, as
+ClimatControl had found.
+
+Where sensorium departs from `Sensing`, on purpose:
+
+- **A term is judged over the bins it covers.** `Sensing` compared a
+  neighbour's spread over the bins it covers with the kept model's over
+  all of them, so a neighbour could win by leaving the rough bins out.
+- **A shift applies over the plain offset**, the one it was learned
+  over. `Sensing` added it to the full model: wherever a neighbour was
+  kept, a reading under the aircon was off by the neighbour's term
+  (2.7 °C in a constructed case).
+- **The reference is the moment's regime's.** `Sensing` took the first
+  regime's, so a location learned against another sensor in summer
+  lost its summer model.
+- **A learning replaces what it learned again**, not whole regimes: a
+  span that barely touches a regime, or a sensor short of samples,
+  used to wipe a model that was still good.
+- **σ has a floor**: a spread learned at zero (a sensor reading in
+  steps) made one sensor take all the weight, and fusion fail at age 0.
 
 ## Choices
 
@@ -59,7 +79,13 @@ temperature it narrows nothing, as ClimatControl had found.
   is brought back at the location's fused temperature, which the caller
   gives.
 - **Settings per quantity**: a smoke detector may be the temperature
-  reference and not measure humidity at all.
+  reference and not measure humidity at all; in the house measured,
+  none of the ceiling or floor sensors did, hence the humidity
+  preset's own places (wall, valve).
+- **Names are Strings**: an SQL store gives them back as Strings, so a
+  Symbol given for an influence, a quantity or a regime is converted on
+  the way in, or a term would silently stop applying after a
+  round-trip.
 - **The store is an interface**, so the core never depends on SQL.
   `Store::Sequel` creates its tables when missing, with names the
   caller chooses; a caller with its own schema (MadHouse: ASCII keys,
@@ -74,3 +100,7 @@ temperature it narrows nothing, as ClimatControl had found.
 - **Online learning**: a year of MadHouse's history (some 30
   sensors) learns in about four minutes over the network; a nightly or
   weekly batch is enough.
+- **Learning the shift over the full model**, the other way to make a
+  shift and its use agree: it needs the neighbour at the run's bins,
+  and falls back to the plain offset anyway when it is missing. Under
+  the aircon the blown air dominates; the plain offset loses little.

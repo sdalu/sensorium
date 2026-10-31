@@ -26,7 +26,37 @@ class LearnerReferencesTest < Minitest::Test
         assert_nil ceiling.neighbour
     end
 
+    # No ceiling or floor sensor measures humidity: a wall unit is its
+    # reference, else a radiator valve.
+    def test_humidity_has_places_of_its_own
+        sensors = [sensor("ceil", "a", "ceiling"), sensor("tado", "a", "valve"),
+                   sensor("airzone", "a", "wall"), sensor("tado", "b", "valve")]
+        found = Sensorium::Learner::References.new(
+            sensors.drop(1), {}, Sensorium::Presets.room(Sensorium::Presets::HUMIDITY)
+        ).all
+        assert_equal({ "a" => %w[airzone], "b" => %w[tado] }, found)
+        temperature = Sensorium::Learner::References.new(
+            sensors, {}, Sensorium::Presets.room
+        ).all
+        assert_equal({ "a" => %w[ceil] }, temperature)
+    end
+
+    # A reference set by hand is read, though no sensor lists it.
+    def test_a_reference_set_is_read
+        house = FakeHouse.new
+        locations = { "blue" => Sensorium::Location.new(name: "blue",
+                                                        references: %w[x]) }
+        Sensorium::Learner.new(house, Sensorium::Presets.room,
+                               from: FakeHouse::START,
+                               to: FakeHouse::START + 86_400, locations:).learn
+        assert_includes house.queried, "x"
+    end
+
     private
+
+    def sensor(name, location, *tags)
+        Sensorium::Sensor.new(name:, location:, tags:)
+    end
 
     # Learned with those locations' references set.
     def learn(references)

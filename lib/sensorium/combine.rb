@@ -16,7 +16,7 @@ module Sensorium
 
         def mean(parts)
             return [nil, nil] if parts.empty?
-            [parts.sum(&:value) / parts.size, nil]
+            [parts.sum(&:value).fdiv(parts.size), nil]
         end
 
         # The part furthest from what the others say, if it is more than

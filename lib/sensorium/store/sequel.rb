@@ -37,16 +37,15 @@ module Sensorium
                 table(:offsets).where(quantity:).distinct
                                .select_map(%i[regime learned_from learned_to
                                               learned_at])
-                               .to_h { |regime, *span| [regime, span] }
+                               .group_by(&:first)
+                               .transform_values { latest(it) }
             end
 
             def keep(learned, from:, to:, at: Time.now)
                 span = { learned_from: from, learned_to: to, learned_at: at }
                 @db.transaction do
-                    %i[offsets shifts].each do |name|
-                        table(name).where(quantity: learned.quantity,
-                                          regime: learned.regimes).delete
-                    end
+                    quantity = learned.quantity
+                    drop(quantity, learned.gone(offsets(quantity)))
                     insert(learned, span)
                 end
             end
@@ -69,6 +68,17 @@ module Sensorium
             private
 
             def table(name) = @db[@tables.fetch(name)]
+
+            # The span of the latest learning of a regime's rows.
+            def latest(rows) = rows.map { it.drop(1) }.max_by(&:last)
+
+            # The offsets and shifts of those [location, device, regime].
+            def drop(quantity, keys)
+                keys.each do |location, device, regime|
+                    key = { quantity:, location:, device:, regime: }
+                    %i[offsets shifts].each { table(it).where(key).delete }
+                end
+            end
 
             def insert(learned, span)
                 table(:offsets).multi_insert(

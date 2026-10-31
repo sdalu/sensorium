@@ -56,6 +56,6 @@ module Sensorium
 
         def dot(xs, ys) = xs.zip(ys).sum { |x, y| x * y }
 
-        def mean(values) = values.sum / values.size
+        def mean(values) = values.sum.fdiv(values.size)
     end
 end

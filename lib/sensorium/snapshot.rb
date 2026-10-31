@@ -34,15 +34,12 @@ module Sensorium
         # The locations with a reading, externals aside.
         def locations = latest.keys.filter_map(&:first).uniq
 
-        # A neighbour's reading by the Learner's name for it.
+        # A neighbour's reading by the Learner's name for it, whatever
+        # "/" its location or device holds.
         def neighbour(name)
-            location, device = if name.include?("/")
-                                   name.split("/",
-                                              2)
-                               else
-                                   [nil, name]
-                               end
-            latest[[location, device]]
+            latest.find do |key, _|
+                Learner::Neighbours.name_of(*key) == name
+            end&.last
         end
 
         # The names of the Switches on where the location is.

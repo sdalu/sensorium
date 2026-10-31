@@ -19,9 +19,9 @@ module Sensorium
 
             # months: { name => [month] }, every month in one of them.
             def initialize(months = SEASONS)
-                @months   = months
-                @names    = months.keys.freeze
-                @by_month = months.flat_map do |name, list|
+                @months   = months.transform_keys(&:to_s)
+                @names    = @months.keys.freeze
+                @by_month = @months.flat_map do |name, list|
                     list.map { [it, name] }
                 end.to_h
             end
@@ -39,7 +39,7 @@ module Sensorium
         class Constant
             attr_reader :names
 
-            def initialize(name = "all") = @names = [name].freeze
+            def initialize(name = "all") = @names = [name.to_s].freeze
 
             def of(_time)             = @names.first
             def covered(_from, _to)   = @names

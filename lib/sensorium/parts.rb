@@ -47,7 +47,7 @@ module Sensorium
                 return Part.new(device:, raw: reading.value, value: nil,
                                 sigma: nil, age:, note:)
             estimate = estimate(device, inside)
-            sigma = estimate.sigma && @location.aged(estimate.sigma, age)
+            sigma = estimate.sigma && @location.aged(floored(estimate), age)
             Part.new(device:, raw: reading.value, value: estimate.value,
                      sigma:, age:, note: nil)
         end
@@ -60,6 +60,8 @@ module Sensorium
                 "not learned"
             end
         end
+
+        def floored(estimate) = [estimate.sigma, @quantity.floor].max
 
         def inward(reading)
             @quantity.transform.forward(reading.value, reading.context)

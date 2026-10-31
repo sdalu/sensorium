@@ -17,13 +17,15 @@ module Sensorium
         # The reference's value, as this sensor's reading tells it: the
         # model solved for r. on: the names of the Switches on;
         # neighbour: its value, when the model has one; shifts: the
-        # Shifts of the Modes holding.
+        # Shifts of the Modes holding. While a Mode holds, or when the
+        # neighbour is not known, the plain offset: a Shift was learned
+        # over it.
         def correct(reading, on: [], neighbour: nil, shifts: [])
-            if self.neighbour && neighbour.nil?
+            if shifts.any? || (self.neighbour && neighbour.nil?)
                 return plain_correct(reading, shifts)
             end
-            model_correct(reading - constant - switched(on) - moved(shifts),
-                          neighbour.to_f, shifts)
+            model_correct(reading - constant - switched(on),
+                          neighbour.to_f)
         end
 
         def sigma       = (p90 - p10) / P10_P90
@@ -37,9 +39,9 @@ module Sensorium
         def scale = 1 + (gain || 0.0) + k
 
         # gap: the reading less the terms that do not involve r.
-        def model_correct(gap, neighbour, shifts)
+        def model_correct(gap, neighbour)
             Estimate.new(value: (gap + (k * neighbour)) / scale,
-                         sigma: widest(sigma, shifts) / scale.abs)
+                         sigma: sigma / scale.abs)
         end
 
         def plain_correct(reading, shifts)
@@ -48,7 +50,10 @@ module Sensorium
         end
 
         def switched(on)
-            (switches || {}).sum { |name, term| on.include?(name) ? term : 0 }
+            on = on.map(&:to_s)
+            (switches || {}).sum do |name, term|
+                on.include?(name.to_s) ? term : 0
+            end
         end
 
         def moved(shifts) = shifts.sum(&:shift)

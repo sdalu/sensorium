@@ -38,9 +38,10 @@ module Sensorium
         # The Fused value of a location; value nil when nothing counts.
         def location(name, snapshot, context: {})
             location = settings(name)
+            key = [name, @setup.regime.of(snapshot.at)]
             references = location.references
-            references = learned(name) if references.empty?
-            learning = learning([name, @setup.regime.of(snapshot.at)])
+            references = learned(key) if references.empty?
+            learning = learning(key)
             parts = Parts.new(location, references, learning, snapshot,
                               @setup.quantity).all
             fused(name, snapshot.at, references&.join("+"), parts, context)
@@ -48,11 +49,12 @@ module Sensorium
 
         private
 
-        # The references a location was learned against, whatever the
-        # regime; nil when it was not.
-        def learned(name)
-            found = @offsets.find { |(where, _), _| where == name } or return
-            found.last.first.reference.split("+")
+        # The references a location was learned against in the moment's
+        # regime, else in any; nil when it was not learned.
+        def learned(key)
+            found = @offsets[key] ||
+                    @offsets.find { |(where, _), _| where == key.first }&.last
+            found && found.first.reference.split("+")
         end
 
         def settings(name)

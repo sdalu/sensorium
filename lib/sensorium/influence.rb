@@ -12,8 +12,8 @@ module Sensorium
         # kept only when it narrows the spread (the radiators' water
         # hot).
         Switch = Data.define(:name, :scope, :hold) do
-            def initialize(scope: :site, hold: 3600, **)
-                super(scope: scope.to_sym, hold:, **)
+            def initialize(name:, scope: :site, hold: 3600)
+                super(name: name.to_s, scope: scope.to_sym, hold:)
             end
 
             def on?(value) = value.is_a?(Numeric) ? value.positive? : !!value
@@ -23,8 +23,8 @@ module Sensorium
         # under it, and `hold` after, are left out of the offset; each
         # value is learned apart as a Shift over the plain offset.
         Mode = Data.define(:name, :scope, :hold) do
-            def initialize(scope: :location, hold: 1800, **)
-                super(scope: scope.to_sym, hold:, **)
+            def initialize(name:, scope: :location, hold: 1800)
+                super(name: name.to_s, scope: scope.to_sym, hold:)
             end
 
             def value(raw) = raw && raw != false ? raw.to_s : nil

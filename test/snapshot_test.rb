@@ -29,7 +29,25 @@ class SnapshotTest < Minitest::Test
         assert_empty snap.holding("room-b")
     end
 
+    # Named as the Learner names them, a "/" in a location or an
+    # external's device included.
+    def test_a_neighbour_is_found_by_the_learners_name
+        latest = [["floor/1", "g1"], [nil, "meteo/lyon"], %w[garage g1]]
+                 .to_h { |key| [key, reading(*key)] }
+        snap = Sensorium::Snapshot.new(at: FakeHouse::START, latest:)
+        latest.each_key do |key|
+            name = Sensorium::Learner::Neighbours.name_of(*key)
+            found = snap.neighbour(name)
+            assert_equal key, [found.location, found.device]
+        end
+    end
+
     private
+
+    def reading(location, device)
+        Sensorium::Reading.new(time: FakeHouse::START, location:, device:,
+                               value: 10.0)
+    end
 
     def at(time) = Sensorium::Snapshot.from(house, SETUP, at: time)
 

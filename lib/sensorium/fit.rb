@@ -46,7 +46,17 @@ module Sensorium
 
         def better(kept, tried)
             return kept unless tried
-            tried.spread <= @setup.narrows * kept.spread ? tried : kept
+            ratio(kept, tried) <= @setup.narrows ? tried : kept
+        end
+
+        # The spread tried leaves over what kept left, both over the bins
+        # tried covers (a neighbour may cover fewer): infinite when kept
+        # left nothing to narrow there.
+        def ratio(kept, tried)
+            bins = tried.residuals.keys
+            before = Stats.spread(kept.residuals.values_at(*bins))
+            return Float::INFINITY unless before.positive?
+            tried.spread / before
         end
 
         # The switch's term: the median while on over the median while
@@ -76,7 +86,7 @@ module Sensorium
         end
 
         def linear(model)
-            first = better(model, singles(model).min_by(&:spread))
+            first = better(model, singles(model).min_by { ratio(model, it) })
             return first if first.equal?(model)
             better(first, both(model, first))
         end
@@ -93,9 +103,10 @@ module Sensorium
         def both(model, first)
             return unless @setup.gain
             names = first.neighbour ? [first.neighbour] : @candidates.keys
-            names.filter_map do |name|
+            pairs = names.filter_map do |name|
                 Linear.both(model, @levels, name, @candidates[name], @setup)
-            end.min_by(&:spread)
+            end
+            pairs.min_by { ratio(first, it) }
         end
     end
 end

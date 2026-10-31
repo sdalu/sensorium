@@ -48,20 +48,20 @@ models the gap to the location's reference r:
   fits best is chosen from the data.
 
 Each term is kept only if it narrows the spread of what is left
-(p10..p90) to 80 % of what it was. The constant alone is kept too
-(`plain`), the fallback when the neighbour has no fresh reading.
+(p10..p90) to 80 % of what it was, both measured over the bins the term
+covers. The constant alone is kept too (`plain`), the fallback when the
+neighbour has no fresh reading.
 
 A **mode** (the aircon heating or cooling) is not a term: the bins
 under it, and its hold after, are left out of the fit, and each value it
 takes is learned apart as a `Shift` on top of the plain offset.
 
-Each **regime** (by default the calendar seasons) is learned apart; a
-learning replaces only the regimes its span covers.
+Each **regime** (by default the calendar seasons) is learned apart.
 
 A location's **reference** is the devices its `Location` names (their
 mean when several, each then learned against it too), else its first
-sensor tagged with one of the setup's `places` ("ceiling", then
-"floor"). A location with none is not learned.
+sensor tagged with one of the setup's `places` (for temperature,
+"ceiling", then "floor"). A location with none is not learned.
 
 ## Fusing
 
@@ -76,9 +76,12 @@ fused.sigma       # one σ
 fused.parts       # each sensor: raw, corrected, weight, note
 ```
 
-Each reading is corrected to the reference with its offset, and
-weighted by 1/σ²; σ grows with the reading's age (`drift` per hour),
-and a reading older than `max_age` does not count. With three sensors
+Each reading is corrected to the reference with its offset (while a
+mode holds, with the plain offset and the mode's shift), and weighted
+by 1/σ². σ is never below the quantity's `floor`, grows with the
+reading's age (`drift` per hour), and a reading older than `max_age`
+does not count. A location without references set takes those it was
+learned against in the moment's regime. With three sensors
 or more, the one furthest from the others is dropped when it is more
 than 3 σ away. Notes say why a sensor does not count: `excluded`,
 `stale`, `not learned`, `no context`, `outlier`. A location with no
@@ -102,6 +105,12 @@ humidity = Sensorium::Presets.room(Sensorium::Presets::HUMIDITY)
 fusion.location("green-room", snapshot, context: { temperature: 20.4 })
 ```
 
+Ceiling and floor sensors (smoke and leak detectors) seldom measure
+humidity: the room preset takes a sensor tagged "wall" (an aircon's
+unit), else "valve" (a radiator's), as its reference. A shower moves
+the humidity by several g/m³ in minutes; give such a room a wider
+`drift` in its `Location`.
+
 ## The source
 
 The learner and `Snapshot.from` read the history from any object that
@@ -110,9 +119,14 @@ answers, for a quantity's name:
 | method | returns |
 |---|---|
 | `sensors(quantity)` | `[Sensor]`: name, location, tags, whether it may be a neighbour |
-| `readings(quantity, from, to, devices)` | `[Reading]`: time, location, device, value, context |
+| `readings(quantity, from, to, devices)` | `[Reading]`: time, location, device, value, context; devices nil for all |
 | `externals(quantity, from, to)` | `[Reading]` with location nil (optional) |
 | `events(influence, from, to)` | `[[time, location, value]]` (optional) |
+
+A reading's time is when its value was last known to hold. A sensor
+that reports only changes (HomeKit) holds a steady value for hours: its
+source re-emits the value, or stamps it with the last time the sensor
+was heard from, or every steady reading turns stale.
 
 ## Stores
 
@@ -123,6 +137,13 @@ database, its table names configurable, its tables created when missing
 unless `migrate: false`. Another store answers the same six methods
 (see `lib/sensorium/store/memory.rb`).
 
+Keeping a learning replaces the offsets (and shifts) of the sensors it
+learned again, and every offset of a location whose reference it found
+changed. It leaves everything else: a sensor short of samples this
+time keeps its offset, and a regime the span barely touched keeps its
+model. A store's `learned` gives each regime the span of the latest
+learning kept in it.
+
 ## Known shortfalls
 
 - The fit is greedy, one term after the other; only the gain and the
@@ -131,6 +152,10 @@ unless `migrate: false`. Another store answers the same six methods
   again.
 - The room preset's humidity σ and drift are first guesses, not
   measured.
+- An offset of a sensor gone for good stays in the store until its
+  location is learned against another reference.
+- A neighbour name is "LOCATION/DEVICE": a location "a/b" with a
+  device "c" and a location "a" with a device "b/c" collide.
 
 ## Gate
 
