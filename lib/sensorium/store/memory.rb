@@ -13,6 +13,9 @@ module Sensorium
     #   set_location(quantity, name, settings)
     #                                      settings: { key => value, nil
     #                                      back to the default }
+    #   dynamics(quantity)                 [Dynamics::Model]
+    #   keep_dynamics(quantity, models)    replaces those of the same
+    #                                      location and regime
     module Store
         # In memory: for tests, and for a learning used at once.
         class Memory
@@ -21,6 +24,7 @@ module Sensorium
                 @shifts    = []
                 @spans     = {}
                 @locations = {}
+                @dynamics  = []
             end
 
             def offsets(quantity) = @offsets.select { it.quantity == quantity }
@@ -51,6 +55,18 @@ module Sensorium
                 end
                 @locations[[quantity, name]] =
                     Location.new(**now.to_h, **settings)
+            end
+
+            def dynamics(quantity)
+                @dynamics.select { it.quantity == quantity }
+            end
+
+            def keep_dynamics(quantity, models)
+                keys = models.to_set { [it.location, it.regime] }
+                @dynamics = @dynamics.reject do |model|
+                    model.quantity == quantity &&
+                        keys.include?([model.location, model.regime])
+                end + models
             end
 
             private
