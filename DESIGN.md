@@ -169,13 +169,66 @@ term reached (kept at 0.8).
   prototype source tags no sensor "wall" or "valve", so the humidity
   learning found no reference and learned nothing.
 
+## Tracking between learnings (survey, 2026-10-31)
+
+The survey's second-ranked item (sections 1.3, 2.2, 5.2 item 3, 5.3
+item 2): a moved, re-batteried or ageing sensor was wrong until the
+next batch learning, and nothing said so.
+
+- **A scalar random-walk Kalman filter over the batch offset.** The
+  batch learner keeps the structure (which terms, their coefficients)
+  learned from a year; between two runs only the level is followed,
+  as a delta on top of the Offset, which stays the prior (delta 0 on a
+  fresh track or after a relearn). A random walk assumes no shape of
+  drift (Takruri et al. model linear or exponential ones); track_q
+  only bounds how fast the level may wander, (σ/2)² a day by default.
+  The gain weighs each reading's innovation by both sides' σ, so a
+  noisy sensor's delta moves slowly and a tight one's quickly. The
+  truth for a part is the others' fusion, leaving the part out, as
+  Takruri's neighbourhood mean of corrected readings: with the part
+  in, it would pull its own truth. With fewer than two others a
+  disagreement cannot be put on either side, so the part is left as it
+  was. The sole reference has no Offset to track and is not tracked:
+  its error is the location's definition of truth.
+- **Updated from a Fused made without tracks.** The innovation is then
+  measured against what the Offsets alone say, and the Tracker takes
+  each delta out once, itself; a drifting part, which a tracked Fused
+  notes, would otherwise not be updated, and could never clear.
+- **CUSUM for jumps.** Its gain kept small so that noise does not move
+  delta, the filter alone would take a step as a fast drift and absorb
+  it over days, the fused value off all the while. A two-sided CUSUM
+  on the standardised innovations accumulates a departure that
+  persists and forgets one that does not; k = 0.5 and h = 5 are the
+  textbook pair for a shift of one innovation σ. In the tests' room a
+  step of 3 σ is flagged at the third update and a ramp of
+  0.004 °C/h is not, over ten days: the filter keeps up with it, and the drift
+  alarm (|delta| past 3 Offset σ, cleared under 2) says it instead,
+  the Offset's σ being the spread the batch learning already counted
+  as noise. A jumped track stays jumped until the next learning or a
+  reset: the Tracker flags, a person or a relearn decides.
+- **The gain is small.** With the defaults, delta follows a constant
+  bias with a time constant of the order of √(R / track_q) hours at an
+  hourly cadence (some 20 h for the tests' σ 0.2 °C sensor): a
+  constant bias takes days to be learned, and one that comes at once
+  is a jump. A
+  "learned within ten updates" test only holds a day apart (83 % of
+  the bias); hourly, ten updates take 40 %.
+
 ## Ruled out
 
 - **A lag term**: a lagged boiler-pipe gap gained nothing in
   ClimatControl's trials. (The rate term above is not a lagged copy.)
-- **Online learning**: a year of MadHouse's history (some 30
-  sensors) learns in about four minutes over the network; a nightly or
-  weekly batch is enough.
+- **Online learning** of the model's terms: a year of MadHouse's
+  history (some 30 sensors) learns in about four minutes over the
+  network; a nightly or weekly batch is enough. Only the offset's level
+  is followed online (Tracking, above).
+- **An IMM filter for jumps** (Takruri et al.: a smooth and a jump
+  model run side by side, mixed by their probabilities). It needs
+  transition probabilities and a jump size nobody has measured for
+  these sensors, runs a filter per model per sensor, and gives a
+  probability where the fusion needs a decision (count the part or
+  not). A CUSUM on the one filter's innovations gives the decision
+  with two thresholds.
 - **Learning the shift over the full model**, the other way to make a
   shift and its use agree: it needs the neighbour at the run's bins,
   and falls back to the plain offset anyway when it is missing. Under

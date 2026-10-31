@@ -125,8 +125,85 @@ than one furthest part being dropped outright. A part whose final
 weight falls below the quantity's `outlier_factor` share of 1/σ² is
 noted `outlier`, but still counts for that little. Notes say why a
 sensor does not count: `excluded`, `stale`, `not learned`,
-`no context`, `outlier`. A location with no reference gets the plain
-mean, `corrected` false and `sigma` nil.
+`no context`, `jumped` (its track says so, see Tracking), or that it
+counts with a caveat: `outlier`, `drifting` (its track says so). A
+location with no reference gets the plain mean, `corrected` false and
+`sigma` nil.
+
+## Tracking
+
+Between two learnings an offset can move: a sensor moved, re-batteried
+or ageing reads wrong until the next learning. The `Tracker` follows,
+for each sensor with an `Offset`, a `Track`: `delta`, its corrected
+value minus the truth, as estimated, with its `variance`; the two sides
+of a CUSUM; `at`, the time of its last update; and a `state`, `:ok`,
+`:drifting` or `:jumped`.
+
+The truth, for one part of a `Fused`, is the `Combine.robust` fusion
+of the other parts that count (a value and a σ, no note but
+`outlier`), each with its own delta taken out. A part with fewer than
+two others is left as it was. A sole reference has no offset and is
+not tracked, but is one of the others. Each update is a scalar Kalman
+step over a random walk:
+
+    y         = value − delta − the others' fusion
+    R         = σ² + the others' fusion's σ²
+    variance += track_q × hours since at
+    K         = variance / (variance + R)
+    delta    += K × y,  variance ×= 1 − K
+
+A track starts at delta 0, variance (σ/2)², σ the quantity's; it starts
+afresh when the location's offset for the device is relearned (another
+regime, reference, constant or plain).
+
+The alarms run on z = y / √(variance + R):
+
+- **jumped**: `cusum_up` = max(0, `cusum_up` + z − k), `cusum_down` =
+  max(0, `cusum_down` − z − k); either above h, and the track has
+  jumped. It stays so until its offset is relearned or
+  `Tracker#reset` drops it.
+- **drifting**: |delta| above `drift_alarm` × the offset's σ; back to
+  ok under `drift_clear` × σ.
+
+| `Quantity` setting | default |
+|---|---|
+| `track_q` | (σ/2)² a day: σ² / 96 per hour |
+| `cusum_k` (k) | 0.5 |
+| `cusum_h` (h) | 5 |
+| `drift_alarm` | 3 |
+| `drift_clear` | 2 |
+
+In the fusion, a tracked part's corrected value has its delta taken
+out and its σ² the track's variance added; a jumped one does not count
+(`jumped`), a drifting one counts (`drifting`). A track is applied only
+while it tracks the offset the fusion uses.
+
+```ruby
+offsets = store.offsets("temperature")
+shifts  = store.shifts("temperature")
+tracker = Sensorium::Tracker.new(setup, offsets:)
+tracks  = store.tracks("temperature")
+
+# fuse, without tracks: the Tracker takes each delta out itself
+fused  = Sensorium::Fusion.new(setup, offsets:, shifts:)
+                          .location("green-room", snapshot)
+tracks = tracker.update(tracks, fused)          # new tracks, pure
+store.keep_tracks("temperature", tracks)        # replaces them all
+
+# the value, with the tracks
+Sensorium::Fusion.new(setup, offsets:, shifts:, tracks:)
+                 .location("green-room", snapshot).value
+```
+
+`Tracker#update` takes a `Fused` made without tracks: one made with
+them would have each delta taken out twice, and its drifting parts
+would not count. `tracker.reset(tracks, "green-room", "tado")` drops a
+track, which starts afresh at its next update.
+
+The gain is small by design. In the tests' room (a sensor of
+σ 0.2 °C against two of 0.1 and 0.08), ten hourly updates take delta
+to 40 % of a constant bias and ten daily ones to 83 %, while a step of
+3 σ is flagged jumped at the third update.
 
 ## Any quantity
 
@@ -176,15 +253,17 @@ was heard from, or every steady reading turns stale.
 
 ## Stores
 
-A store keeps what a learning found and the locations' settings, by
-quantity. `Store::Memory` for tests and one-off runs;
+A store keeps what a learning found, the locations' settings and the
+Tracker's tracks, by quantity. `Store::Memory` for tests and one-off runs;
 `Store::Sequel` (`require "sensorium/store/sequel"`) for any SQL
 database, its table names configurable, its tables created when missing
-unless `migrate: false`. An offset's maps (switches, taus, series)
+unless `migrate: false`. The Tracker's tracks are kept in a fourth
+table (`sensor_tracks`, `tables: { tracks: }`), which a caller with
+its own schema creates too. An offset's maps (switches, taus, series)
 are kept as JSON. Tables made before this round lack three columns of
 `sensor_offsets`: `taus` and `series` (text) and `rate` (float); a
 caller with its own schema adds them. Another store answers the same
-six methods
+eight methods
 (see `lib/sensorium/store/memory.rb`).
 
 Keeping a learning replaces the offsets (and shifts) of the sensors it
@@ -198,8 +277,12 @@ learning kept in it.
 
 - The fit is greedy, one term after the other; only the gain and the
   neighbour are ever fitted together.
-- No term is learned online: a model changes only when learning runs
-  again.
+- Only an offset's level is followed online (Tracking); its terms
+  change only when learning runs again.
+- A sole reference is not tracked: when it jumps, every other sensor
+  of its location looks jumped.
+- Until a jumped sensor's own delta has caught up, the others' deltas
+  take in a little of its step (0.03 °C of 0.6 in the tests' room).
 - The room preset's humidity σ and drift are first guesses, not
   measured.
 - An offset of a sensor gone for good stays in the store until its
