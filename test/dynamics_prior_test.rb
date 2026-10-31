@@ -48,6 +48,21 @@ class DynamicsPriorTest < Minitest::Test
         assert_operator (held[:a] - A).abs, :<, (free[:a] - A).abs
     end
 
+    def test_b_nil_is_as_without_one
+        assert_equal Prior.new(b: {}), Prior.new(b: nil)
+    end
+
+    def test_a_non_finite_or_non_positive_sigma_is_refused
+        assert_raises(ArgumentError) { Prior.new(a: [0.1, 0.0]) }
+        assert_raises(ArgumentError) { Prior.new(a: [0.1, -1.0]) }
+        assert_raises(ArgumentError) { Prior.new(a: [0.1, Float::NAN]) }
+        assert_raises(ArgumentError) { Prior.new(a: [0.1, Float::INFINITY]) }
+        assert_raises(ArgumentError) do
+            Prior.new(b: { "heating" => [0.1, 0.0] })
+        end
+        assert_raises(ArgumentError) { Prior.new(c: [0.1, 0.0]) }
+    end
+
     private
 
     def room(**) = DynamicRoom.new(START, 30 * 144, **)

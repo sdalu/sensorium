@@ -10,17 +10,27 @@ module Sensorium
             module_function
 
             # The Model, nil when the steps are fewer than
-            # setup.min_samples, the fit is singular, a is negative, or
-            # no bin can be predicted an hour ahead. forecast: the
-            # location's Forecast.
+            # setup.min_samples, the fit is singular or not finite, a is
+            # negative, or no bin can be predicted an hour ahead.
+            # forecast: the location's Forecast.
             def model(key, steps, setup, forecast, prior = nil)
                 return if steps.size < setup.min_samples
                 terms = fit(steps, prior) or return
+                return unless finite?(terms)
                 return if terms[:a].negative?
                 model = Model.new(**key, **terms, q: 0.0, bin: setup.bin,
                                                   steps: steps.size)
                 q = forecast.mean_square(model, steps.map(&:bin), 1.0)
                 model.with(q:) if q
+            end
+
+            # Whether a, every b and c are finite numbers: a Prior with
+            # a non-finite mean pulls the fit there too, as singular a
+            # fit as a NaN or Infinity makes it.
+            def finite?(terms)
+                [terms[:a], terms[:c], *terms[:b].values].all? do |x|
+                    x.is_a?(Numeric) && x.finite?
+                end
             end
 
             # a, b and c; nil when singular. With a Prior, the least
