@@ -10,11 +10,14 @@ module Sensorium
             # r(t + bin) - r(t).
             Step = Data.define(:bin, :gap, :on, :change)
 
-            def initialize(source, setup, from, to, locations)
+            # priors: { location => Prior }, or anything answering
+            # call(location, regime) with one (nil: none).
+            def initialize(source, setup, span, locations: {}, priors: {})
                 @source    = source
                 @setup     = setup
-                @span      = [from, to]
+                @span      = span
                 @locations = locations
+                @priors    = priors || {}
                 @series    = setup.series
             end
 
@@ -55,7 +58,7 @@ module Sensorium
                 forecast = Forecast.new(reference, @outside, on)
                 steps(location, reference, on).filter_map do |regime, list|
                     Validation.model(key.merge(regime:), list, @setup,
-                                     forecast)
+                                     forecast, prior(location, regime))
                 end
             end
 
@@ -90,6 +93,12 @@ module Sensorium
 
             def regime_of(bin)
                 (@regimes ||= {})[bin] ||= @setup.regime.of(Time.at(bin))
+            end
+
+            def prior(location, regime)
+                return @priors.call(location, regime) if
+                    @priors.respond_to?(:call)
+                @priors[location]
             end
         end
     end
