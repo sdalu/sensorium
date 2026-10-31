@@ -1,0 +1,37 @@
+# frozen_string_literal: true
+
+require "test_helper"
+require "support/fake_house"
+
+# Snapshot.from a source: the latest readings, and the influences at the
+# moment.
+class SnapshotTest < Minitest::Test
+    SETUP = Sensorium::Presets.room
+
+    # 5 January 02:10: valves opened in room-a, every 20 min since
+    # midnight; the latest reading is that of the moment.
+    def test_the_heating_is_site_wide
+        snap = at(FakeHouse::START + (2 * 3600) + 600)
+        assert_equal %w[heating], snap.on("room-b")
+        assert_equal 0, snap.age(snap.latest[%w[room-a tado]])
+    end
+
+    # The last opening is at 02:40.
+    def test_the_heating_holds_an_hour_after_the_last_opening
+        last = FakeHouse::START + (2 * 3600) + 2400
+        assert_equal %w[heating], at(last + 3500).on("room-a")
+        assert_empty at(last + 3601).on("room-a")
+    end
+
+    def test_the_aircon_holds_where_it_ran
+        snap = at(FakeHouse::START + (2 * 86_400) + 3600)
+        assert_equal [%w[aircon cooling]], snap.holding("room-a")
+        assert_empty snap.holding("room-b")
+    end
+
+    private
+
+    def at(time) = Sensorium::Snapshot.from(house, SETUP, at: time)
+
+    def house = (@house ||= FakeHouse.new)
+end
