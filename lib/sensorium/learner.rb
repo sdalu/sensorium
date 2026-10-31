@@ -13,7 +13,9 @@ module Sensorium
     # first sensor tagged with one of the Setup's places, in their order;
     # a location with none is left out. Bins where a Mode held, and its
     # hold after, are left out of the offsets; the values it held are
-    # learned apart, as Shifts. Each regime the span covers is learned
+    # learned apart, as Shifts. Bins where an Influence::Transient is on
+    # for a sensor are left out of its offset and Shifts alike. Each
+    # regime the span covers is learned
     # apart, over its own bins.
     class Learner
         # locations: { name => Location }, those set.
@@ -30,13 +32,10 @@ module Sensorium
             sensors = @source.sensors(quantity)
             load(sensors)
             regimes = @setup.regime.covered(@from, @to)
-            references = References.new(sensors, @locations, @setup)
-            @references = references.all
             found = regimes.product(@references.keys)
                            .flat_map { location_offsets(*it) }
             Learned.new(quantity:, regimes:, offsets: found.map(&:first),
-                        shifts: found.flat_map(&:last),
-                        sensors: references.listed)
+                        shifts: found.flat_map(&:last), sensors: @listed)
         end
 
         private
@@ -44,25 +43,26 @@ module Sensorium
         def quantity = @setup.quantity.name
 
         def load(sensors)
-            readings = @source.readings(quantity, @from, @to, names(sensors))
+            readings = @source.readings(quantity, @from, @to,
+                                        Transient.names(sensors, @locations))
             @data = @series.of(@setup.quantity.inward(readings))
             @thresholds = Thresholds.new(@setup, readings)
+            externals = Neighbours.externals(@source, @setup, @from, @to)
             @neighbours = Neighbours.new(@series, @setup.carry, sensors,
                                          @data.merge(externals))
             @timeline = Timeline.new(@setup, @source, @from, @to)
             @shifts = Shifts.new(@timeline, @setup)
+            refer(sensors)
         end
 
-        def externals
-            return {} unless @source.respond_to?(:externals)
-            readings = @source.externals(quantity, @from, @to)
-            @series.of(@setup.quantity.inward(readings))
-        end
-
-        # The devices read: the sensors, and the references set.
-        def names(sensors)
-            (sensors.map(&:name) +
-             @locations.values.flat_map(&:references)).uniq
+        # The references, the sensors listed, and the transients learned
+        # against the references.
+        def refer(sensors)
+            references = References.new(sensors, @locations, @setup)
+            @references = references.all
+            @listed = references.listed
+            @transients = Transients.new(@setup, @data, @references,
+                                         @timeline)
         end
 
         def location_offsets(regime, location)
@@ -113,12 +113,15 @@ module Sensorium
               held: @timeline.switched(location) }
         end
 
-        # { bin => sensor - reference } of the regime's bins.
+        # { bin => sensor - reference } of the regime's bins, its
+        # transients' left out.
         def diffs(one)
             carried = carried(one.location)
+            out = @transients.of(one.location, one.device)
             @data[[one.location, one.device]].filter_map do |bin, value|
                 ref = carried[bin]
-                [bin, value - ref] if ref && regime_of(bin) == one.regime
+                next unless ref && regime_of(bin) == one.regime
+                [bin, value - ref] unless out.include?(bin)
             end.to_h
         end
 
@@ -147,3 +150,4 @@ end
 require_relative "learner/references"
 require_relative "learner/neighbours"
 require_relative "learner/thresholds"
+require_relative "learner/transients"

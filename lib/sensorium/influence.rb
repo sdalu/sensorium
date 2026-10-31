@@ -67,6 +67,18 @@ module Sensorium
             end
         end
 
+        # On, for each sensor, where its change against its location's
+        # reference over a window of Setup#transient_windows went beyond
+        # its learned relative thresholds, and `hold` seconds after: a
+        # window opened by it, a shower, the sun. Derived by the Learner from
+        # the sensors' own series and their Transient::Profiles; its
+        # bins are left out like a Mode's, without a Shift of their own.
+        Transient = Data.define(:name, :hold) do
+            def initialize(name: "transient", hold: 1800)
+                super(name: name.to_s, hold:)
+            end
+        end
+
         # The location an event counts for: nil for the whole site.
         def self.where(influence, location)
             influence.scope == :site ? nil : location

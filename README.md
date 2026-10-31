@@ -104,6 +104,7 @@ The influences a `Setup` names:
 | `Influence::Series` | events with numeric values, mean per bin, carried `hold` | coefficient × value |
 | `Influence::Threshold` | nothing: the location's reference, as it reads, above `above` within `hold` | a term while on |
 | `Influence::Mode` | events with a value | left out, a `Shift` per value |
+| `Influence::Transient` | nothing: each sensor's own series against its reference, and its transient profile | left out (`hold` after), no `Shift` |
 
 ```ruby
 solar   = Sensorium::Influence::Series.new(name: "solar", hold: 1800)
@@ -151,6 +152,76 @@ an error they all share (the sun on the room, the radiators' plume)
 is not seen, and an error every sensor but the reference shares is
 taken for the reference's. They measure; the Fusion does not use
 them (DESIGN.md, Fusion).
+
+## Transients
+
+A window opened, a shower, the sun on a sensor: a sudden change no
+learned term explains. A sensor's **transient profile** says how far
+it usually moves over a window; a change far outside it is an event.
+
+```ruby
+profiles = Sensorium::Transient.learn(source, setup, from:, to:,
+                                      locations: store.locations("temperature"))
+store.keep_transients("temperature", profiles)
+
+detector = Sensorium::Transient::Detector.new(setup, profiles:)
+detector.events(snapshot)
+# [Transient::Event(location, device, direction (:fall or :rise), z,
+#                   window, at)]
+```
+
+Per location, device and regime, for each window of
+`Setup#transient_windows` (600 and 1200 s), `learn` takes the sensor's
+binned series in the transform's space, carried `carry`, the bins under
+a Mode or within its hold left out, and the change over the window
+ending in each bin. Two `Transient::Threshold`s, each a `fall` and a
+`rise`:
+
+- **own**, of the sensor's own change: a window cools the whole room,
+  so a live event is seen on the sensor itself;
+- **relative**, of the change of the sensor less its location's
+  reference (carried, the mean when several): only a sensor moving
+  apart from its reference distorts its offset; a whole-room change,
+  a radiator heating the room, does not. A reference has none.
+
+A threshold is a quantile of the changes, set by a target rate of
+false alarms, `Setup#transient_rate` (0.2 a day): the rise at
+1 − rate / bins a day (144 for bins of 10 minutes), the fall at
+rate / bins a day. Each window and direction leaves about that many
+calm changes a day beyond its threshold. A threshold of 0 (a sensor
+that almost never changes, or reports in steps) is raised to the
+sensor's smallest change that is not 0, a millionth past it, so a
+single step is not an event. A window seen fewer than `min_samples`
+changes, or none but 0, has no threshold.
+
+The `Detector` takes, for each sensor of a `Snapshot` with a profile
+in the moment's regime, its latest reading less the one at or before
+the latest's time less the window (no older than `carry` before it),
+in the transform's space: a fall when the change is at or below the
+own fall threshold, a rise at or above the rise threshold. An event's
+`z` is the change over the threshold it went past, 1 or more (2: twice
+as far). `Snapshot.from` reads the history far enough back for the
+longest window and the carry (`Snapshot::Gather.reach`).
+
+An `Influence::Transient` (name "transient", `hold` 1800 s) makes the
+Learner leave transients out of the offsets. It learns the profiles
+from the same span, before the offsets, and, for each sensor but the
+references, puts the influence on in the bins where its relative
+change over a window is beyond its relative threshold, and `hold`
+after. Those bins are left out of the sensor's offset and of its
+Shifts, as a Mode's are; a transient has no Shift of its own. It is
+opt-in: the room preset leaves it out (DESIGN.md, Transients).
+
+```ruby
+setup = Sensorium::Presets.room
+setup = setup.with(influences: setup.influences +
+                                   [Sensorium::Influence::Transient.new])
+```
+
+| `Setup` setting | default |
+|---|---|
+| `transient_windows` | [600, 1200] s |
+| `transient_rate` | 0.2 false alarms a day, per window and direction |
 
 ## Fusing
 
@@ -374,10 +445,18 @@ without the outside its model needs, while a Mode holds there, or
 when the previous `Fused` has no value or σ, or is older than the
 location's `max_age`; the part is then left as it was.
 
+Given transient profiles (`transients:`, see Transients) and the
+snapshot the `Fused` was made from, the Tracker leaves every part of a
+location as it was while the `Detector` finds an event there at the
+moment, as it leaves a part with too few others: an opened window
+would read as a step and could push a CUSUM to a `jumped` that sticks
+until a relearn. Without profiles or snapshot, it tracks as before.
+
 ```ruby
 tracker  = Sensorium::Tracker.new(setup, offsets:,
                                   dynamics: store.dynamics("temperature"),
-                                  locations: store.locations("temperature"))
+                                  locations: store.locations("temperature"),
+                                  transients: store.transients("temperature"))
 tracks   = tracker.update(tracks, fused, previous:, snapshot:)
 previous = Sensorium::Fusion.new(setup, offsets:, shifts:, tracks:)
                             .location("green-room", snapshot)
@@ -444,22 +523,25 @@ Tracker's tracks, by quantity. `Store::Memory` for tests and one-off
 runs; `Store::Sequel` (`require "sensorium/store/sequel"`) for any SQL
 database, its table names configurable, its tables created when
 missing unless `migrate: false`. The Tracker's tracks, the dynamics
-models and the collocations are kept in three more tables
-(`sensor_tracks`, `tables: { tracks: }`; `sensor_dynamics`, `tables: {
-dynamics: }`; `sensor_collocations`, `tables: { collocations: }`),
-which a caller with its own schema creates too, as
+models, the collocations and the transient profiles are kept in four
+more tables (`sensor_tracks`, `tables: { tracks: }`;
+`sensor_dynamics`, `tables: { dynamics: }`; `sensor_collocations`,
+`tables: { collocations: }`; `sensor_transients`, `tables: {
+transients: }`), which a caller with its own schema creates too, as
 `Store::Sequel::Schema` does. An offset's maps (switches, taus,
 series, states) are kept as JSON, as are a location's `deltas`, a
-dynamics model's `b` and a collocation's `sigmas`. Tables made before
+dynamics model's `b`, a collocation's `sigmas` and a profile's `own`
+and `relative` thresholds (`{ "600": [fall, rise] }`). Tables made before
 the survey rounds lack six columns of `sensor_offsets`: `taus`,
 `series` and `states` (text), `rate`, `off_p10` and `off_p90` (float),
 and `sensor_locations` lacks `deltas` (text); a caller with its own
-schema adds them. Another store answers the same thirteen methods (see
+schema adds them. Another store answers the same fifteen methods (see
 `lib/sensorium/store/memory.rb`).
 
 Keeping dynamics (`keep_dynamics`) or collocations
 (`keep_collocations`) replaces those of the same location and regime,
-and leaves the others.
+and leaves the others; keeping transient profiles
+(`keep_transients`), those of the same location, device and regime.
 
 Keeping a learning replaces the offsets (and shifts) of the sensors it
 learned again, and every offset of a location whose reference it found
@@ -467,7 +549,8 @@ changed. It leaves everything else: a sensor short of samples this
 time keeps its offset, and a regime the span barely touched keeps its
 model. A sensor the source no longer lists (gone from `sensors`) is
 dropped, its offsets and shifts in every regime; `forget(quantity,
-location, device)` drops one on demand, its track too. A store's
+location, device)` drops one on demand, its track and transient
+profiles too. A store's
 `learned` gives each regime the span of the latest learning kept in
 it.
 
@@ -498,6 +581,17 @@ it.
 - A dynamics model's q is calibrated on the span it was fitted on:
   another season may move more, or less.
 - A blend takes its estimates' errors as independent.
+- A transient threshold is learned from all the calm changes of a
+  regime, the transients the Detector should find among them: a
+  sensor aired every winter morning learns its airings as its usual
+  changes. On one house's green-room (a year of profiles, 74 window
+  openings on cold days, rate 0.2), tado alone finds 92 % of the
+  openings with some 0.33 false alarms a day (a fixed rule, tado
+  falling 0.5 °C in ten minutes: 92 %, 0.10); two sensors agreeing,
+  88 % at 0.07.
+- The rate holds per window and direction: a sensor with two windows
+  may raise up to four times as many false alarms a day, fewer as its
+  windows overlap.
 
 ## Gate
 

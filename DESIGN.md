@@ -86,6 +86,47 @@
   in every regime, so they do not linger as notes on a device nobody
   reads.
 
+## Transients
+
+- **Learned per sensor, not a fixed rule.** How far a sensor moves in
+  ten minutes depends on how it reports (a 0.1 °C step, a mean over
+  five minutes, a radiator valve's sensor that follows the water), on
+  where it sits and on the regime: a fall of 0.5 °C is an event on
+  one and noise on another. Each sensor's changes over each window
+  are its own yardstick, per regime and direction.
+- **A quantile at a target rate, not a multiple of a spread.** The
+  changes are stepped (most are 0 on a sensor that reports in tenths)
+  and heavy-tailed: a median absolute deviation is 0 for a third of
+  one house's sensors, and where it is not, a z of 5 on it still fires
+  several times a day. What a user can choose is how many false
+  alarms a day to bear; the quantile at 1 − rate / bins a day is the
+  change exceeded that often, whatever the shape. A fall and a rise
+  each have their own, the two tails being unlike (in one house's
+  green-room, a ceiling sensor's winter rise threshold is nearly
+  twice its fall). A quantile of 0 would make every step an event: it
+  is raised just past the sensor's smallest step.
+- **Two thresholds.** A window opened cools the whole room: live, a
+  sensor's own change says so, whatever its reference does. For
+  learning only a sensor moving apart from its reference distorts its
+  offset; a whole-room change (the radiators starting) moves both and
+  leaves the gap alone. Hence the own threshold for the Detector, the
+  relative one for the influence, and none relative for a reference,
+  which has no gap to itself.
+- **Left out, not modelled**, as a Mode is: what an airing, a shower
+  or a ray of sun does to a sensor depends on the moment (how wide the
+  window, how cold outside, where the sun falls), not on any series
+  the source tells; a term fitted to it would be noise. No Shift
+  either: a transient has no value to learn one per.
+- **Opt-in for learning**: at the earlier thresholds it widened
+  downstairs/tado/mid and green-room/tado/mid by over 5 %, and read
+  FakeHouse's heating step as a transient, so the room preset leaves it
+  out.
+- **The Tracker stands aside during an event.** An opened window
+  reads, to the CUSUM, as a step; a long one could push it past h and
+  leave a track jumped until a relearn. The whole location is left as
+  it was, as for a part with too few others: during a whole-room
+  change the others' fusion is no truth either.
+
 ## Fusion
 
 - **A shift applies over the plain offset**, the one it was learned

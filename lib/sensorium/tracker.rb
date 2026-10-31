@@ -64,14 +64,17 @@ module Sensorium
 
         # offsets: [Offset] of the setup's quantity, as the Fusion's;
         # dynamics: [Dynamics::Model] and locations: { name => Location
-        # }, those set, for the witness (Witness).
-        def initialize(setup, offsets:, dynamics: [], locations: {})
+        # }, those set, for the witness (Witness); transients:
+        # [Transient::Profile], for the Detector.
+        def initialize(setup, offsets:, dynamics: [], locations: {},
+                       transients: [])
             @setup    = setup
             @quantity = setup.quantity
             @offsets  = offsets.to_h do |offset|
                 [[offset.location, offset.regime, offset.device], offset]
             end
             @witness = Witness.new(setup, dynamics, locations)
+            @detector = Transient::Detector.new(setup, profiles: transients)
         end
 
         # The tracks after a Fused, made by a Fusion without tracks: each
@@ -83,8 +86,10 @@ module Sensorium
         # tracks) moved by the location's dynamics to the moment, with
         # the inputs of snapshot (the one fused was made from). A part
         # with fewer than two others still is left as it was, as are
-        # the tracks of other parts.
+        # the tracks of other parts. While the Detector finds an event in
+        # the location in snapshot, every part is left as it was.
         def update(tracks, fused, previous: nil, snapshot: nil)
+            return tracks if transient?(fused, snapshot)
             counted = fused.parts.select { counts?(it) }.map(&:part)
             current = current(tracks, fused, counted)
             out = current.filter_map do |device, (track, _)|
@@ -100,6 +105,14 @@ module Sensorium
         end
 
         private
+
+        # Whether a transient is under way in the Fused's location.
+        def transient?(fused, snapshot)
+            return false unless snapshot
+            @detector.events(snapshot).any? do |event|
+                event.location == fused.location
+            end
+        end
 
         # { [location, device] => Track } updated, the references first,
         # in the Fused's order; out: the devices left out of the others,
