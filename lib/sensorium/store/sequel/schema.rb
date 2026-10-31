@@ -25,7 +25,7 @@ module Sensorium
                     key(t)
                     t.String :reference, null: false
                     t.Float :constant, null: false
-                    %i[switches series].each { t.String it, text: true }
+                    %i[switches taus series].each { t.String it, text: true }
                     %i[gain coefficient rate].each { t.Float it }
                     t.String :neighbour
                     widths(t)

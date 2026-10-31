@@ -42,6 +42,18 @@ module Sensorium
             end.to_h
         end
 
+        # { bin => exposure } from the bin of first to that of last: a
+        # first-order filter, of time constant tau seconds, of being in
+        # `on` (a Set of bins), from 0.
+        def filtered(on, first, last, tau)
+            keep = Math.exp(-@width.fdiv(tau))
+            x = 0.0
+            (bin(first)..bin(last)).step(@width).to_h do |at|
+                x = (x * keep) + (on.include?(at) ? 1 - keep : 0.0)
+                [at, x]
+            end
+        end
+
         # { bin => mean } over the bins every series has; the one series
         # itself when alone.
         def mean(all)

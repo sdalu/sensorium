@@ -27,6 +27,14 @@ module Sensorium
                 end
             end
 
+            def exposure(model, name, tau, exposures, setup)
+                fit(model, [exposures], setup) do |base, (slope)|
+                    { constant: model.constant + base,
+                      switches: model.switches.merge(name => slope),
+                      taus: model.taus.merge(name => tau) }
+                end
+            end
+
             def series(model, name, values, setup)
                 fit(model, [values], setup) do |base, (slope)|
                     { constant: model.constant + base,

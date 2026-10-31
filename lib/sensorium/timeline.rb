@@ -2,16 +2,15 @@
 
 module Sensorium
     # The influences over a span of history, by bin, from the source's
-    # events: when each Switch was on, when each Mode held which value,
-    # and each Series' level. A site-wide influence is kept under the
-    # location nil.
+    # events: when each Switch was on (and the exposure of the filtered
+    # ones), when each Mode held which value, and each Series' level. A
+    # site-wide influence is kept under the location nil.
     class Timeline
         def initialize(setup, source, from, to)
             @series = setup.series
+            @span   = [from, to]
             @events = ->(name) { Timeline.events(source, name, from, to) }
-            @on     = each_of(setup.switches) { on(*it) }
-            @modes  = each_of(setup.modes) { held(*it) }
-            @levels = each_of(setup.levels) { levels(*it) }
+            influences(setup)
         end
 
         # The source's events, none when it tells none.
@@ -20,11 +19,19 @@ module Sensorium
             source.events(name, from, to)
         end
 
-        # { name => bins the Switch was on } where the location is.
+        # { name => bins the Switch was on } where the location is, the
+        # filtered ones aside.
         def switches(location)
-            @on.transform_values do |by|
-                by.fetch(nil, Set.new) | by.fetch(location, Set.new)
-            end
+            on_where(location).select { |name, _| @taus[name].empty? }
+        end
+
+        # { name => { tau => { bin => exposure } } } of the filtered
+        # Switches where the location is.
+        def exposures(location)
+            on_where(location).filter_map do |name, on|
+                next if @taus[name].empty?
+                [name, @taus[name].to_h { [it, filtered(name, on, it)] }]
+            end.to_h
         end
 
         # { name => { bin => value } } of the Series where the location
@@ -51,6 +58,26 @@ module Sensorium
         end
 
         private
+
+        def influences(setup)
+            @taus   = setup.switches.to_h { [it.name, it.taus] }
+            @on     = each_of(setup.switches) { on(*it) }
+            @modes  = each_of(setup.modes) { held(*it) }
+            @levels = each_of(setup.levels) { levels(*it) }
+        end
+
+        def on_where(location)
+            @on.transform_values do |by|
+                by.fetch(nil, Set.new) | by.fetch(location, Set.new)
+            end
+        end
+
+        # Once per Switch, time constant and on-state: a site-wide
+        # Switch's is the same everywhere.
+        def filtered(name, on, tau)
+            ((@filtered ||= {})[[name, tau]] ||= {})[on] ||=
+                @series.filtered(on, *@span, tau)
+        end
 
         def on(switch, events)
             events.select { switch.on?(it.last) }

@@ -3,8 +3,8 @@
 module Sensorium
     class Parts
         # What a location's models need at the moment besides each
-        # sensor's reading, from the snapshot: the Series' values, the
-        # reference's rate.
+        # sensor's reading, from the snapshot: the filtered Switches'
+        # exposures, the Series' values, the reference's rate.
         class Inputs
             # location: a resolved Location; references: [device], nil
             # when it has none.
@@ -13,6 +13,23 @@ module Sensorium
                 @references = references || []
                 @snapshot   = snapshot
                 @quantity   = setup.quantity
+                @series     = setup.series
+            end
+
+            # An offset's exposures, values and dr_dt (Offset::Moment).
+            def of(offset)
+                { exposures: exposures(offset.taus), values:, dr_dt: }
+            end
+
+            # { name => exposure } of the filtered Switches, taus: { name
+            # => tau } as the offset learned them: the filter run over
+            # the 5 tau before the moment.
+            def exposures(taus)
+                taus.to_h do |name, tau|
+                    at = @snapshot.at
+                    [name, @series.filtered(on(name), at - (5 * tau), at, tau)
+                                  .fetch(@series.bin(at))]
+                end
             end
 
             # { name => value } of the Series where the location is.
@@ -28,6 +45,11 @@ module Sensorium
             end
 
             private
+
+            def on(name)
+                by = @snapshot.pulses.fetch(name, {})
+                by.fetch(nil, Set.new) | by.fetch(@location.name, Set.new)
+            end
 
             def rate(device)
                 before, last = recent(device).last(2)

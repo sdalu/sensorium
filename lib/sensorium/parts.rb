@@ -75,11 +75,14 @@ module Sensorium
                 return Estimate.new(value:,
                                     sigma: @location.sigma)
             end
-            @offsets[device].correct(value, on: @snapshot.on(@location.name),
-                                            neighbour: neighbour(device),
-                                            shifts: shifts(device),
-                                            values: @inputs.values,
-                                            dr_dt: @inputs.dr_dt)
+            @offsets[device].correct(value, shifts: shifts(device),
+                                            **moment(device))
+        end
+
+        # What holds for a sensor's model at the moment: Offset::Moment.
+        def moment(device)
+            { on: @snapshot.on(@location.name), neighbour: neighbour(device),
+              **@inputs.of(@offsets[device]) }
         end
 
         # The neighbour's value, when it is fresh enough.

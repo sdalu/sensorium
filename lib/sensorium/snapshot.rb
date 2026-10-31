@@ -7,12 +7,15 @@ module Sensorium
     # { name => locations, nil for the whole site }), the Modes holding
     # (modes: { location or nil => { name => value } }), each Series'
     # latest value within its hold (feeds: { name => { location or nil
-    # => value } }) and the readings before the latest (history:
+    # => value } }), the bins each filtered Switch was on over five of
+    # its longest time constant (pulses: { name => { location or nil =>
+    # Set of bins } }) and the readings before the latest (history:
     # { [location, device] => [Reading] }, oldest first).
     Snapshot = Data.define(:at, :latest, :switches, :modes, :feeds,
-                           :history) do
-        def initialize(switches: {}, modes: {}, feeds: {}, history: {}, **)
-            super
+                           :pulses, :history) do
+        def initialize(**given)
+            super(switches: {}, modes: {}, feeds: {}, pulses: {}, history: {},
+                  **given)
         end
 
         # From a source as the Learner's, the readings of the `window`
@@ -23,7 +26,8 @@ module Sensorium
             new(at:, latest: latest(readings), history: history(readings),
                 switches: gather.switches(source, setup, at),
                 modes: gather.modes(source, setup, at),
-                feeds: gather.feeds(source, setup, at))
+                feeds: gather.feeds(source, setup, at),
+                pulses: gather.pulses(source, setup, at))
         end
 
         def self.history(readings)

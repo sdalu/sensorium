@@ -12,9 +12,9 @@ module Sensorium
         # Three tables, named by `tables`; with migrate: true they are
         # created when missing (Store::Sequel::Schema), else they must be
         # there already, as the caller made them. Lists are kept as A,B,
-        # an Offset's maps (switches, series) as JSON.
+        # an Offset's maps (switches, taus, series) as JSON.
         class Sequel
-            MAPS = %i[switches series].freeze
+            MAPS = %i[switches taus series].freeze
 
             TABLES = { offsets: :sensor_offsets, shifts: :sensor_shifts,
                        locations: :sensor_locations }.freeze

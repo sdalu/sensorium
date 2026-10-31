@@ -3,7 +3,8 @@
 module Sensorium
     # How a sensor reads against its location's reference r, in a regime:
     #   sensor - r = constant
-    #              + Σ switches[name] × (that Switch on)
+    #              + Σ switches[name] × (that Switch on, or its exposure
+    #                                    when filtered: taus[name])
     #              + Σ series[name] × (that Series' value)
     #              + gain × r
     #              + coefficient × (r - neighbour)
@@ -13,10 +14,11 @@ module Sensorium
     # alone and plain_p10..plain_p90 its spread, the fallback when the
     # neighbour, a Series' value or dr/dt is not known.
     Offset = Data.define(:location, :device, :quantity, :regime, :reference,
-                         :constant, :switches, :series, :gain, :neighbour,
+                         :constant, :switches, :taus, :series, :gain,
+                         :neighbour,
                          :coefficient, :rate, :p10, :p90, :samples, :plain,
                          :plain_p10, :plain_p90) do
-        def initialize(series: {}, rate: nil, **) = super
+        def initialize(taus: {}, series: {}, rate: nil, **) = super
 
         # The reference's value, as this sensor's reading tells it: the
         # model solved for r. shifts: the Shifts of the Modes holding;
@@ -45,7 +47,7 @@ module Sensorium
 
         # The terms that do not involve r.
         def known(now)
-            switched(now.on) + fed(now.values) + (rate ? rate * now.dr_dt : 0)
+            switched(now) + fed(now.values) + (rate ? rate * now.dr_dt : 0)
         end
 
         def fed(values) = series.sum { |name, term| term * values[name] }
@@ -64,9 +66,12 @@ module Sensorium
                          sigma: widest(plain_sigma, shifts))
         end
 
-        def switched(on)
-            on = on.map(&:to_s)
+        # A filtered Switch's term × its exposure (none: 0), another's
+        # while it is on.
+        def switched(now)
+            on = now.on.map(&:to_s)
             (switches || {}).sum do |name, term|
+                next term * now.exposures.fetch(name, 0.0) if taus.key?(name)
                 on.include?(name.to_s) ? term : 0
             end
         end
@@ -78,11 +83,14 @@ module Sensorium
 
     class Offset
         # What holds at the moment of a reading, besides the Modes: on,
-        # the names of the Switches on; neighbour, its value; values,
+        # the names of the Switches on; exposures, { name => exposure } of
+        # the filtered ones; neighbour, its value; values,
         # { name => value } of the Series; dr_dt, the reference's rate
         # per hour. A value nil, or absent, is not known.
-        Moment = Data.define(:on, :neighbour, :values, :dr_dt) do
-            def initialize(on: [], neighbour: nil, values: {}, dr_dt: nil)
+        Moment = Data.define(:on, :exposures, :neighbour, :values,
+                             :dr_dt) do
+            def initialize(on: [], exposures: {}, neighbour: nil,
+                           values: {}, dr_dt: nil)
                 super
             end
         end
