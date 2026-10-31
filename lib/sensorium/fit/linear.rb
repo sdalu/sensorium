@@ -8,8 +8,14 @@ module Sensorium
         module Linear
             module_function
 
+            # The gain by Stats.gain: the reference read with an error of
+            # its quantity's σ.
             def gain(model, levels, setup)
-                fit(model, [levels], setup) do |base, (slope)|
+                quantity = setup.quantity
+                solver = lambda do |(xs), ys|
+                    Stats.gain(xs, ys, quantity.sigma, quantity.floor)
+                end
+                fit(model, [levels], setup, solver) do |base, (slope)|
                     { constant: model.constant + base, gain: slope }
                 end
             end
@@ -28,12 +34,20 @@ module Sensorium
                 end
             end
 
-            # xs: one or two { bin => x }. Yields the intercept and the
-            # slopes, for the model's changes.
-            def fit(model, xs, setup)
+            # Least squares, on one column or two (the gain and the
+            # neighbour together: see DESIGN.md).
+            OLS = lambda do |columns, ys|
+                Stats.public_send(columns.one? ? :line : :plane, *columns, ys)
+            end
+
+            # xs: one or two { bin => x }; solver: columns, ys →
+            # [intercept, *slopes]. Yields the intercept and the slopes,
+            # for the model's changes.
+            def fit(model, xs, setup, solver = OLS)
                 bins = covered(model, xs, setup) or return
                 ys = bins.map { model.residuals[it] }
-                solved = solve(bins, xs, ys) or return
+                columns = xs.map { |x| bins.map { x[it] } }
+                solved = solver.call(columns, ys) or return
                 base, *slopes = solved
                 model.with(**yield(base, slopes),
                            residuals: left(bins, xs, ys, base, slopes))
@@ -45,12 +59,6 @@ module Sensorium
                     xs.all? { it.key?(bin) }
                 end
                 bins if bins.size >= setup.covers * model.residuals.size
-            end
-
-            def solve(bins, xs, ys)
-                columns = xs.map { |x| bins.map { x[it] } }
-                how = columns.one? ? :line : :plane
-                Stats.public_send(how, *columns, ys)
             end
 
             def left(bins, xs, ys, base, slopes)
