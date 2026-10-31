@@ -146,8 +146,10 @@ its hold) where every series has a value (`min_samples` at least),
 each sensor is corrected by its offset with what held at that bin, as
 the learner read it, and the error variance of series i is the mean,
 over the pairs (j, k) of the others, of cov(xᵢ − xⱼ, xᵢ − xₖ). A
-negative estimate is not measurable (nil). The reference is under its
-name (`"a+b"` for a mean). It assumes the series' errors independent:
+negative estimate is not measurable (nil). A sole reference is a
+series as it reads, under its name; several are each corrected to
+their mean by their offset, and the mean, made of them, is not a
+series beside them. It assumes the series' errors independent:
 an error they all share (the sun on the room, the radiators' plume)
 is not seen, and an error every sensor but the reference shares is
 taken for the reference's. They measure; the Fusion does not use

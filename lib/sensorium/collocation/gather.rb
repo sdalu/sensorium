@@ -30,10 +30,15 @@ module Sensorium
             end
 
             # { name => [value] } over the bins all have, nil when fewer
-            # than three series or setup.min_samples bins.
+            # than three series or setup.min_samples bins. A sole
+            # reference is a series as it reads; several are each
+            # corrected to their mean by their offset, and the mean, made
+            # of them, is no series of its own beside them (its error is
+            # theirs).
             def columns(location, regime, name, offsets)
                 reference = calm(location, regime)
-                all = { name => reference }
+                sole = Sensorium.references_of(name).one?
+                all = sole ? { name => reference } : {}
                 offsets.each do |offset|
                     next unless offset.reference == name
                     all[offset.device] = corrected(offset, reference)

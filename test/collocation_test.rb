@@ -117,14 +117,30 @@ class CollocationTest < Minitest::Test
         assert_in_delta 0.408, found["b"], 0.02
     end
 
+    # References set to ceil and wall: their mean is no series of its
+    # own beside them, each is collocated as corrected to it.
+    def test_several_references_are_collocated_one_by_one
+        locations = { "room" => Sensorium::Location.new(
+            name: "room", references: %w[ceil wall]
+        ) }
+        found = learn(Room.new(NOISE), locations:)
+        NOISE.each do |device, (_, sigma)|
+            assert_in_delta sigma, found.first.sigma(device).to_f,
+                            0.15 * sigma, device
+        end
+        refute found.first.sigmas.key?("ceil+wall")
+    end
+
     private
 
     def apart(xs, ys) = xs.zip(ys).map { |x, y| x - y }
 
-    def learn(room)
+    def learn(room, locations: {})
         setup = Sensorium::Presets.room
         span = { from: START, to: START + (SIZE * STEP) }
-        offsets = Sensorium::Learner.new(room, setup, **span).learn.offsets
-        Sensorium::Collocation.learn(room, setup, **span, offsets:)
+        offsets = Sensorium::Learner.new(room, setup, **span, locations:)
+                                    .learn.offsets
+        Sensorium::Collocation.learn(room, setup, **span, offsets:,
+                                                          locations:)
     end
 end
