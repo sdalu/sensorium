@@ -36,8 +36,10 @@ module Sensorium
             update(predict(state, fused.at, snapshot), fused)
         end
 
-        # The State moved to `at`, with the inputs of the snapshot.
+        # The State moved to `at`, with the inputs of the snapshot; `at`
+        # earlier than the state's moment leaves it unchanged.
         def predict(state, at, snapshot = nil)
+            return state if at < state.at
             hours = (at - state.at) / 3600.0
             change, spread = modelled(state, hours, snapshot) ||
                              [0.0, (settings(state.location).drift * hours)**2]
@@ -66,9 +68,14 @@ module Sensorium
         end
 
         def check(state, fused)
-            return if state.location == fused.location
-            raise ArgumentError,
-                  "a Fused of #{fused.location} for #{state.location}"
+            same!(state.location, fused.location, "location")
+            same!(state.quantity, fused.quantity, "quantity")
+            same!(state.quantity, @setup.quantity.name, "quantity")
+        end
+
+        def same!(have, want, label)
+            return if have == want
+            raise ArgumentError, "a #{label} of #{want} for #{have}"
         end
 
         # The Kalman update by the Fused, when it has a value and a σ.
