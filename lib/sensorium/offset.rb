@@ -15,8 +15,10 @@ module Sensorium
     # neighbour, a Series' value or dr/dt is not known. states:
     # { name => [p10, p90] } of what the model leaves over the bins each
     # Switch (or Threshold) kept as a term was on, and off_p10..off_p90
-    # over the bins all of them were off; each absent when too few bins
-    # had it.
+    # over the bins all of them were off; { "NAME:high" => [p10, p90,
+    # median], "NAME:low" => [p10, p90, median] } over the bins each
+    # Series kept as a term was above its median over the fit, and
+    # not; each absent when too few bins had it.
     Offset = Data.define(:location, :device, :quantity, :regime, :reference,
                          :constant, :switches, :taus, :series, :gain,
                          :neighbour,
@@ -72,12 +74,31 @@ module Sensorium
         end
 
         # The spread of what holds: the widest of the Switches on now
-        # that were kept as terms, each its own when kept, else p10..p90;
-        # none on, the spread while all were off, when kept.
+        # that were kept as terms, each its own when kept, else p10..p90,
+        # or none on, the spread while all were off, when kept; and of
+        # each Series' spread at its level now, when kept. Without any
+        # of them, p10..p90.
         def width(now)
+            [*switch_width(now), *level_widths(now.values)].max || (p90 - p10)
+        end
+
+        def switch_width(now)
             on = now.on.map(&:to_s) & (switches || {}).keys.map(&:to_s)
             return on.map { state_width(it) }.max if on.any?
-            off_width || (p90 - p10)
+            off_width
+        end
+
+        # The spreads of the Series at their level now: above the median
+        # over the fit, "NAME:high", else "NAME:low"; those kept.
+        def level_widths(values)
+            series.filter_map { |name, _| level_width(name, values[name]) }
+        end
+
+        def level_width(name, value)
+            median = (states["#{name}:high"] ||
+                      states["#{name}:low"])&.last or return
+            found = states["#{name}:#{value > median ? "high" : "low"}"]
+            found && (found[1] - found[0])
         end
 
         def off_width = off_p10 && off_p90 && (off_p90 - off_p10)

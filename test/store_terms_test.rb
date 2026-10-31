@@ -20,6 +20,14 @@ module StoreTermsBehaviour
         assert_equal [offset], @store.offsets("temperature")
     end
 
+    # A Series' spreads per level: [p10, p90, the median].
+    def test_the_spreads_per_level_come_back
+        offset = rich.with(states: { "solar:high" => [-0.3, 0.4, 1500.5],
+                                     "solar:low" => [-0.03, 0.04, 1500.5] })
+        @store.keep(learned(offset), from: AT, to: AT, at: AT)
+        assert_equal [offset], @store.offsets("temperature")
+    end
+
     private
 
     def learned(offset)
