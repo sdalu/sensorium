@@ -28,13 +28,13 @@ class FusionTest < Minitest::Test
         assert_in_delta 20.0, fused.value
     end
 
-    # Sun on tado: 5 °C off. Its Student-t factor falls below the
+    # Sun on tado: 6 °C off. Its Student-t factor falls below the
     # outlier threshold (noted, but it still carries a little weight),
     # and the fused value barely moves.
     def test_an_outlier_is_dropped
-        fused = fuse({ "ceil" => 20.0, "tado" => 24.0, "airzone" => 21.0 })
+        fused = fuse({ "ceil" => 20.0, "tado" => 25.0, "airzone" => 21.0 })
         assert_equal "outlier", note(fused, "tado")
-        assert_in_delta 20.0, fused.value, 0.05
+        assert_in_delta 20.0, fused.value, 0.01
     end
 
     def test_excluded_and_not_learned_do_not_count

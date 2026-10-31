@@ -3,9 +3,9 @@
 module Sensorium
     # A location's value, fused from all its sensors: each corrected to
     # the location's reference (Parts), weighted by 1/σ², σ grown with
-    # the reading's age. With three sensors or more, the one furthest
-    # from what the others say is dropped when it is more than the
-    # quantity's outlier σ away (sun on a sensor, a window open by it).
+    # the reading's age, then Student-t reweighted (Combine.robust): a
+    # sensor far from what the others say (sun on it, a window open by
+    # it) keeps only a little weight, and is noted "outlier".
     # A location without a reference gets the plain mean, corrected
     # false and sigma nil. The offsets are those of the moment's regime.
     # The value is brought back from the transform's space with the
