@@ -133,7 +133,9 @@ negative estimate is not measurable (nil). The reference is under its
 name (`"a+b"` for a mean). It assumes the series' errors independent:
 an error they all share (the sun on the room, the radiators' plume)
 is not seen, and an error every sensor but the reference shares is
-taken for the reference's. The Fusion does not use them yet.
+taken for the reference's. They measure; the Fusion does not use
+them: on MadHouse's held-out days they made its σ less honest, not
+more (DESIGN.md, "Honest σ").
 
 ## Fusing
 

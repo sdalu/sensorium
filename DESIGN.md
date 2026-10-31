@@ -474,8 +474,22 @@ drift 0.5 g/m³/h stay first guesses. The scale floor refuses tado's
 neighbour in 7 of the 11 offsets it had learned (k −0.54 to −0.94);
 only green-room's (k −0.07, −0.16) are kept.
 
+Decided: the scale floor and the spreads per state are in; triple
+collocation stays a measurement and does not feed the Fusion (it took
+the held-out var(z) from 1.25 back to 1.51); the inflation is ruled
+out below. What remains of the excess is downstairs' bias, an offset
+that moved since the year it was learned on: the Tracker's to follow,
+not σ's to cover.
+
 ## Ruled out
 
+- **An inflation of the fused σ for shared errors**, learned by a
+  leave-one-out on the triple collocation σ: on the same data it is 1
+  by construction (the shared error is already on one series'
+  σ), so it learns nothing; on MadHouse it came out 1.16, 1.00 and
+  1.00 and moved the held-out var(z) from 1.51 to 1.47 only. Shared
+  errors need a series that does not share them (a reference sensor
+  shielded from the radiator), which no location has.
 - **A lag term**: a lagged boiler-pipe gap gained nothing in
   ClimatControl's trials. (The rate term above is not a lagged copy.)
 - **Online learning** of the model's terms: a year of MadHouse's
