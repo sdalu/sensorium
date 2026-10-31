@@ -18,6 +18,9 @@ module Sensorium
     #   dynamics(quantity)                 [Dynamics::Model]
     #   keep_dynamics(quantity, models)    replaces those of the same
     #                                      location and regime
+    #   collocations(quantity)             [Collocation]
+    #   keep_collocations(quantity, list)  replaces those of the same
+    #                                      location and regime
     module Store
         # In memory: for tests, and for a learning used at once.
         class Memory
@@ -28,6 +31,7 @@ module Sensorium
                 @locations = {}
                 @tracks    = {}
                 @dynamics  = []
+                @collocations = []
             end
 
             def offsets(quantity) = @offsets.select { it.quantity == quantity }
@@ -71,14 +75,28 @@ module Sensorium
             end
 
             def keep_dynamics(quantity, models)
-                keys = models.to_set { [it.location, it.regime] }
-                @dynamics = @dynamics.reject do |model|
-                    model.quantity == quantity &&
-                        keys.include?([model.location, model.regime])
-                end + models
+                @dynamics = replaced(@dynamics, quantity, models)
+            end
+
+            def collocations(quantity)
+                @collocations.select { it.quantity == quantity }
+            end
+
+            def keep_collocations(quantity, list)
+                @collocations = replaced(@collocations, quantity, list)
             end
 
             private
+
+            # The rows of `all` of another quantity, location or regime
+            # than those of `list`, then `list`.
+            def replaced(all, quantity, list)
+                keys = list.to_set { [it.location, it.regime] }
+                all.reject do |row|
+                    row.quantity == quantity &&
+                        keys.include?([row.location, row.regime])
+                end + list
+            end
 
             def key(row) = [row.quantity, *Learned.key(row)]
 

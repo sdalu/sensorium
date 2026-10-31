@@ -3,14 +3,15 @@
 module Sensorium
     module Store
         class Sequel
-            # The four tables, created when missing. A caller that keeps
+            # The six tables, created when missing. A caller that keeps
             # its own schema (types, foreign keys) makes them alike and
             # opens the store with migrate: false.
             module Schema
                 module_function
 
                 def create(db, tables)
-                    %i[offsets shifts locations tracks dynamics].each do |name|
+                    %i[offsets shifts locations tracks dynamics
+                       collocations].each do |name|
                         db.create_table?(tables.fetch(name)) do
                             Schema.public_send(name, self)
                         end
@@ -25,6 +26,15 @@ module Sensorium
                     %i[rms_hold rms_model].each { t.Float it }
                     t.String :b, text: true, null: false
                     %i[bin steps].each { t.Integer it, null: false }
+                    t.primary_key %i[location quantity regime]
+                end
+
+                def collocations(t)
+                    %i[location quantity regime].each do |name|
+                        t.String name, null: false
+                    end
+                    t.String :sigmas, text: true, null: false
+                    t.Integer :samples, null: false
                     t.primary_key %i[location quantity regime]
                 end
 

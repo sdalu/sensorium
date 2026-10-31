@@ -108,6 +108,33 @@ mean when several, each then learned against it too), else its first
 sensor tagged with one of the setup's `places` (for temperature,
 "ceiling", then "floor"). A location with none is not learned.
 
+### Measuring σ
+
+An offset's spread is that of the sensor against the reference, so it
+holds the reference's error as well as the sensor's. Where a location
+has three series or more (its reference and two sensors learned
+against it), triple collocation tells each one's own error apart,
+without a truth:
+
+```ruby
+offsets      = store.offsets("temperature")
+collocations = Sensorium::Collocation.learn(source, setup, from:, to:,
+                                            offsets:)
+store.keep_collocations("temperature", collocations)
+collocations.first.sigmas   # { "ceil" => 0.11, "tado" => 0.21, ... }
+```
+
+Per location and regime, over the calm bins (no Mode held, nor within
+its hold) where every series has a value (`min_samples` at least),
+each sensor is corrected by its offset with what held at that bin, as
+the learner read it, and the error variance of series i is the mean,
+over the pairs (j, k) of the others, of cov(xᵢ − xⱼ, xᵢ − xₖ). A
+negative estimate is not measurable (nil). The reference is under its
+name (`"a+b"` for a mean). It assumes the series' errors independent:
+an error they all share (the sun on the room, the radiators' plume)
+is not seen, and an error every sensor but the reference shares is
+taken for the reference's. The Fusion does not use them yet.
+
 ## Fusing
 
 ```ruby
@@ -345,23 +372,26 @@ still needs the re-emission or the stamp to stay under `max_age`.
 ## Stores
 
 A store keeps what a learning found, the locations' settings and the
-Tracker's tracks, by quantity. `Store::Memory` for tests and one-off runs;
-`Store::Sequel` (`require "sensorium/store/sequel"`) for any SQL
-database, its table names configurable, its tables created when missing
-unless `migrate: false`. The Tracker's tracks and the dynamics models
-are kept in two more tables (`sensor_tracks`, `tables: { tracks: }`;
-`sensor_dynamics`, `tables: { dynamics: }`), which a caller with its
-own schema creates too, as `Store::Sequel::Schema` does. An offset's
-maps (switches, taus, series, states) are kept as JSON, as are a
-location's `deltas` and a dynamics model's `b`. Tables made before the
-survey rounds lack six columns of `sensor_offsets`: `taus`, `series`
-and `states` (text), `rate`, `off_p10` and `off_p90` (float), and
-`sensor_locations` lacks `deltas` (text); a caller with its own schema
-adds them. Another store answers
-the same ten methods (see `lib/sensorium/store/memory.rb`).
+Tracker's tracks, by quantity. `Store::Memory` for tests and one-off
+runs; `Store::Sequel` (`require "sensorium/store/sequel"`) for any SQL
+database, its table names configurable, its tables created when
+missing unless `migrate: false`. The Tracker's tracks, the dynamics
+models and the collocations are kept in three more tables
+(`sensor_tracks`, `tables: { tracks: }`; `sensor_dynamics`, `tables: {
+dynamics: }`; `sensor_collocations`, `tables: { collocations: }`),
+which a caller with its own schema creates too, as
+`Store::Sequel::Schema` does. An offset's maps (switches, taus,
+series, states) are kept as JSON, as are a location's `deltas`, a
+dynamics model's `b` and a collocation's `sigmas`. Tables made before
+the survey rounds lack six columns of `sensor_offsets`: `taus`,
+`series` and `states` (text), `rate`, `off_p10` and `off_p90` (float),
+and `sensor_locations` lacks `deltas` (text); a caller with its own
+schema adds them. Another store answers the same twelve methods (see
+`lib/sensorium/store/memory.rb`).
 
-Keeping dynamics (`keep_dynamics`) replaces the models of the same
-location and regime, and leaves the others.
+Keeping dynamics (`keep_dynamics`) or collocations
+(`keep_collocations`) replaces those of the same location and regime,
+and leaves the others.
 
 Keeping a learning replaces the offsets (and shifts) of the sensors it
 learned again, and every offset of a location whose reference it found
