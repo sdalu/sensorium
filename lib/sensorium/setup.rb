@@ -16,15 +16,17 @@ module Sensorium
     #   narrows     a term is kept when it narrows the spread to this
     #   covers      share of the bins a neighbour must cover
     #   gain        whether a gain term is tried
+    #   rate        whether a term on the reference's rate (dr/dt) is
+    #               tried
     Setup = Data.define(:quantity, :regime, :influences, :places, :bin,
                         :carry, :min_samples, :min_shift, :min_part,
-                        :narrows, :covers, :gain)
+                        :narrows, :covers, :gain, :rate)
 
     class Setup
         DEFAULTS = { regime: Regime::Constant.new, influences: [],
                      places: [], bin: 600, carry: 3600, min_samples: 500,
                      min_shift: 100, min_part: 100, narrows: 0.8,
-                     covers: 0.8, gain: true }.freeze
+                     covers: 0.8, gain: true, rate: true }.freeze
 
         def initialize(quantity:, **settings)
             super(quantity:, **DEFAULTS.merge(settings))

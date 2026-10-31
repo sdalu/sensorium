@@ -27,6 +27,12 @@ module Sensorium
                 end
             end
 
+            def rate(model, rates, setup)
+                fit(model, [rates], setup) do |base, (slope)|
+                    { constant: model.constant + base, rate: slope }
+                end
+            end
+
             def both(model, levels, name, gaps, setup)
                 fit(model, [levels, gaps], setup) do |base, (gain, slope)|
                     { constant: model.constant + base, gain:,

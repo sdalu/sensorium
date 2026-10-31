@@ -43,7 +43,7 @@ module Sensorium
             references = learned(key) if references.empty?
             learning = learning(key)
             parts = Parts.new(location, references, learning, snapshot,
-                              @setup.quantity).all
+                              @setup).all
             fused(name, snapshot.at, references&.join("+"), parts, context)
         end
 

@@ -23,6 +23,15 @@ class SnapshotTest < Minitest::Test
         assert_empty at(last + 3601).on("room-a")
     end
 
+    # The window's readings of each sensor, oldest first.
+    def test_the_history_before_the_latest
+        snap = at(FakeHouse::START + (3 * 3600))
+        history = snap.history.fetch(%w[room-a ceil-a])
+        assert_equal 19, history.size
+        assert_equal snap.latest[%w[room-a ceil-a]], history.last
+        assert_equal history.sort_by(&:time), history
+    end
+
     def test_the_aircon_holds_where_it_ran
         snap = at(FakeHouse::START + (2 * 86_400) + 3600)
         assert_equal [%w[aircon cooling]], snap.holding("room-a")

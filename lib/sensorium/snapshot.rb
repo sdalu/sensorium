@@ -4,19 +4,26 @@ module Sensorium
     # The site at a moment, as the fusion needs it: each sensor's latest
     # reading, as it reads (latest: { [location, device] => Reading },
     # externals under the location nil), the Switches on (switches:
-    # { name => locations, nil for the whole site }) and the Modes
-    # holding (modes: { location or nil => { name => value } }).
-    Snapshot = Data.define(:at, :latest, :switches, :modes) do
-        def initialize(switches: {}, modes: {}, **) = super
+    # { name => locations, nil for the whole site }), the Modes holding
+    # (modes: { location or nil => { name => value } }) and the readings
+    # before the latest (history: { [location, device] => [Reading] },
+    # oldest first).
+    Snapshot = Data.define(:at, :latest, :switches, :modes, :history) do
+        def initialize(switches: {}, modes: {}, history: {}, **) = super
 
         # From a source as the Learner's, the readings of the `window`
         # seconds before at.
         def self.from(source, setup, at:, window: 3 * 3600)
             gather = Snapshot::Gather
-            new(at:,
-                latest: latest(gather.readings(source, setup, at, window)),
+            readings = gather.readings(source, setup, at, window)
+            new(at:, latest: latest(readings), history: history(readings),
                 switches: gather.switches(source, setup, at),
                 modes: gather.modes(source, setup, at))
+        end
+
+        def self.history(readings)
+            readings.group_by { [it.location, it.device] }
+                    .transform_values { it.sort_by(&:time) }
         end
 
         def self.latest(readings)

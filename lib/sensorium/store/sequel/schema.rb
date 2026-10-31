@@ -26,7 +26,7 @@ module Sensorium
                     t.String :reference, null: false
                     t.Float :constant, null: false
                     t.String :switches, text: true
-                    %i[gain coefficient].each { t.Float it }
+                    %i[gain coefficient rate].each { t.Float it }
                     t.String :neighbour
                     widths(t)
                     floats(t, %i[plain plain_p10 plain_p90])

@@ -6,25 +6,28 @@ module Sensorium
     #              + Σ switches[name] × (that Switch on)
     #              + gain × r
     #              + coefficient × (r - neighbour)
+    #              + rate × dr/dt (per hour)
     # a term nil (or absent from switches) when it did not narrow the
     # spread; p10..p90 is what the model leaves. plain is the constant
     # alone and plain_p10..plain_p90 its spread, the fallback when the
-    # neighbour is not known.
+    # neighbour or dr/dt is not known.
     Offset = Data.define(:location, :device, :quantity, :regime, :reference,
                          :constant, :switches, :gain, :neighbour,
-                         :coefficient, :p10, :p90, :samples, :plain,
+                         :coefficient, :rate, :p10, :p90, :samples, :plain,
                          :plain_p10, :plain_p90) do
+        def initialize(rate: nil, **) = super
+
         # The reference's value, as this sensor's reading tells it: the
         # model solved for r. on: the names of the Switches on;
         # neighbour: its value, when the model has one; shifts: the
-        # Shifts of the Modes holding. While a Mode holds, or when the
-        # neighbour is not known, the plain offset: a Shift was learned
-        # over it.
-        def correct(reading, on: [], neighbour: nil, shifts: [])
-            if shifts.any? || (self.neighbour && neighbour.nil?)
+        # Shifts of the Modes holding; dr_dt: the reference's rate, per
+        # hour. While a Mode holds, or when the neighbour or dr/dt is not
+        # known, the plain offset: a Shift was learned over it.
+        def correct(reading, on: [], neighbour: nil, shifts: [], dr_dt: nil)
+            if plain?(shifts, neighbour, dr_dt)
                 return plain_correct(reading, shifts)
             end
-            model_correct(reading - constant - switched(on),
+            model_correct(reading - constant - switched(on) - moving(dr_dt),
                           neighbour.to_f)
         end
 
@@ -34,6 +37,13 @@ module Sensorium
         private
 
         def k = coefficient || 0.0
+
+        def plain?(shifts, neighbour, dr_dt)
+            shifts.any? || (self.neighbour && neighbour.nil?) ||
+                (rate && dr_dt.nil?) || false
+        end
+
+        def moving(dr_dt) = rate ? rate * dr_dt : 0.0
 
         # What r is multiplied by, the model solved.
         def scale = 1 + (gain || 0.0) + k

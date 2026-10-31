@@ -44,7 +44,8 @@ module Sensorium
             { constant: model.constant.round(3),
               switches: model.switches.transform_values { it.round(3) },
               gain: model.gain&.round(4), neighbour: model.neighbour,
-              coefficient: model.coefficient&.round(3) }
+              coefficient: model.coefficient&.round(3),
+              rate: model.rate&.round(3) }
         end
 
         def self.widths(values, prefix = "")

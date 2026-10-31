@@ -31,6 +31,17 @@ module Sensorium
             end
         end
 
+        # { bin => how fast the series moves, per hour }: the central
+        # difference over one bin each side, where both are known.
+        def rates(series)
+            series.filter_map do |bin, _|
+                after = series[bin + @width]
+                before = series[bin - @width]
+                next unless after && before
+                [bin, (after - before) * 3600.0 / (2 * @width)]
+            end.to_h
+        end
+
         # { bin => mean } over the bins every series has; the one series
         # itself when alone.
         def mean(all)

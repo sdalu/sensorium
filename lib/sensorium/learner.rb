@@ -95,7 +95,8 @@ module Sensorium
             fit = Fit.new(calm, @setup,
                           levels: carried,
                           switches: @timeline.switches(one.location),
-                          candidates: @neighbours.gaps(one.location, carried))
+                          candidates: @neighbours.gaps(one.location, carried),
+                          rates: rates(one.location))
             Offset.new(**one.to_h, **Learned.values(fit.model, fit.plain))
         end
 
@@ -117,6 +118,11 @@ module Sensorium
                                     @setup.carry)
                 end
             )
+        end
+
+        # The reference's rate, per hour, once per location.
+        def rates(location)
+            (@rates ||= {})[location] ||= @series.rates(carried(location))
         end
 
         def regime_of(bin)
