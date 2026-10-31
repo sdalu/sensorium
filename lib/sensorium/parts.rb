@@ -4,10 +4,12 @@ module Sensorium
     # Each sensor of a location at a moment, corrected to the location's
     # reference: a Part with its σ, or with a note saying why it does not
     # count (excluded, stale, not learned: against these references, no
-    # context: the transform lacks what it needs). A sole reference
-    # counts as it reads, with the location's sigma; several are each
-    # corrected to their mean. raw is the reading as it reads, value and
-    # sigma are in the transform's space.
+    # context: the transform lacks what it needs, jumped: its Track
+    # says so). A sole reference counts as it reads, with the location's
+    # sigma; several are each corrected to their mean. A sensor with a
+    # Track has its delta taken out after, and is noted drifting while
+    # its Track is. raw is the reading as it reads, value and sigma are
+    # in the transform's space.
     class Parts
         # value nil, and sigma nil, when the sensor does not count; sigma
         # nil alone when the location has no reference to correct it to.
@@ -15,8 +17,10 @@ module Sensorium
 
         # What was learned of the location in the moment's regime:
         # offsets { device => Offset }, shifts { [device, influence,
-        # mode] => Shift }.
-        Learning = Data.define(:offsets, :shifts)
+        # mode] => Shift }, tracks { device => Track } (Tracker).
+        Learning = Data.define(:offsets, :shifts, :tracks) do
+            def initialize(tracks: {}, **) = super
+        end
 
         # location: a resolved Location; references: [device], nil when
         # it has none.
@@ -27,7 +31,7 @@ module Sensorium
             @offsets  = learning.offsets.select do |_, offset|
                 offset.reference == @name
             end
-            @shifts   = learning.shifts
+            @learning = learning
             @snapshot = snapshot
             @quantity = setup.quantity
             @inputs   = Inputs.new(location, references, snapshot, setup)
@@ -35,7 +39,8 @@ module Sensorium
 
         def all
             @snapshot.devices(@location.name).map do |device|
-                part(device, @snapshot.latest[[@location.name, device]])
+                tracked(part(device,
+                             @snapshot.latest[[@location.name, device]]))
             end
         end
 
@@ -95,8 +100,14 @@ module Sensorium
 
         def shifts(device)
             @snapshot.holding(@location.name).filter_map do |name, mode|
-                @shifts[[device, name, mode]]
+                @learning.shifts[[device, name, mode]]
             end
+        end
+
+        # The part with its Track applied (Track#apply), when it counts.
+        def tracked(part)
+            track = @learning.tracks[part.device]
+            track && part.value ? track.apply(part) : part
         end
     end
 end

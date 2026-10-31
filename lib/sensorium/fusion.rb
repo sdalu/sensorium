@@ -21,12 +21,14 @@ module Sensorium
         Weighted = Data.define(:part, :weight, :note, :value)
 
         # offsets: [Offset]; shifts: [Shift]; locations: { name =>
-        # Location }, those set; all of the setup's quantity.
-        def initialize(setup, offsets:, shifts:, locations: {})
+        # Location }, those set; tracks: { [location, device] => Track },
+        # the Tracker's; all of the setup's quantity.
+        def initialize(setup, offsets:, shifts:, locations: {}, tracks: {})
             @setup     = setup
             @offsets   = offsets.group_by { [it.location, it.regime] }
             @shifts    = shifts.group_by { [it.location, it.regime] }
             @locations = locations
+            @tracks    = tracks
         end
 
         # The locations it can tell: those learned, set, or read.
@@ -41,7 +43,7 @@ module Sensorium
             key = [name, @setup.regime.of(snapshot.at)]
             references = location.references
             references = learned(key) if references.empty?
-            learning = learning(key)
+            learning = learning(key, references)
             parts = Parts.new(location, references, learning, snapshot,
                               @setup).all
             fused(name, snapshot.at, references&.join("+"), parts, context)
@@ -62,13 +64,30 @@ module Sensorium
                       .resolve(@setup.quantity)
         end
 
-        def learning(key)
+        def learning(key, references)
+            offsets = @offsets.fetch(key, []).to_h { [it.device, it] }
             Parts::Learning.new(
-                offsets: @offsets.fetch(key, []).to_h { [it.device, it] },
+                offsets:,
                 shifts: @shifts.fetch(key, []).to_h do |shift|
                     [[shift.device, shift.influence, shift.mode], shift]
-                end
+                end,
+                tracks: tracks(key, references, offsets)
             )
+        end
+
+        # { device => Track } of the location, those whose fingerprint is
+        # the moment's: a reference's, or its Offset's.
+        def tracks(key, references, offsets)
+            name, regime = key
+            @tracks.filter_map do |(where, device), track|
+                next unless where == name && references
+                print = if references.include?(device)
+                            Track.reference(regime, references.join("+"))
+                        else
+                            offsets[device]&.then { Track.fingerprint(it) }
+                        end
+                [device, track] if track.fingerprint == print
+            end.to_h
         end
     end
 end

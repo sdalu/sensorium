@@ -34,7 +34,32 @@ module StoreBehaviour
         assert_empty @store.locations("humidity")
     end
 
+    def test_tracks_come_back_and_are_replaced
+        tracks = { %w[room tado] => track(:drifting) }
+        @store.keep_tracks("temperature", tracks)
+        assert_equal tracks, @store.tracks("temperature")
+        assert_empty @store.tracks("humidity")
+        tracks = { %w[room airzone] => track(:jumped, device: "airzone") }
+        @store.keep_tracks("temperature", tracks)
+        assert_equal tracks, @store.tracks("temperature")
+    end
+
+    def test_a_references_track_comes_back
+        tracks = { %w[room ceil] => track(:jumped, device: "ceil")
+                                    .with(constant: nil, plain: nil) }
+        @store.keep_tracks("temperature", tracks)
+        assert_equal tracks, @store.tracks("temperature")
+    end
+
     private
+
+    def track(state, device: "tado")
+        Sensorium::Track.new(location: "room", device:,
+                             quantity: "temperature", regime: "winter",
+                             reference: "ceil", constant: -1.0, plain: -1.0,
+                             delta: 0.125, variance: 0.0025, cusum_up: 1.5,
+                             cusum_down: 0.0, at: FakeHouse::START, state:)
+    end
 
     def learned = Winter.learned
 
@@ -72,5 +97,12 @@ class SequelStoreTest < Minitest::Test
         Sensorium::Store::Sequel.new(db, tables: { locations: :sensor_rooms })
         assert db.table_exists?(:sensor_rooms)
         refute db.table_exists?(:sensor_locations)
+    end
+
+    def test_the_tracks_table_can_be_named
+        db = Sequel.sqlite
+        Sensorium::Store::Sequel.new(db, tables: { tracks: :tracking })
+        assert db.table_exists?(:tracking)
+        refute db.table_exists?(:sensor_tracks)
     end
 end
