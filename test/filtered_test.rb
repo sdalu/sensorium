@@ -36,6 +36,13 @@ class FilteredTest < Minitest::Test
         assert_in_delta (1 - (keep**2)) * (keep**2), found[1800]
     end
 
+    # Long after the Switch was last on (a summer after the heating),
+    # nothing: not a tail of tiny values a slope would blow up on.
+    def test_an_exposure_long_off_is_nothing
+        found = SERIES.filtered(Set[0], 0, 600 * 3000, 7200)
+        assert_equal 0.0, found.fetch(600 * 3000)
+    end
+
     def test_the_time_constant_that_fits_is_chosen
         model = fit { 0.1 + (0.5 * @exposures[1800][it]) }
         assert_equal({ "heating" => 1800 }, model.taus)

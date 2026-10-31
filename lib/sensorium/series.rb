@@ -4,6 +4,9 @@ module Sensorium
     # Readings put in bins of `width` seconds (a bin is its start, in
     # seconds since the epoch), each the mean of the readings in it.
     class Series
+        # The least exposure that is not none.
+        NONE = 1e-9
+
         attr_reader :width
 
         def initialize(width) = @width = width
@@ -44,12 +47,14 @@ module Sensorium
 
         # { bin => exposure } from the bin of first to that of last: a
         # first-order filter, of time constant tau seconds, of being in
-        # `on` (a Set of bins), from 0.
+        # `on` (a Set of bins), from 0. Below NONE it is 0: a tail that
+        # never quite reaches it would let a slope blow up.
         def filtered(on, first, last, tau)
             keep = Math.exp(-@width.fdiv(tau))
             x = 0.0
             (bin(first)..bin(last)).step(@width).to_h do |at|
                 x = (x * keep) + (on.include?(at) ? 1 - keep : 0.0)
+                x = 0.0 if x < NONE
                 [at, x]
             end
         end
