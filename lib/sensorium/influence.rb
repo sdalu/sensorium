@@ -67,11 +67,10 @@ module Sensorium
             end
         end
 
-        # On, for each sensor, where it moved apart from its location's
-        # reference faster than its learned relative scale allows
-        # (|z| ≥ Setup#transient_z over a window of
-        # Setup#transient_windows), and `hold` seconds after: a window
-        # opened by it, a shower, the sun. Derived by the Learner from
+        # On, for each sensor, where its change against its location's
+        # reference over a window of Setup#transient_windows went beyond
+        # its learned relative thresholds, and `hold` seconds after: a
+        # window opened by it, a shower, the sun. Derived by the Learner from
         # the sensors' own series and their Transient::Profiles; its
         # bins are left out like a Mode's, without a Shift of their own.
         Transient = Data.define(:name, :hold) do

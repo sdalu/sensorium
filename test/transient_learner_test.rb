@@ -7,7 +7,9 @@ require "support/airing_room"
 # apart from its reference, and its hold after, are left out of its
 # offset. AiringRoom's s reads 0.5 above ceil, and 2 below that for 50
 # minutes every 160 (an airing by s alone): each airing's fall and
-# rise, and their 30 minutes' hold, cover it.
+# rise, and their 30 minutes' hold, cover it. Airings this frequent are
+# one change in 16: a rate of 12 a day (one in 12) leaves them beyond
+# the thresholds, and some noise with them, hence min_samples 200.
 class TransientLearnerTest < Minitest::Test
     START   = AiringRoom::START
     SPAN    = AiringRoom::DAYS * 86_400
@@ -37,8 +39,15 @@ class TransientLearnerTest < Minitest::Test
         setup = Sensorium::Setup.new(quantity: Sensorium::Presets::TEMPERATURE,
                                      influences: [transient])
         assert_equal [transient], setup.transients
-        assert_equal [[600, 1200], 5],
-                     setup.to_h.values_at(:transient_windows, :transient_z)
+        assert_equal [[600, 1200], 0.2],
+                     setup.to_h.values_at(:transient_windows, :transient_rate)
+    end
+
+    def test_the_room_preset_leaves_it_out
+        [Sensorium::Presets::TEMPERATURE,
+         Sensorium::Presets::HUMIDITY].each do |quantity|
+            assert_empty Sensorium::Presets.room(quantity).transients
+        end
     end
 
     private
@@ -46,7 +55,8 @@ class TransientLearnerTest < Minitest::Test
     def learn(influences)
         setup = Sensorium::Setup.new(quantity: Sensorium::Presets::TEMPERATURE,
                                      places: %w[ceiling], influences:,
-                                     rate: false, gain: false)
+                                     rate: false, gain: false,
+                                     transient_rate: 12, min_samples: 200)
         Sensorium::Learner.new(AiringRoom.new(airings: AIRINGS), setup,
                                from: START, to: START + SPAN).learn
     end

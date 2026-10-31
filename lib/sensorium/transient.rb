@@ -3,31 +3,39 @@
 module Sensorium
     # Sudden changes no learned term explains (a window opened, a
     # shower, the sun on a sensor), told apart by how far a sensor's
-    # change over a window strays from the changes it usually makes.
-    # Each sensor's scales are learned (learn), per regime and window;
+    # change over a window goes beyond the changes it usually makes.
+    # Each sensor's thresholds are learned (learn), per regime and
+    # window;
     # the Detector finds the events of a Snapshot by them; a Learner
     # given an Influence::Transient leaves the bins they cover out of
     # the offsets.
     module Transient
-        # σ from a median absolute deviation, as for a normal
-        # distribution.
-        MAD = 1.4826
+        # How far past the sensor's smallest step a threshold raised from
+        # 0 is set, so that a single step, read with a float's noise, is
+        # no event.
+        RAISE = 1 + 1e-6
 
-        # How a sensor's change over a window spreads: σ, 1.4826 × the
-        # median absolute deviation of the changes, and their median.
-        Scale = Data.define(:sigma, :median) do
-            # How far a change strays, in σ.
-            def z(change) = (change - median).fdiv(sigma)
+        # The changes over a window beyond which a sensor is in a
+        # transient: a fall at or below `fall`, a rise at or above
+        # `rise`.
+        Threshold = Data.define(:fall, :rise) do
+            # [direction, z] of a change beyond, z the change over its
+            # threshold (1 or more); nil within.
+            def beyond(change)
+                return [:fall, change / fall] if change <= fall
+                [:rise, change / rise] if change >= rise
+            end
         end
 
-        # A sensor's scales in one regime, { window => Scale }: own, of
-        # its own change; relative, of the change of its gap to its
-        # location's reference (none for a reference itself).
+        # A sensor's thresholds in one regime, { window => Threshold }:
+        # own, of its own change; relative, of the change of its gap to
+        # its location's reference (none for a reference itself).
         Profile = Data.define(:location, :device, :quantity, :regime, :own,
                               :relative)
 
-        # A change seen at `at`: direction :fall or :rise, z in σ of the
-        # sensor's own scale over `window` seconds.
+        # A change seen at `at`: direction :fall or :rise, z the change
+        # over `window` seconds over the sensor's own threshold (1 or
+        # more).
         Event = Data.define(:location, :device, :direction, :z, :window,
                             :at)
 
@@ -58,13 +66,20 @@ module Sensorium
              locations.values.flat_map(&:references)).uniq
         end
 
-        # The Scale of changes, nil when fewer than `least`.
-        def scale(changes, least)
-            return if changes.empty? || changes.size < least
-            median = Stats.median(changes)
-            deviation = Stats.median(changes.map { (it - median).abs })
-            Scale.new(sigma: MAD * deviation, median:)
+        # The Threshold of changes: their quantiles at the share of the
+        # bins transient_rate allows, each side, one of 0 raised just
+        # past the smallest change that is not 0. Nil when fewer than
+        # min_samples, or none is not 0.
+        def threshold(changes, setup)
+            return if changes.size < setup.min_samples
+            step = changes.map(&:abs).reject(&:zero?).min or return
+            share = setup.transient_rate * setup.bin / 86_400.0
+            Threshold.new(fall: raised(Stats.quantile(changes, share), -step),
+                          rise: raised(Stats.quantile(changes, 1 - share),
+                                       step))
         end
+
+        def raised(value, step) = value.zero? ? step * RAISE : value
     end
 end
 

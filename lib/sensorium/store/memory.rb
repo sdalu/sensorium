@@ -16,7 +16,8 @@ module Sensorium
     #   tracks(quantity)                   { [location, device] => Track }
     #   keep_tracks(quantity, tracks)      replaces them all
     #   forget(quantity, location, device) drops a sensor's offsets,
-    #                                      shifts and track
+    #                                      shifts, track and transient
+    #                                      profiles
     #   dynamics(quantity)                 [Dynamics::Model]
     #   keep_dynamics(quantity, models)    replaces those of the same
     #                                      location and regime
@@ -83,6 +84,7 @@ module Sensorium
                 @spans.reject! { |spanned, _| spanned.first(3) == sensor }
                 tracks = @tracks.fetch(quantity, {})
                 @tracks[quantity] = tracks.except([location, device]).freeze
+                @transients.reject! { key(it).first(3) == sensor }
             end
 
             def dynamics(quantity)

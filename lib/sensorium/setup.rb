@@ -28,13 +28,14 @@ module Sensorium
     #               coefficient| below this: a correction divides by it
     #   transient_windows  seconds over which a sensor's change is
     #               measured against its Transient::Profile
-    #   transient_z a change is a transient when its z is at least this
-    #               in size
+    #   transient_rate  false alarms a day a sensor's thresholds allow,
+    #               per window and direction: each is the quantile of its
+    #               calm changes at 1 - rate / bins a day
     Setup = Data.define(:quantity, :regime, :influences, :places, :bin,
                         :carry, :min_samples, :min_shift, :min_part,
                         :narrows, :covers, :gain, :rate, :outside,
                         :dynamics_margin, :scale_floor, :transient_windows,
-                        :transient_z)
+                        :transient_rate)
 
     class Setup
         DEFAULTS = { regime: Regime::Constant.new, influences: [],
@@ -43,7 +44,7 @@ module Sensorium
                      covers: 0.8, gain: true, rate: true,
                      outside: nil, dynamics_margin: 0.98,
                      scale_floor: 0.5, transient_windows: [600, 1200],
-                     transient_z: 5 }.freeze
+                     transient_rate: 0.2 }.freeze
 
         def initialize(quantity:, **settings)
             super(quantity:, **DEFAULTS.merge(settings))

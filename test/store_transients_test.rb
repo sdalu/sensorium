@@ -26,6 +26,14 @@ module StoreTransientsBehaviour
                      sorted("temperature")
     end
 
+    def test_forget_drops_a_sensors_profiles
+        @store.keep_transients("temperature",
+                               [found, found.with(regime: "mid"),
+                                found("airzone")])
+        @store.forget("temperature", "room", "tado")
+        assert_equal [found("airzone")], sorted("temperature")
+    end
+
     private
 
     def sorted(quantity)
@@ -34,13 +42,13 @@ module StoreTransientsBehaviour
     end
 
     def found(device = "tado")
-        scale = Sensorium::Transient::Scale
+        threshold = Sensorium::Transient::Threshold
         Sensorium::Transient::Profile.new(
             location: "room", device:, quantity: "temperature",
             regime: "winter",
-            own: { 600 => scale.new(sigma: 0.0421, median: -0.01),
-                   1200 => scale.new(sigma: 0.0613, median: 0.0) },
-            relative: { 600 => scale.new(sigma: 0.05, median: 0.002) }
+            own: { 600 => threshold.new(fall: -0.31, rise: 0.2),
+                   1200 => threshold.new(fall: -0.45, rise: 0.1000001) },
+            relative: { 600 => threshold.new(fall: -0.25, rise: 0.27) }
         )
     end
 end

@@ -21,10 +21,10 @@ module Sensorium
             # [Profile] of every sensor.
             def profiles = @data.keys.flat_map { of(*it) }
 
-            # [Profile] of a sensor, one per regime it has a Scale in.
+            # [Profile] of a sensor, one per regime it has a Threshold in.
             def of(location, device)
-                own = scales(own(location, device))
-                relative = scales(relative(location, device))
+                own = thresholds(own(location, device))
+                relative = thresholds(relative(location, device))
                 (own.keys | relative.keys).map do |regime|
                     Profile.new(location:, device:, regime:,
                                 quantity: @setup.quantity.name,
@@ -34,39 +34,39 @@ module Sensorium
             end
 
             # The bins where the sensor's relative change over a window
-            # is at least transient_z in size, by its regime's Profile;
-            # profiles: { regime => Profile }.
+            # is beyond its regime's relative Threshold; profiles:
+            # { regime => Profile }.
             def jumps(location, device, profiles)
                 series = relative(location, device)
                 series.keys.select do |bin|
-                    scales = profiles[regime_of(bin)]&.relative or next false
-                    scales.any? do |window, scale|
-                        jump?(series, bin, window, scale)
+                    found = profiles[regime_of(bin)]&.relative or next false
+                    found.any? do |window, threshold|
+                        jump?(series, bin, window, threshold)
                     end
                 end
             end
 
             private
 
-            def jump?(series, bin, window, scale)
+            def jump?(series, bin, window, threshold)
                 change = change(series, bin, window) or return false
-                scale.z(change).abs >= @setup.transient_z
+                !threshold.beyond(change).nil?
             end
 
-            # { regime => { window => Scale } } of a series, the windows
-            # with min_samples changes or more.
-            def scales(series)
+            # { regime => { window => Threshold } } of a series, the
+            # windows with a Threshold.
+            def thresholds(series)
                 regimes = series.keys.group_by { regime_of(it) }
                 regimes.to_h { |regime, bins| [regime, windows(series, bins)] }
-                       .reject { |_, scales| scales.empty? }
+                       .reject { |_, found| found.empty? }
             end
 
-            # { window => Scale } of the changes ending in the bins.
+            # { window => Threshold } of the changes ending in the bins.
             def windows(series, bins)
                 @setup.transient_windows.filter_map do |window|
                     changes = bins.filter_map { change(series, it, window) }
-                    scale = Transient.scale(changes, @setup.min_samples)
-                    [window, scale] if scale
+                    found = Transient.threshold(changes, @setup)
+                    [window, found] if found
                 end.to_h
             end
 

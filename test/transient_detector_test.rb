@@ -4,7 +4,8 @@ require "test_helper"
 require "support/airing_room"
 
 # Transient::Detector: a change over a window, as the snapshot's
-# history tells it, standardised by the sensor's own scale.
+# history tells it, against the sensor's own thresholds, learned on
+# AiringRoom's calm days.
 class TransientDetectorTest < Minitest::Test
     START = AiringRoom::START
     SPAN  = AiringRoom::DAYS * 86_400
@@ -14,15 +15,8 @@ class TransientDetectorTest < Minitest::Test
 
     def setup
         @house = AiringRoom.new(steps: { STEP => 1.0 })
-        @profiles = Sensorium::Transient.learn(@house, SETUP, from: START,
-                                                              to: START + SPAN)
-    end
-
-    # Learned over the step too: a few changes out of 1440 move a median
-    # absolute deviation little.
-    def test_a_step_leaves_the_scale_as_the_noise_makes_it
-        sigma = profile("s").own[600].sigma
-        assert_in_delta 1.4826 * 0.1 * (1 - Math.sqrt(0.5)), sigma, 0.005
+        @profiles = Sensorium::Transient.learn(AiringRoom.new, SETUP,
+                                               from: START, to: START + SPAN)
     end
 
     def test_a_step_is_an_event_at_its_z
@@ -41,18 +35,16 @@ class TransientDetectorTest < Minitest::Test
         assert_empty detector.events(at(STEP + 10))
     end
 
-    # 1 °C over σ 0.04 is a z of some 23.
-    def test_an_event_needs_transient_z
-        setup = SETUP.with(transient_z: 30)
-        detector = Sensorium::Transient::Detector.new(setup,
-                                                      profiles: @profiles)
-        assert_empty detector.events(at(STEP))
+    # A step of 1 °C is some ten times the threshold.
+    def test_z_is_the_change_over_its_threshold
+        events = detector.events(at(STEP))
+        assert(events.all? { it.z.between?(8, 13) })
     end
 
     def test_a_fall_is_said
         house = AiringRoom.new(steps: { STEP => -1.0 })
         events = detector.events(at(STEP, house))
-        assert(events.all? { it.direction == :fall && it.z.negative? })
+        assert(events.all? { it.direction == :fall && it.z >= 1 })
         refute_empty events
     end
 
@@ -83,12 +75,11 @@ class TransientDetectorTest < Minitest::Test
         Sensorium::Snapshot.from(house, SETUP, at: house.time(index))
     end
 
-    # z as the readings make it: s's change over the window, less the
-    # median, over σ.
+    # z as the readings make it: s's change over the window, over its
+    # rise threshold.
     def expected(window)
         value = ->(index) { @house.readings_at(index).last.value }
-        scale = profile("s").own[window]
         change = value[STEP] - value[STEP - (window / 600)]
-        (change - scale.median) / scale.sigma
+        change / profile("s").own[window].rise
     end
 end

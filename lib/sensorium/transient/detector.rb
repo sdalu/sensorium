@@ -6,8 +6,8 @@ module Sensorium
         # the moment's regime, its latest reading less the one at or
         # before the latest's time less each window (no older than the
         # carry before it, as the learned series were carried), in the
-        # transform's space, standardised by the sensor's own Scale; an
-        # Event where |z| is at least transient_z.
+        # transform's space, against the sensor's own Threshold; an Event
+        # where it is beyond.
         class Detector
             # profiles: [Profile] of the setup's quantity.
             def initialize(setup, profiles:)
@@ -30,18 +30,16 @@ module Sensorium
             private
 
             def of(profile, latest, history)
-                profile.own.filter_map do |window, scale|
+                profile.own.filter_map do |window, threshold|
                     change = change(latest, history, window) or next
-                    z = scale.z(change)
-                    event(profile, z, window, latest) if
-                        z.abs >= @setup.transient_z
+                    found = threshold.beyond(change) or next
+                    event(profile, found, window, latest)
                 end
             end
 
-            def event(profile, z, window, latest)
+            def event(profile, (direction, z), window, latest)
                 Event.new(location: profile.location, device: profile.device,
-                          direction: z.negative? ? :fall : :rise, z:,
-                          window:, at: latest.time)
+                          direction:, z:, window:, at: latest.time)
             end
 
             # The change over the window, nil without a reading to start

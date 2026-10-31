@@ -3,9 +3,9 @@
 module Sensorium
     class Learner
         # The bins each sensor's Influence::Transient is on: where its
-        # change against its reference strays transient_z or more from
-        # its relative Scale, the Profiles learned from the same span,
-        # and each influence's hold after. None when the Setup names no
+        # change against its reference goes beyond its relative
+        # Threshold, the Profiles learned from the same span, and each
+        # influence's hold after. None when the Setup names no
         # Influence::Transient.
         class Transients
             # data, references, timeline: the Learner's.

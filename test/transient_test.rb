@@ -3,36 +3,36 @@
 require "test_helper"
 require "support/airing_room"
 
-# Transient.learn: each sensor's robust scales of its changes over each
-# window, its own and against its reference, in AiringRoom.
+# Transient.learn: each sensor's thresholds of change over each window,
+# for a fall and a rise, its own and against its reference, in
+# AiringRoom: the quantiles of its changes a target rate of false
+# alarms a day leaves beyond.
 class TransientTest < Minitest::Test
     START = AiringRoom::START
     SPAN  = AiringRoom::DAYS * 86_400
 
     # Uniform noise of ±0.05 on each reading: a change is the
-    # difference of two, triangular over ±0.1, whose |median| is
-    # 0.1 × (1 - 1/√2), σ 1.4826 times that.
-    TRIANGULAR = 1.4826 * 0.1 * (1 - Math.sqrt(0.5))
-
-    def test_a_sensors_own_scale_is_its_changes_spread
+    # difference of two, within ±0.1. At 0.2 a day of 144 bins, a
+    # threshold leaves two changes in 1440 beyond it: near the edge.
+    def test_a_sensors_own_thresholds_are_its_changes_tails
         own = profile.own
         assert_equal [600, 1200], own.keys
-        own.each_value do |scale|
-            assert_in_delta TRIANGULAR, scale.sigma, 0.1 * TRIANGULAR
-            assert_in_delta 0.0, scale.median, 0.005
+        own.each_value do |threshold|
+            assert_operator threshold.fall, :<, -0.08
+            assert_operator threshold.rise, :>, 0.08
+            assert_operator [-threshold.fall, threshold.rise].max, :<=, 0.1
         end
     end
 
-    # s - ceil holds both noises: its change is the sum of four, near
-    # normal with σ √(4 × 0.1² / 12).
-    def test_the_relative_scale_holds_the_references_noise_too
-        sigma = Math.sqrt(4 * 0.01 / 12)
-        profile.relative.each_value do |scale|
-            assert_in_delta sigma, scale.sigma, 0.1 * sigma
-        end
+    # s - ceil holds both noises: its change is within ±0.2.
+    def test_the_relative_thresholds_hold_the_references_noise_too
+        own = profile.own[600]
+        relative = profile.relative[600]
+        assert_operator relative.rise, :>, own.rise
+        assert_operator relative.fall, :<, own.fall
     end
 
-    def test_a_reference_has_no_relative_scale
+    def test_a_reference_has_no_relative_thresholds
         ceil = profile("ceil")
         refute_empty ceil.own
         assert_empty ceil.relative
@@ -44,13 +44,21 @@ class TransientTest < Minitest::Test
                                             :regime)
     end
 
-    # The whole room moving widens the own scale; against the
+    # The whole room moving widens the own thresholds; against the
     # reference, s is as calm as ever.
-    def test_a_room_wide_change_widens_only_the_own_scale
-        found = sigmas(profile(house: AiringRoom.new(wave: 3.0)))
-        calm = sigmas(profile)
-        assert_operator found.first, :>, 2 * calm.first
-        assert_in_delta calm.last, found.last, 0.1 * calm.last
+    def test_a_room_wide_change_widens_only_the_own_thresholds
+        found = rises(profile(house: AiringRoom.new(wave: 3.0)))
+        calm = rises(profile)
+        assert_operator found.first, :>, 1.5 * calm.first
+        assert_in_delta calm.last, found.last, 1e-9
+    end
+
+    # A higher rate leaves more changes beyond: the thresholds narrow.
+    def test_a_higher_rate_narrows_the_thresholds
+        wide = profile.own[600]
+        narrow = profile(setup: setup(transient_rate: 20)).own[600]
+        assert_operator narrow.rise, :<, wide.rise
+        assert_operator narrow.fall, :>, wide.fall
     end
 
     def test_too_few_changes_give_no_profile
@@ -69,7 +77,7 @@ class TransientTest < Minitest::Test
         aircon = Sensorium::Influence::Mode.new(name: "aircon")
         found = profile(house: AiringRoom.new(swings: [144, 36]),
                         setup: setup(influences: [aircon]))
-        assert_in_delta TRIANGULAR, found.own[600].sigma, 0.1 * TRIANGULAR
+        assert_operator found.own[600].rise, :<=, 0.1
     end
 
     private
@@ -84,8 +92,8 @@ class TransientTest < Minitest::Test
                                                  to: START + SPAN)
     end
 
-    # [own, relative] σ over ten minutes.
-    def sigmas(found) = [found.own, found.relative].map { it[600].sigma }
+    # [own, relative] rise thresholds over ten minutes.
+    def rises(found) = [found.own, found.relative].map { it[600].rise }
 
     def profile(device = "s", house: AiringRoom.new, setup: self.setup)
         learn(setup, house:).find { it.device == device }

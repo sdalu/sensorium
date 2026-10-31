@@ -8,7 +8,7 @@ module Sensorium
                 def forget(quantity, location, device)
                     key = { quantity:, location:, device: }
                     @db.transaction do
-                        %i[offsets shifts tracks].each do |name|
+                        %i[offsets shifts tracks transients].each do |name|
                             table(name).where(key).delete
                         end
                     end

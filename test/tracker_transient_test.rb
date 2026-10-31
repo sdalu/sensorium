@@ -39,10 +39,11 @@ class TrackerTransientTest < Minitest::Test
     end
 
     def profile
-        scale = Sensorium::Transient::Scale.new(sigma: 0.05, median: 0.0)
+        threshold = Sensorium::Transient::Threshold.new(fall: -0.5,
+                                                        rise: 0.5)
         Sensorium::Transient::Profile.new(
             location: "room", device: "tado", quantity: "temperature",
-            regime: "winter", own: { 600 => scale }, relative: {}
+            regime: "winter", own: { 600 => threshold }, relative: {}
         )
     end
 

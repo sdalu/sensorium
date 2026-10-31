@@ -174,8 +174,8 @@ Per location, device and regime, for each window of
 `Setup#transient_windows` (600 and 1200 s), `learn` takes the sensor's
 binned series in the transform's space, carried `carry`, the bins under
 a Mode or within its hold left out, and the change over the window
-ending in each bin. Two scales (`Transient::Scale`: σ, 1.4826 × the
-median absolute deviation of the changes, and their median):
+ending in each bin. Two `Transient::Threshold`s, each a `fall` and a
+`rise`:
 
 - **own**, of the sensor's own change: a window cools the whole room,
   so a live event is seen on the sensor itself;
@@ -184,29 +184,44 @@ median absolute deviation of the changes, and their median):
   apart from its reference distorts its offset; a whole-room change,
   a radiator heating the room, does not. A reference has none.
 
-A window seen fewer than `min_samples` changes has no scale.
+A threshold is a quantile of the changes, set by a target rate of
+false alarms, `Setup#transient_rate` (0.2 a day): the rise at
+1 − rate / bins a day (144 for bins of 10 minutes), the fall at
+rate / bins a day. Each window and direction leaves about that many
+calm changes a day beyond its threshold. A threshold of 0 (a sensor
+that almost never changes, or reports in steps) is raised to the
+sensor's smallest change that is not 0, a millionth past it, so a
+single step is not an event. A window seen fewer than `min_samples`
+changes, or none but 0, has no threshold.
 
 The `Detector` takes, for each sensor of a `Snapshot` with a profile
 in the moment's regime, its latest reading less the one at or before
 the latest's time less the window (no older than `carry` before it),
-in the transform's space: z = (change − median) / σ of the own scale,
-an event when |z| ≥ `Setup#transient_z` (5). `Snapshot.from` reads the
-history far enough back for the longest window and the carry
-(`Snapshot::Gather.reach`).
+in the transform's space: a fall when the change is at or below the
+own fall threshold, a rise at or above the rise threshold. An event's
+`z` is the change over the threshold it went past, 1 or more (2: twice
+as far). `Snapshot.from` reads the history far enough back for the
+longest window and the carry (`Snapshot::Gather.reach`).
 
 An `Influence::Transient` (name "transient", `hold` 1800 s) makes the
 Learner leave transients out of the offsets. It learns the profiles
 from the same span, before the offsets, and, for each sensor but the
 references, puts the influence on in the bins where its relative
-change over a window has |z| ≥ `transient_z` by its relative scale,
-and `hold` after. Those bins are left out of the sensor's offset and
-of its Shifts, as a Mode's are; a transient has no Shift of its own.
-The room preset sets it for both quantities.
+change over a window is beyond its relative threshold, and `hold`
+after. Those bins are left out of the sensor's offset and of its
+Shifts, as a Mode's are; a transient has no Shift of its own. It is
+opt-in: the room preset leaves it out (DESIGN.md, Transients).
+
+```ruby
+setup = Sensorium::Presets.room
+setup = setup.with(influences: setup.influences +
+                                   [Sensorium::Influence::Transient.new])
+```
 
 | `Setup` setting | default |
 |---|---|
 | `transient_windows` | [600, 1200] s |
-| `transient_z` | 5 |
+| `transient_rate` | 0.2 false alarms a day, per window and direction |
 
 ## Fusing
 
@@ -516,7 +531,7 @@ transients: }`), which a caller with its own schema creates too, as
 `Store::Sequel::Schema` does. An offset's maps (switches, taus,
 series, states) are kept as JSON, as are a location's `deltas`, a
 dynamics model's `b`, a collocation's `sigmas` and a profile's `own`
-and `relative` scales (`{ "600": [sigma, median] }`). Tables made before
+and `relative` thresholds (`{ "600": [fall, rise] }`). Tables made before
 the survey rounds lack six columns of `sensor_offsets`: `taus`,
 `series` and `states` (text), `rate`, `off_p10` and `off_p90` (float),
 and `sensor_locations` lacks `deltas` (text); a caller with its own
@@ -534,7 +549,8 @@ changed. It leaves everything else: a sensor short of samples this
 time keeps its offset, and a regime the span barely touched keeps its
 model. A sensor the source no longer lists (gone from `sensors`) is
 dropped, its offsets and shifts in every regime; `forget(quantity,
-location, device)` drops one on demand, its track too. A store's
+location, device)` drops one on demand, its track and transient
+profiles too. A store's
 `learned` gives each regime the span of the latest learning kept in
 it.
 
@@ -565,21 +581,17 @@ it.
 - A dynamics model's q is calibrated on the span it was fitted on:
   another season may move more, or less.
 - A blend takes its estimates' errors as independent.
-- A transient scale's σ is 1.4826 × the median absolute deviation of
-  the changes: for a sensor that reports in steps and, most ten
-  minutes, not at all, the median change and its deviation are 0, so
-  σ is 0 and every change is an event of infinite z, live and in
-  learning. A year of one house learns 77 scales of 218 at σ 0; where
-  the relative one is, the influence leaves out most of the sensor's
-  bins (an Airzone's 11 566 down to 1 183). What σ such a sensor
-  should get is not settled.
-- On that house's green-room (a year of profiles, 74 window openings
-  on cold days), at the default z the Detector finds 97 % of the
-  openings by tado and by two sensors agreeing, but with some 5 false
-  alarms a day where a fixed rule (tado falling 0.5 °C in ten minutes)
-  makes 0.10: a change's distribution is heavy-tailed, so a z of 5 on
-  its median absolute deviation is a small change (0.22 °C on tado in
-  winter).
+- A transient threshold is learned from all the calm changes of a
+  regime, the transients the Detector should find among them: a
+  sensor aired every winter morning learns its airings as its usual
+  changes. On one house's green-room (a year of profiles, 74 window
+  openings on cold days, rate 0.2), tado alone finds 92 % of the
+  openings with some 0.33 false alarms a day (a fixed rule, tado
+  falling 0.5 °C in ten minutes: 92 %, 0.10); two sensors agreeing,
+  88 % at 0.07.
+- The rate holds per window and direction: a sensor with two windows
+  may raise up to four times as many false alarms a day, fewer as its
+  windows overlap.
 
 ## Gate
 

@@ -3,8 +3,8 @@
 module Sensorium
     module Store
         class Sequel
-            # The Transient::Profiles of Store::Sequel, each map of scales
-            # kept as JSON, { "window" => [sigma, median] }.
+            # The Transient::Profiles of Store::Sequel, each map of
+            # thresholds kept as JSON, { "window" => [fall, rise] }.
             module TransientRows
                 SCALES = %i[own relative].freeze
                 KEY    = %i[location device regime].freeze
@@ -37,9 +37,9 @@ module Sensorium
                 end
 
                 def scales(json)
-                    JSON.parse(json).to_h do |window, (sigma, median)|
+                    JSON.parse(json).to_h do |window, (fall, rise)|
                         [Integer(window),
-                         Transient::Scale.new(sigma:, median:)]
+                         Transient::Threshold.new(fall:, rise:)]
                     end
                 end
 
@@ -50,8 +50,8 @@ module Sensorium
                 end
 
                 def json(scales)
-                    JSON.generate(scales.transform_values do |scale|
-                        [scale.sigma, scale.median]
+                    JSON.generate(scales.transform_values do |threshold|
+                        [threshold.fall, threshold.rise]
                     end)
                 end
             end

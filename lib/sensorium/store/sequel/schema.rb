@@ -38,8 +38,8 @@ module Sensorium
                     t.primary_key %i[location quantity regime]
                 end
 
-                # A Transient::Profile's scales as JSON, { window =>
-                # [sigma, median] }.
+                # A Transient::Profile's thresholds as JSON, { window =>
+                # [fall, rise] }.
                 def transients(t)
                     key(t)
                     %i[own relative].each do |name|
