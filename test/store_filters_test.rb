@@ -4,7 +4,7 @@ require "test_helper"
 require "sensorium/store/sequel"
 
 # A Filter's states, kept between runs: one per location and quantity,
-# replaced by a keep.
+# a keep replacing the location given and leaving the others.
 module StoreFiltersBehaviour
     AT = Time.utc(2026, 1, 10, 12)
 
@@ -17,11 +17,13 @@ module StoreFiltersBehaviour
         assert_empty @store.filters("humidity")
     end
 
-    def test_a_keep_replaces_the_states_of_its_quantity
+    def test_a_keep_replaces_only_the_locations_given
         @store.keep_filters("temperature", [state("a", 20.0), state("b", 21.0)])
         @store.keep_filters("temperature", [state("a", 22.0)])
-        assert_equal %w[a], @store.filters("temperature").keys
-        assert_in_delta 22.0, @store.filters("temperature")["a"].value
+        found = @store.filters("temperature")
+        assert_equal %w[a b], found.keys.sort
+        assert_in_delta 22.0, found["a"].value
+        assert_in_delta 21.0, found["b"].value
     end
 
     private

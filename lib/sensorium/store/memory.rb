@@ -14,7 +14,8 @@ module Sensorium
     #                                      settings: { key => value, nil
     #                                      back to the default }
     #   tracks(quantity)                   { [location, device] => Track }
-    #   keep_tracks(quantity, tracks)      replaces them all
+    #   keep_tracks(quantity, tracks)      replaces those of the same
+    #                                      location and device
     #   forget(quantity, location, device) drops a sensor's offsets,
     #                                      shifts, track and transient
     #                                      profiles
@@ -26,7 +27,8 @@ module Sensorium
     #                                      location and regime
     #   transients(quantity)               [Transient::Profile]
     #   filters(quantity)                  { location => Filter::State }
-    #   keep_filters(quantity, states)     replaces them all
+    #   keep_filters(quantity, states)     replaces those of the same
+    #                                      location
     #   keep_transients(quantity, profiles) replaces those of the same
     #                                      location, device and regime
     module Store
@@ -77,7 +79,8 @@ module Sensorium
             def tracks(quantity) = @tracks.fetch(quantity, {})
 
             def keep_tracks(quantity, tracks)
-                @tracks[quantity] = tracks.dup.freeze
+                @tracks[quantity] =
+                    @tracks.fetch(quantity, {}).merge(tracks).freeze
             end
 
             def forget(quantity, location, device)
@@ -113,7 +116,9 @@ module Sensorium
             def filters(quantity) = @filters.fetch(quantity, {})
 
             def keep_filters(quantity, states)
-                @filters[quantity] = states.to_h { [it.location, it] }.freeze
+                given = states.to_h { [it.location, it] }
+                @filters[quantity] = @filters.fetch(quantity, {})
+                                             .merge(given).freeze
             end
 
             def keep_transients(quantity, profiles)

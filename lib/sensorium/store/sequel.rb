@@ -6,6 +6,8 @@ require "sequel"
 
 require "sensorium"
 
+require_relative "sequel/clock"
+require_relative "sequel/location_rows"
 require_relative "sequel/tracks"
 require_relative "sequel/filters"
 require_relative "sequel/dynamics_rows"
@@ -21,6 +23,8 @@ module Sensorium
         # there already, as the caller made them. Lists are kept as A,B,
         # an Offset's maps (switches, taus, series, states) as JSON.
         class Sequel
+            include Clock
+            include LocationRows
             include DynamicsRows
             include CollocationRows
             include TransientRows
@@ -59,12 +63,14 @@ module Sensorium
                 table(:offsets).where(quantity:).distinct
                                .select_map(%i[regime learned_from learned_to
                                               learned_at])
+                               .map { utc_row(it) }
                                .group_by(&:first)
                                .transform_values { latest(it) }
             end
 
             def keep(learned, from:, to:, at: Time.now)
-                span = { learned_from: from, learned_to: to, learned_at: at }
+                span = { learned_from: from.utc, learned_to: to.utc,
+                         learned_at: at.utc }
                 @db.transaction do
                     quantity = learned.quantity
                     drop(quantity, learned.gone(offsets(quantity)))
@@ -109,22 +115,6 @@ module Sensorium
                 table(:shifts).multi_insert(learned.shifts.map(&:to_h))
             end
 
-            # A Location's settings as its row's columns: lists as A,B,
-            # deltas as JSON.
-            def columns(settings)
-                settings.to_h do |key, value|
-                    [key == :references ? :reference : key, column(value)]
-                end
-            end
-
-            def column(value)
-                case value
-                when Array then value.join(",")
-                when Hash then JSON.generate(value)
-                else value
-                end
-            end
-
             def rows(name, quantity, order)
                 table(name).where(quantity:).order(*order).all
             end
@@ -137,14 +127,6 @@ module Sensorium
             def row(offset)
                 values = offset.to_h
                 values.merge(MAPS.to_h { [it, JSON.generate(values[it])] })
-            end
-
-            def location(row)
-                Location.new(name: row[:location],
-                             references: row[:reference]&.split(","),
-                             exclude: row[:exclude]&.split(","),
-                             deltas: JSON.parse(row[:deltas] || "{}"),
-                             **row.slice(:sigma, :drift, :max_age))
             end
         end
     end

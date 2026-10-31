@@ -34,14 +34,17 @@ module StoreBehaviour
         assert_empty @store.locations("humidity")
     end
 
-    def test_tracks_come_back_and_are_replaced
-        tracks = { %w[room tado] => track(:drifting) }
-        @store.keep_tracks("temperature", tracks)
-        assert_equal tracks, @store.tracks("temperature")
+    def test_a_track_is_kept_by_its_key_and_leaves_the_others
+        tado = { %w[room tado] => track(:drifting) }
+        @store.keep_tracks("temperature", tado)
+        assert_equal tado, @store.tracks("temperature")
         assert_empty @store.tracks("humidity")
-        tracks = { %w[room airzone] => track(:jumped, device: "airzone") }
-        @store.keep_tracks("temperature", tracks)
-        assert_equal tracks, @store.tracks("temperature")
+        airzone = { %w[room airzone] => track(:jumped, device: "airzone") }
+        @store.keep_tracks("temperature", airzone)
+        assert_equal tado.merge(airzone), @store.tracks("temperature")
+        replaced = { %w[room tado] => track(:ok) }
+        @store.keep_tracks("temperature", replaced)
+        assert_equal replaced.merge(airzone), @store.tracks("temperature")
     end
 
     def test_a_references_track_comes_back
@@ -62,12 +65,12 @@ module StoreBehaviour
 
     private
 
-    def track(state, device: "tado")
+    def track(state, device: "tado", at: FakeHouse::START)
         Sensorium::Track.new(location: "room", device:,
                              quantity: "temperature", regime: "winter",
                              reference: "ceil", constant: -1.0, plain: -1.0,
                              delta: 0.125, variance: 0.0025, cusum_up: 1.5,
-                             cusum_down: 0.0, at: FakeHouse::START, state:)
+                             cusum_down: 0.0, at:, state:)
     end
 
     def learned = Winter.learned
@@ -113,5 +116,50 @@ class SequelStoreTest < Minitest::Test
         Sensorium::Store::Sequel.new(db, tables: { tracks: :tracking })
         assert db.table_exists?(:tracking)
         refute db.table_exists?(:sensor_tracks)
+    end
+
+    # A moment in the autumn hour Europe/Paris repeats (2026-10-25,
+    # 00:30 UTC is 02:30 CEST, then again as 02:30 CET an hour later):
+    # kept and read back under that zone, a track's, a filter state's
+    # and a learning's time must stay the instant given.
+    def test_times_round_trip_through_the_repeated_dst_hour
+        at = Time.utc(2026, 10, 25, 0, 30)
+        with_tz("Europe/Paris") { assert_dst_round_trip(at) }
+    end
+
+    private
+
+    def assert_dst_round_trip(at)
+        assert_equal at, track_at(at)
+        assert_equal at, filter_at(at)
+        assert_equal at, learned_at(at)
+    end
+
+    def track_at(at)
+        @store.keep_tracks("temperature", { %w[room tado] => track(:ok, at:) })
+        @store.tracks("temperature")[%w[room tado]].at
+    end
+
+    def filter_at(at)
+        @store.keep_filters("temperature", [filter_state(at)])
+        @store.filters("temperature")["room"].at
+    end
+
+    def learned_at(at)
+        @store.keep(learned, from: at, to: at, at:)
+        @store.learned("temperature")["winter"].last
+    end
+
+    def filter_state(at)
+        Sensorium::Filter::State.new(location: "room", quantity: "temperature",
+                                     at:, value: 20.0, variance: 0.01)
+    end
+
+    def with_tz(name)
+        before = ENV.fetch("TZ", nil)
+        ENV["TZ"] = name
+        yield
+    ensure
+        ENV["TZ"] = before
     end
 end

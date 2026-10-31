@@ -465,7 +465,7 @@ tracks  = store.tracks("temperature")
 fused  = Sensorium::Fusion.new(setup, offsets:, shifts:)
                           .location("green-room", snapshot)
 tracks = tracker.update(tracks, fused)          # new tracks, pure
-store.keep_tracks("temperature", tracks)        # replaces them all
+store.keep_tracks("temperature", tracks)        # replaces those given
 
 # the value, with the tracks
 Sensorium::Fusion.new(setup, offsets:, shifts:, tracks:)
@@ -582,12 +582,18 @@ the survey rounds lack six columns of `sensor_offsets`: `taus`,
 `series` and `states` (text), `rate`, `off_p10` and `off_p90` (float),
 and `sensor_locations` lacks `deltas` (text); a caller with its own
 schema adds them. Another store answers the same seventeen methods (see
-`lib/sensorium/store/memory.rb`).
+`lib/sensorium/store/memory.rb`). A time `Store::Sequel` keeps
+(`learned_from`, `learned_to`, `learned_at`, `tracked_at`,
+`filtered_at`) is stored and read back as UTC, independently of the
+database's own timezone setting.
 
-Keeping dynamics (`keep_dynamics`) or collocations
-(`keep_collocations`) replaces those of the same location and regime,
-and leaves the others; keeping transient profiles
-(`keep_transients`), those of the same location, device and regime.
+Every `keep_*` method follows the one rule: it replaces what shares
+the kept rows' key, and leaves the rest. Keeping dynamics
+(`keep_dynamics`) or collocations (`keep_collocations`) replaces those
+of the same location and regime; transient profiles
+(`keep_transients`), those of the same location, device and regime;
+tracks (`keep_tracks`), those of the same location and device; filter
+states (`keep_filters`), those of the same location.
 
 Keeping a learning replaces the offsets (and shifts) of the sensors it
 learned again, and every offset of a location whose reference it found
