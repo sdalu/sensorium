@@ -15,8 +15,10 @@ module Sensorium
 
         # What was learned of the location in the moment's regime:
         # offsets { device => Offset }, shifts { [device, influence,
-        # mode] => Shift }.
-        Learning = Data.define(:offsets, :shifts)
+        # mode] => Shift }, dynamics its Dynamics::Model (nil: none).
+        Learning = Data.define(:offsets, :shifts, :dynamics) do
+            def initialize(dynamics: nil, **) = super
+        end
 
         # location: a resolved Location; references: [device], nil when
         # it has none.
@@ -24,13 +26,13 @@ module Sensorium
             @location = location
             @name     = references&.join("+")
             @sole     = references&.one? && references.first
-            @offsets  = learning.offsets.select do |_, offset|
-                offset.reference == @name
-            end
+            @offsets  = learning.offsets
+                                .select { |_, one| one.reference == @name }
             @shifts   = learning.shifts
             @snapshot = snapshot
             @quantity = setup.quantity
             @inputs   = Inputs.new(location, references, snapshot, setup)
+            @aging    = Aging.new(location, learning.dynamics, snapshot, setup)
         end
 
         def all
@@ -47,10 +49,9 @@ module Sensorium
             note = why_not(device, age, inside) and
                 return Part.new(device:, raw: reading.value, value: nil,
                                 sigma: nil, age:, note:)
-            estimate = estimate(device, inside)
-            sigma = estimate.sigma && @location.aged(floored(estimate), age)
+            estimate = @aging.of(device, reading, estimate(device, inside))
             Part.new(device:, raw: reading.value, value: estimate.value,
-                     sigma:, age:, note: nil)
+                     sigma: estimate.sigma, age:, note: nil)
         end
 
         def why_not(device, age, inside)
@@ -61,8 +62,6 @@ module Sensorium
                 "not learned"
             end
         end
-
-        def floored(estimate) = [estimate.sigma, @quantity.floor].max
 
         def inward(reading)
             @quantity.transform.forward(reading.value, reading.context)
@@ -102,3 +101,4 @@ module Sensorium
 end
 
 require_relative "parts/inputs"
+require_relative "parts/aging"

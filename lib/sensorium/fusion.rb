@@ -21,12 +21,14 @@ module Sensorium
         Weighted = Data.define(:part, :weight, :note, :value)
 
         # offsets: [Offset]; shifts: [Shift]; locations: { name =>
-        # Location }, those set; all of the setup's quantity.
-        def initialize(setup, offsets:, shifts:, locations: {})
+        # Location }, those set; dynamics: [Dynamics::Model]; all of the
+        # setup's quantity.
+        def initialize(setup, offsets:, shifts:, locations: {}, dynamics: [])
             @setup     = setup
             @offsets   = offsets.group_by { [it.location, it.regime] }
             @shifts    = shifts.group_by { [it.location, it.regime] }
             @locations = locations
+            @dynamics  = dynamics.to_h { [[it.location, it.regime], it] }
         end
 
         # The locations it can tell: those learned, set, or read.
@@ -67,7 +69,8 @@ module Sensorium
                 offsets: @offsets.fetch(key, []).to_h { [it.device, it] },
                 shifts: @shifts.fetch(key, []).to_h do |shift|
                     [[shift.device, shift.influence, shift.mode], shift]
-                end
+                end,
+                dynamics: @dynamics[key]
             )
         end
     end

@@ -26,8 +26,5 @@ module Sensorium
                  drift: drift || quantity.drift,
                  max_age: max_age || quantity.max_age)
         end
-
-        # A reading's σ grown with its age (seconds).
-        def aged(sigma, age) = Math.hypot(sigma, drift * age / 3600.0)
     end
 end
