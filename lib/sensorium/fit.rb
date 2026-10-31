@@ -16,7 +16,8 @@ module Sensorium
     # only when it narrows the spread (p10..p90) to setup.narrows of what
     # it was; a linear term, or pair, only when it leaves |1 + gain +
     # coefficient| at setup.scale_floor at least, else the model before
-    # it is kept.
+    # it is kept. The terms kept are then refitted together, once
+    # (Joint).
     class Fit
         # residuals: { bin => what the model leaves }.
         Model = Data.define(:constant, :switches, :taus, :series, :gain,
@@ -51,7 +52,8 @@ module Sensorium
             best = @terms.filtered.reduce(best) do |kept, (name, by_tau)|
                 better(kept, filtered(kept, name, by_tau))
             end
-            rated(linear(series(best)))
+            Joint.new(@diffs, @setup, @levels, @terms)
+                 .of(rated(linear(series(best))))
         end
 
         # { states:, off_p10:, off_p90: } of a model (Offset): what it
@@ -145,6 +147,7 @@ module Sensorium
     end
 end
 
+require_relative "fit/joint"
 require_relative "fit/linear"
 require_relative "fit/median"
 require_relative "fit/states"
