@@ -7,6 +7,7 @@ require "sequel"
 require "sensorium"
 
 require_relative "sequel/tracks"
+require_relative "sequel/dynamics_rows"
 
 module Sensorium
     module Store
@@ -16,11 +17,14 @@ module Sensorium
         # there already, as the caller made them. Lists are kept as A,B,
         # an Offset's maps (switches, taus, series) as JSON.
         class Sequel
+            include DynamicsRows
+
             MAPS = %i[switches taus series].freeze
 
             TABLES = { offsets: :sensor_offsets, shifts: :sensor_shifts,
                        locations: :sensor_locations,
-                       tracks: :sensor_tracks }.freeze
+                       tracks: :sensor_tracks,
+                       dynamics: :sensor_dynamics }.freeze
 
             include Tracks
 
@@ -94,11 +98,19 @@ module Sensorium
                 table(:shifts).multi_insert(learned.shifts.map(&:to_h))
             end
 
-            # A Location's settings as its row's columns.
+            # A Location's settings as its row's columns: lists as A,B,
+            # deltas as JSON.
             def columns(settings)
                 settings.to_h do |key, value|
-                    [key == :references ? :reference : key,
-                     value.is_a?(Array) ? value.join(",") : value]
+                    [key == :references ? :reference : key, column(value)]
+                end
+            end
+
+            def column(value)
+                case value
+                when Array then value.join(",")
+                when Hash then JSON.generate(value)
+                else value
                 end
             end
 
@@ -120,6 +132,7 @@ module Sensorium
                 Location.new(name: row[:location],
                              references: row[:reference]&.split(","),
                              exclude: row[:exclude]&.split(","),
+                             deltas: JSON.parse(row[:deltas] || "{}"),
                              **row.slice(:sigma, :drift, :max_age))
             end
         end

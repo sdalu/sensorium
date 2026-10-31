@@ -48,6 +48,14 @@ class FusionEdgesTest < Minitest::Test
         assert_in_delta 20.0, part(fused, "tado").part.value
     end
 
+    # A misspelt option would silently fuse without what it names.
+    def test_an_unknown_option_is_refused
+        assert_raises(ArgumentError) do
+            Sensorium::Fusion.new(Sensorium::Presets.room, offsets: [],
+                                                           shifts: [], track: {})
+        end
+    end
+
     private
 
     def with_old_garage

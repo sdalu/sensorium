@@ -15,6 +15,9 @@ module Sensorium
     #                                      back to the default }
     #   tracks(quantity)                   { [location, device] => Track }
     #   keep_tracks(quantity, tracks)      replaces them all
+    #   dynamics(quantity)                 [Dynamics::Model]
+    #   keep_dynamics(quantity, models)    replaces those of the same
+    #                                      location and regime
     module Store
         # In memory: for tests, and for a learning used at once.
         class Memory
@@ -24,6 +27,7 @@ module Sensorium
                 @spans     = {}
                 @locations = {}
                 @tracks    = {}
+                @dynamics  = []
             end
 
             def offsets(quantity) = @offsets.select { it.quantity == quantity }
@@ -60,6 +64,18 @@ module Sensorium
 
             def keep_tracks(quantity, tracks)
                 @tracks[quantity] = tracks.dup.freeze
+            end
+
+            def dynamics(quantity)
+                @dynamics.select { it.quantity == quantity }
+            end
+
+            def keep_dynamics(quantity, models)
+                keys = models.to_set { [it.location, it.regime] }
+                @dynamics = @dynamics.reject do |model|
+                    model.quantity == quantity &&
+                        keys.include?([model.location, model.regime])
+                end + models
             end
 
             private

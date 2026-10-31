@@ -116,7 +116,7 @@ within its hold, and dr/dt from the reference's two latest readings
 within `max_age` (`Snapshot#history`). Without a series' value or
 dr/dt, the plain offset. Each reading is weighted
 by 1/σ². σ is never below the quantity's `floor`, grows with the
-reading's age (`drift` per hour), and a reading older than `max_age`
+reading's age (see Staleness), and a reading older than `max_age`
 does not count. A location without references set takes those it was
 learned against in the moment's regime. With two sensors or more, the
 inverse-variance fusion is Student-t reweighted (ν `robust_nu`) until
@@ -129,6 +129,70 @@ sensor does not count: `excluded`, `stale`, `not learned`,
 counts with a caveat: `outlier`, `drifting` (its track says so). A
 location with no reference gets the plain mean, `corrected` false and
 `sigma` nil.
+
+### Staleness
+
+A reading is an estimate of the reference when it was taken; by the
+time it is fused, the room has moved on. By default its σ grows with
+its age t (hours) as √(σ² + (drift × t)²), its value unmoved.
+
+A location's **dynamics** do better where they were learned: a
+first-order model of its reference r over one bin, per regime,
+
+    r(t + bin) - r(t) = a × (outside - r) + Σ b[switch] × on + c + noise
+
+with `outside` the external series `Setup#outside` names (none: a is
+0) and `on` 1 while each Switch is on (its hard hold, not its
+exposure). An aged reading is moved by what the model predicts over
+its age, from the inputs at the moment (the outside's latest value
+among the snapshot's externals, if no older than the location's
+`max_age`, the Switches on), (a × (outside −
+value) + Σ b × on + c) × age in bins, and its σ² grows by q × t, q
+the variance the model leaves, per hour. Without a model for the
+moment's regime, without the outside value when a ≠ 0, or while a
+Mode holds (the model was fitted without those bins), the drift
+rule.
+
+```ruby
+setup = Sensorium::Presets.room.with(outside: "outside")
+models = Sensorium::Dynamics.learn(source, setup, from:, to:)
+store.keep_dynamics("temperature", models)
+fusion = Sensorium::Fusion.new(setup, offsets: store.offsets("temperature"),
+                                      shifts: store.shifts("temperature"),
+                                      locations: store.locations("temperature"),
+                                      dynamics: store.dynamics("temperature"))
+```
+
+`Dynamics.learn` takes the location's reference as the learner does
+(the `Location`'s, else the setup's `places`), fits the model by least
+squares over the bins of the carried reference series where every term
+is known and no Mode held (nor within its hold), and gives no model for
+a location and regime seen less than `min_samples` steps, or with
+a < 0 (a room running away from the outside is not a model). A Switch
+never off, or never on, in a regime is left out: its term cannot be
+told from c. q is the mean square of the error of predicting the
+reference an hour ahead, as the Fusion does, over the bins fitted.
+
+Each model is validated: fitted without the last tenth of its steps
+(a week at least), it must predict the reference two hours ahead from
+those steps with an RMS error at most `Setup#dynamics_margin` (98 %)
+of holding the last value's, or the
+location and regime get no model; kept, it is fitted again on all its
+steps and carries both errors (`rms_hold`, `rms_model`). It is learned
+apart from `Learner#learn`, so a caller can run it on its own schedule.
+
+A **send-on-delta** sensor reports only when its value moved by a
+threshold: an unchanged value is within that delta of the truth as
+long as the sensor is alive. A `Location`'s `deltas` (`{ device =>
+delta }`, as the quantity reads, before the transform) cap what the
+age adds to σ² at delta² / 3, whichever rule gave it; the delta is
+taken into the transform's space at the reading (2 %RH is some
+0.35 g/m³ at 20 °C). `max_age` still cuts: a sensor silent for longer
+may be dead.
+
+```ruby
+store.set_location("temperature", "green-room", { deltas: { "hue-1" => 0.2 } })
+```
 
 ## Tracking
 
@@ -257,7 +321,9 @@ answers, for a quantity's name:
 A reading's time is when its value was last known to hold. A sensor
 that reports only changes (HomeKit) holds a steady value for hours: its
 source re-emits the value, or stamps it with the last time the sensor
-was heard from, or every steady reading turns stale.
+was heard from, or every steady reading turns stale. A `Location`'s
+`deltas` (see Staleness) bound such a reading's σ, not its age: it
+still needs the re-emission or the stamp to stay under `max_age`.
 
 ## Stores
 
@@ -265,14 +331,19 @@ A store keeps what a learning found, the locations' settings and the
 Tracker's tracks, by quantity. `Store::Memory` for tests and one-off runs;
 `Store::Sequel` (`require "sensorium/store/sequel"`) for any SQL
 database, its table names configurable, its tables created when missing
-unless `migrate: false`. The Tracker's tracks are kept in a fourth
-table (`sensor_tracks`, `tables: { tracks: }`), which a caller with
-its own schema creates too. An offset's maps (switches, taus, series)
-are kept as JSON. Tables made before this round lack three columns of
-`sensor_offsets`: `taus` and `series` (text) and `rate` (float); a
-caller with its own schema adds them. Another store answers the same
-eight methods
-(see `lib/sensorium/store/memory.rb`).
+unless `migrate: false`. The Tracker's tracks and the dynamics models
+are kept in two more tables (`sensor_tracks`, `tables: { tracks: }`;
+`sensor_dynamics`, `tables: { dynamics: }`), which a caller with its
+own schema creates too, as `Store::Sequel::Schema` does. An offset's
+maps (switches, taus, series) are kept as JSON, as are a location's
+`deltas` and a dynamics model's `b`. Tables made before the survey
+rounds lack three columns of `sensor_offsets`: `taus` and `series`
+(text) and `rate` (float), and `sensor_locations` lacks `deltas`
+(text); a caller with its own schema adds them. Another store answers
+the same ten methods (see `lib/sensorium/store/memory.rb`).
+
+Keeping dynamics (`keep_dynamics`) replaces the models of the same
+location and regime, and leaves the others.
 
 Keeping a learning replaces the offsets (and shifts) of the sensors it
 learned again, and every offset of a location whose reference it found
@@ -296,6 +367,10 @@ learning kept in it.
   measured.
 - An offset of a sensor gone for good stays in the store until its
   location is learned against another reference.
+- A dynamics model is a straight line over the reading's age (fine
+  while a × age in bins is small: under 0.1 an hour on MadHouse), and
+  its q is off by up to 4 × either way on MadHouse's October
+  (DESIGN.md).
 - A neighbour name is "LOCATION/DEVICE": a location "a/b" with a
   device "c" and a location "a" with a device "b/c" collide.
 

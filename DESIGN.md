@@ -243,6 +243,119 @@ next batch learning, and nothing said so.
   the update on what the Offsets alone say is what lets a drifting
   part clear.
 
+## Staleness (2026-10-31)
+
+The survey (sections 4, 5.2 item 7, 5.3 item 5) found the linear σ
+growth the weakest part of the fusion: an hour-old reading lost
+almost all its weight (drift 1 °C/h against σ 0.1), whatever the room
+was doing, and a report-on-change sensor's steady value looked stale
+though it was known to be within its reporting step.
+
+- **A first-order ARX of the reference, per location and regime.**
+  One state, r, driven by the gap to the outside, each Switch's
+  on-state and a constant: the discrete form of a one-resistance,
+  one-capacitance room (a = bin / τ), which is what the survey's
+  Kalman time update needs and nothing more. Its inputs are already
+  what the learner reads; it is fitted in closed form by least
+  squares on the carried reference series, as the learner builds it,
+  and refused when a < 0 (a room running away from the outside is not
+  a room) or seen less than `min_samples` steps.
+- **Every Switch by its hard hold**, a filtered one too: the room's
+  own time constant filters it already, and the exposure's τ was
+  chosen for a sensor's offset, not for the room.
+- **A Switch never off, or never on, in a regime is left out** of that
+  regime's fit: its column would be the constant's, or nothing.
+- **The bins under a Mode are left out of the fit**, and its hold
+  after, as the learner does for the offsets: the aircon drives the
+  room by far more than anything the model has, and a synthetic
+  aircon cooling the room two hours a day biased a by a quarter.
+- **Kept only when it beats holding the last value.** Each location
+  and regime is fitted without the last tenth of its steps (a week of
+  them at least), then predicts the reference two hours ahead from
+  each of those steps, as the Fusion would; it is kept only if its RMS
+  error is at most 98 % of holding's (`Setup#dynamics_margin`), then
+  fitted again on all its steps. Both errors stay on the model
+  (`rms_hold`, `rms_model`). The margin is there because most rooms
+  won or lost by a few thousandths, which is noise: green-room's mid
+  model won its May validation by 0.7 % and lost in October.
+- **Not while a Mode holds.** The model is fitted without the bins
+  under a Mode, so it says nothing of them: while the aircon runs, a
+  reading ages by the drift rule.
+- **q from an hour ahead, not from one step.** The carried series is
+  steady between reports, so its steps are far from independent, and
+  six times a step's residual variance said little of an hour's error.
+  q is the mean square of the error of predicting an hour ahead, as
+  the Fusion does, over the bins fitted. On a synthetic room whose
+  noise is an AR(1) of coefficient 0.9 it comes within 4 % of the true
+  hour's error; the one-step rule gave a fourteenth of it.
+- **Only the time update, applied per reading.** No fused state is
+  kept between calls: the Fusion stays a function of the snapshot.
+  Each reading is moved by the model's predicted change over its age,
+  from the inputs at the moment (the outside only if read within the
+  location's `max_age`), and its σ² grows by q × age. The change is a
+  straight line (Euler over the age): with a below 0.014 per bin on
+  MadHouse and `max_age` an hour, a × age stays under 0.1.
+- **Send-on-delta as a cap, not a model.** A value that has not moved
+  by its delta is within ±delta of the truth; spread evenly there its
+  variance is delta² / 3. The cap applies to whichever age term holds,
+  and `max_age` still cuts: without a heartbeat, silence cannot be told
+  from a dead sensor.
+
+What MadHouse's year showed (`Presets.room`, outside: the weather
+station; 2025-10-31 to 2026-10-31, 27 regimes over 9 locations). The
+run kept a model whenever it beat holding at all: 20 kept, 7
+refused. With the 2 % margin, applied after it from the same numbers,
+11 are kept: downstairs in winter and summer, the garage in all three
+seasons, red-room mid-season, the shower room in winter and summer,
+toilet-downstairs mid-season, toilet-upstairs in winter, under-the-sink
+in summer. The run's table:
+
+| location | winter | mid | summer |
+|---|---|---|---|
+| bathroom | kept (0.322 → 0.318) | refused (0.440, 0.442) | kept (0.353 → 0.353) |
+| downstairs | kept (0.310 → 0.291) | kept (0.525 → 0.524) | kept (0.274 → 0.256) |
+| garage | kept (1.018 → 0.730) | kept (0.698 → 0.528) | kept (0.883 → 0.563) |
+| green-room | kept (0.529 → 0.523) | kept (0.540 → 0.536) | refused (0.217, 0.233) |
+| red-room | refused (0.280, 0.281) | kept (0.619 → 0.563) | kept (0.354 → 0.350) |
+| shower-room | kept (0.162 → 0.151) | refused (0.123, 0.128) | kept (0.092 → 0.090) |
+| toilet-downstairs | refused (0.059, 0.059) | kept (0.065 → 0.063) | refused: a < 0 or singular on the first nine tenths |
+| toilet-upstairs | kept (0.150 → 0.136) | refused (0.090, 0.094) | kept (0.069 → 0.069) |
+| under-the-sink | kept (0.544 → 0.536) | kept (0.559 → 0.549) | kept (0.390 → 0.375) |
+
+(the validation's RMS two hours ahead, °C: holding → the model.) Only
+the garage gains clearly; elsewhere a model is kept or refused by a
+few thousandths. The aircon holds in most of green-room's and
+red-room's mid and summer bins: 2 500 to 4 600 steps are left, against
+some 12 500 elsewhere. τ = bin / a is 12 to 17 h in the garage, 36 to
+200 h in the living rooms, 600 to 3 300 h in the toilets; the heating
+term is 0.01 to 0.03 °C per bin in winter in seven locations of nine.
+q is 0.0025 to 0.26 K² per hour.
+
+Held out: the models learned 2025-10-31 to 2026-10-01 (validated
+the same way, so for "mid" on its last tenth, in May) predicted October's
+reference. Only three locations kept a "mid" model; RMS in °C from the
+starts outside a Mode, holding against the model as the Fusion applies
+it, then q against October's mean square error an hour ahead:
+
+| location | starts | 1 h hold | 1 h model | 2 h hold | 2 h model | 4 h hold | 4 h model | q | 1 h MSE |
+|---|---|---|---|---|---|---|---|---|---|
+| garage | 4 326 | 0.365 | 0.276 | 0.648 | 0.425 | 1.130 | 0.697 | 0.339 | 0.076 |
+| green-room | 232 | 0.198 | 0.198 | 0.345 | 0.346 | 0.554 | 0.557 | 0.063 | 0.039 |
+| red-room | 275 | 0.357 | 0.343 | 0.530 | 0.474 | 0.649 | 0.615 | 0.050 | 0.118 |
+| pooled | | 0.358 | 0.277 | 0.630 | 0.425 | 1.087 | 0.687 | | |
+
+Over every start, the aircon's included (green-room and red-room
+4 326 and 4 324), green-room's model is worse than holding at every
+horizon (1 h 0.216 against 0.214, 2 h 0.323 against 0.317, 4 h 0.501
+against 0.480), red-room's too (0.452 against 0.450, 0.548 against
+0.534, 0.703 against 0.612), and red-room's hour error is 4 × q: the
+Fusion applied a model under the aircon that was not fitted there,
+which it no longer does.
+The validation in May did not foresee October's green-room;
+its margins are of the order of their noise. q is now on the safe
+side in the garage (4 × October's error: April and May moved it more)
+and in green-room (1.6 ×), still short in red-room (2.4 × short).
+
 ## Ruled out
 
 - **A lag term**: a lagged boiler-pipe gap gained nothing in
@@ -258,6 +371,15 @@ next batch learning, and nothing said so.
   probability where the fusion needs a decision (count the part or
   not). A CUSUM on the one filter's innovations gives the decision
   with two thresholds.
+- **A full RC network** for staleness (several capacitances per room,
+  walls, rooms coupled to each other), the grey-box hierarchy the
+  survey cites: each location would need several parameters
+  identified jointly with its neighbours (maximum likelihood on
+  stochastic differential equations), and the fusion would have to
+  carry a state across locations. The validation leaves little for it:
+  two hours ahead, the first-order model beats holding the last value
+  by a few hundredths of a degree at most, everywhere but the
+  garage.
 - **Learning the shift over the full model**, the other way to make a
   shift and its use agree: it needs the neighbour at the run's bins,
   and falls back to the plain offset anyway when it is missing. Under

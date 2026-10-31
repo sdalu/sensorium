@@ -25,6 +25,10 @@ module Sensorium
             on_where(location).select { |name, _| @taus[name].empty? }
         end
 
+        # { name => bins it was on } of every Switch where the location
+        # is, filtered or not: their hard hold.
+        def switched(location) = on_where(location)
+
         # { name => { tau => { bin => exposure } } } of the filtered
         # Switches where the location is.
         def exposures(location)

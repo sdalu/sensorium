@@ -20,15 +20,22 @@ module Sensorium
         # its value brought back as the quantity reads.
         Weighted = Data.define(:part, :weight, :note, :value)
 
+        # What a Fusion may be given beside offsets and shifts.
+        OPTIONAL = { locations: {}, tracks: {}, dynamics: [] }.freeze
+
         # offsets: [Offset]; shifts: [Shift]; locations: { name =>
         # Location }, those set; tracks: { [location, device] => Track },
-        # the Tracker's; all of the setup's quantity.
-        def initialize(setup, offsets:, shifts:, locations: {}, tracks: {})
+        # the Tracker's; dynamics: [Dynamics::Model]; all of the setup's
+        # quantity.
+        def initialize(setup, offsets:, shifts:, **optional)
+            given = OPTIONAL.merge(optional)
+            unknown = given.keys - OPTIONAL.keys
+            raise ArgumentError, "unknown: #{unknown.join(", ")}" if
+                unknown.any?
             @setup     = setup
             @offsets   = offsets.group_by { [it.location, it.regime] }
             @shifts    = shifts.group_by { [it.location, it.regime] }
-            @locations = locations
-            @tracks    = tracks
+            assign(**given)
         end
 
         # The locations it can tell: those learned, set, or read.
@@ -51,6 +58,12 @@ module Sensorium
 
         private
 
+        def assign(locations:, tracks:, dynamics:)
+            @locations = locations
+            @tracks    = tracks
+            @dynamics  = dynamics.to_h { [[it.location, it.regime], it] }
+        end
+
         # The references a location was learned against in the moment's
         # regime, else in any; nil when it was not learned.
         def learned(key)
@@ -71,7 +84,8 @@ module Sensorium
                 shifts: @shifts.fetch(key, []).to_h do |shift|
                     [[shift.device, shift.influence, shift.mode], shift]
                 end,
-                tracks: tracks(key, references, offsets)
+                tracks: tracks(key, references, offsets),
+                dynamics: @dynamics[key]
             )
         end
 
