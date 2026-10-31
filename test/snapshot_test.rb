@@ -62,6 +62,26 @@ class SnapshotTest < Minitest::Test
         end
     end
 
+    # "a/b" with "c", and "a" with "b/c": two names, each found.
+    def test_names_that_would_collide_do_not
+        keys = [["a/b", "c"], ["a", "b/c"], [nil, "a/b/c"]]
+        names = keys.map { Sensorium::Learner::Neighbours.name_of(*it) }
+        assert_equal 3, names.uniq.size
+        latest = keys.to_h { |key| [key, reading(*key)] }
+        snap = Sensorium::Snapshot.new(at: FakeHouse::START, latest:)
+        keys.zip(names).each do |key, name|
+            found = snap.neighbour(name)
+            assert_equal key, [found.location, found.device]
+        end
+    end
+
+    # A name without "/" or "%" in its parts reads as it always did.
+    def test_plain_names_are_unchanged
+        neighbours = Sensorium::Learner::Neighbours
+        assert_equal "garage/g1", neighbours.name_of("garage", "g1")
+        assert_equal "outside", neighbours.name_of(nil, "outside")
+    end
+
     private
 
     def reading(location, device)

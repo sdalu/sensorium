@@ -5,7 +5,8 @@ module Sensorium
         # What a location's sensors may be learned against beside their
         # reference: every other location's sensors, unless a Sensor
         # says it is no neighbour, and the externals (the location nil).
-        # Named "LOCATION/DEVICE", an external by its device alone.
+        # Named "LOCATION/DEVICE", an external by its device alone (see
+        # name_of).
         class Neighbours
             # data: { [location, device] => { bin => value } }.
             def initialize(series, carry, sensors, data)
@@ -16,8 +17,15 @@ module Sensorium
                 @data   = data
             end
 
+            # "LOCATION/DEVICE", an external's DEVICE, each part's "%"
+            # and "/" escaped (%25, %2F) so that no two names collide.
             def self.name_of(location, device)
-                location ? "#{location}/#{device}" : device
+                return escaped(device) unless location
+                "#{escaped(location)}/#{escaped(device)}"
+            end
+
+            def self.escaped(part)
+                part.to_s.gsub("%", "%25").gsub("/", "%2F")
             end
 
             # { name => { bin => reference - neighbour } } for a location,

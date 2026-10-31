@@ -454,8 +454,6 @@ learning kept in it.
 - A dynamics model's q is calibrated on the span it was fitted on:
   another season may move more, or less.
 - A blend takes its estimates' errors as independent.
-- A neighbour name is "LOCATION/DEVICE": a location "a/b" with a
-  device "c" and a location "a" with a device "b/c" collide.
 
 ## Gate
 
