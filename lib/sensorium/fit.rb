@@ -14,7 +14,9 @@ module Sensorium
     # that narrows most first, then both together, then a term on the
     # reference's rate (rates: { bin => dr/dt per hour }). A term is kept
     # only when it narrows the spread (p10..p90) to setup.narrows of what
-    # it was.
+    # it was; a linear term, or pair, only when it leaves |1 + gain +
+    # coefficient| at setup.scale_floor at least, else the model before
+    # it is kept.
     class Fit
         # residuals: { bin => what the model leaves }.
         Model = Data.define(:constant, :switches, :taus, :series, :gain,
@@ -79,9 +81,18 @@ module Sensorium
         end
 
         def linear(model)
-            first = better(model, singles(model).min_by { ratio(model, it) })
+            first = better(model, scaled(singles(model)
+                                             .min_by { ratio(model, it) }))
             return first if first.equal?(model)
-            better(first, both(model, first))
+            better(first, scaled(both(model, first)))
+        end
+
+        # The model tried, nil when what r is multiplied by, solved for,
+        # falls below the scale floor.
+        def scaled(tried)
+            return unless tried
+            scale = 1 + (tried.gain || 0.0) + (tried.coefficient || 0.0)
+            tried if scale.abs >= @setup.scale_floor
         end
 
         # The filtered Switch with the time constant that narrows most.

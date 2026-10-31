@@ -69,6 +69,18 @@ Where sensorium departs from `Sensing`, on purpose:
   errors-in-variables fit needs the error covariance of r − n too,
   which nothing measures yet. A pair's gain is therefore still biased
   toward zero by about σ²/var(r).
+- **A scale floor on the linear terms.** A correction is (reading −
+  the other terms + k × neighbour) / (1 + gain + k), and its σ is the
+  spread over |1 + gain + k|. On MadHouse's humidity tado learned
+  k ≈ −0.9 against several neighbours (1 + k = 0.1): the term narrows
+  the spread of the fit, since the sensor mostly follows the
+  neighbour, but corrected back to r its noise is multiplied by ten.
+  A linear term, or the pair, that leaves |1 + gain + k| below
+  `scale_floor` (0.5: at most a doubling) is refused where it would
+  have been kept, and the Fit keeps the model before it; a less
+  narrowing candidate is not tried in its place, for a sensor that
+  follows another place more than its own is no estimate of its
+  reference either.
 - **The gain is new.** It did nothing for temperature; it is there for
   sensors wrong by a share (CO₂, light, particles). `Setup#gain` turns
   it off.

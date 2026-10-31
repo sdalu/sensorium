@@ -23,17 +23,20 @@ module Sensorium
     #               externals) a location's Dynamics follow; nil, none
     #   dynamics_margin  a Dynamics model is kept when its error, held
     #               out, is at most this share of holding the value's
+    #   scale_floor a linear term is refused when it leaves |1 + gain +
+    #               coefficient| below this: a correction divides by it
     Setup = Data.define(:quantity, :regime, :influences, :places, :bin,
                         :carry, :min_samples, :min_shift, :min_part,
                         :narrows, :covers, :gain, :rate, :outside,
-                        :dynamics_margin)
+                        :dynamics_margin, :scale_floor)
 
     class Setup
         DEFAULTS = { regime: Regime::Constant.new, influences: [],
                      places: [], bin: 600, carry: 3600, min_samples: 500,
                      min_shift: 100, min_part: 100, narrows: 0.8,
                      covers: 0.8, gain: true, rate: true,
-                     outside: nil, dynamics_margin: 0.98 }.freeze
+                     outside: nil, dynamics_margin: 0.98,
+                     scale_floor: 0.5 }.freeze
 
         def initialize(quantity:, **settings)
             super(quantity:, **DEFAULTS.merge(settings))

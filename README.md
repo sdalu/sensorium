@@ -67,6 +67,12 @@ Each term is kept only if it narrows the spread of what is left
 covers. The constant alone is kept too (`plain`), the fallback when the
 neighbour, a series' value or dr/dt has no fresh value.
 
+A correction solves the model for r, so it divides by 1 + gain +
+coefficient: a gain or a neighbour (or the pair) that leaves that
+below `Setup#scale_floor` (0.5) in magnitude is refused, and the model
+before it kept. A neighbour coefficient of −0.9 would multiply the
+sensor's noise by ten.
+
 The influences a `Setup` names:
 
 | influence | told by | learned as |
