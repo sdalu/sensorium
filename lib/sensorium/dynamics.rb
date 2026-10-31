@@ -33,12 +33,19 @@ module Sensorium
             def outside? = !a.zero?
 
             # The change predicted over `hours` from value, the outside
-            # at `outside` (nil: unknown), the Switches named in `on` on.
+            # at `outside` (nil: unknown), the Switches named in `on` on:
+            # the model stepped over that many bins, in closed form, an
+            # approach to the equilibrium the inputs hold the room at.
             def change(value, outside, on, hours)
                 return if outside? && outside.nil?
-                per_bin = (a * (outside.to_f - value)) + switched(on) + c
-                per_bin * hours * 3600 / bin
+                bins = hours * 3600.0 / bin
+                drive = switched(on) + c
+                return drive * bins unless outside?
+                (outside + (drive / a) - value) * approached(bins)
             end
+
+            # The share of the way to equilibrium covered in `bins`.
+            def approached(bins) = 1 - ((1 - a)**bins)
 
             # Σ b of the Switches named in `on`.
             def switched(on)

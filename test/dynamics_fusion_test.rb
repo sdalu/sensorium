@@ -10,12 +10,12 @@ require "support/fusion_helpers"
 class DynamicsFusionTest < Minitest::Test
     include FusionHelpers
 
-    # Half an hour old (three bins), the outside at 10: 20 moves by
-    # (0.1 × (10 - 20) + 0.01) × 3.
+    # Half an hour old (three bins), the outside at 10: 20 moves as the
+    # model stepped three bins, r += 0.1 × (10 - r) + 0.01.
     def test_an_aged_reading_moves_toward_the_prediction
         fused = aged({ "ceil" => [20.0, 1800] })
-        assert_in_delta 17.03, part(fused, "ceil").part.value
-        assert_in_delta 17.03, fused.value
+        assert_in_delta 17.3171, part(fused, "ceil").part.value
+        assert_in_delta 17.3171, fused.value
     end
 
     def test_its_variance_grows_by_q_times_its_age
@@ -26,14 +26,14 @@ class DynamicsFusionTest < Minitest::Test
 
     def test_a_switch_on_adds_its_term
         fused = aged({ "ceil" => [20.0, 1800] }, on: true)
-        assert_in_delta 18.53, part(fused, "ceil").part.value
+        assert_in_delta 18.6721, part(fused, "ceil").part.value
     end
 
     # tado reads 1 low (σ 0.25 × 2 / 2.563): corrected, then moved.
     def test_a_corrected_reading_is_moved_too
         tado = part(aged({ "tado" => [19.0, 1800] }), "tado").part
         sigma = 0.5 / Sensorium::P10_P90
-        assert_in_delta 17.03, tado.value
+        assert_in_delta 17.3171, tado.value
         assert_in_delta Math.sqrt((sigma**2) + 0.02), tado.sigma
     end
 
@@ -60,7 +60,7 @@ class DynamicsFusionTest < Minitest::Test
     def test_an_outside_within_max_age_counts
         fused = aged({ "ceil" => [20.0, 1800] }, outside: 10.0,
                                                  outside_age: 3600)
-        assert_in_delta 17.03, fused.value
+        assert_in_delta 17.3171, fused.value
     end
 
     def test_a_model_without_an_outside_term_needs_none

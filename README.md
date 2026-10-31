@@ -191,9 +191,11 @@ with `outside` the external series `Setup#outside` names (none: a is
 exposure). An aged reading is moved by what the model predicts over
 its age, from the inputs at the moment (the outside's latest value
 among the snapshot's externals, if no older than the location's
-`max_age`, the Switches on), (a × (outside −
-value) + Σ b × on + c) × age in bins, and its σ² grows by q × t, q
-the variance the model leaves, per hour. Without a model for the
+`max_age`, the Switches on): the model stepped over the age's n
+bins, in closed form, (r* − value) × (1 − (1 − a)ⁿ) toward
+r* = outside + (Σ b × on + c) / a ((Σ b × on + c) × n when a is 0),
+and its σ² grows by q × t, q the variance the model leaves, per
+hour. Without a model for the
 moment's regime, without the outside value when a ≠ 0, or while a
 Mode holds (the model was fitted without those bins), the drift
 rule.
@@ -449,9 +451,8 @@ learning kept in it.
   Modes (a Shift has its own spread) nor the Series.
 - An offset of a sensor gone for good stays in the store until its
   location is learned against another reference.
-- A dynamics model is a straight line over the reading's age (fine
-  while a × age in bins is small), and its q is calibrated on the span
-  it was fitted on: another season may move more, or less.
+- A dynamics model's q is calibrated on the span it was fitted on:
+  another season may move more, or less.
 - A blend takes its estimates' errors as independent.
 - A neighbour name is "LOCATION/DEVICE": a location "a/b" with a
   device "c" and a location "a" with a device "b/c" collide.

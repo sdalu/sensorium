@@ -167,8 +167,9 @@
   fusion does.
 - **Only the time update, applied per reading.** No fused state is
   kept between calls: the fusion stays a function of the snapshot. The
-  change is a straight line over the age, fine while a × age in bins is
-  small.
+  change is the model stepped over the reading's age, in closed form
+  (an approach to the equilibrium the inputs hold the room at), so it
+  holds at any age, and the validation forecasts the same way.
 - **Send-on-delta as a cap, not a model.** A value that has not moved
   by its delta is within ±delta of the truth; spread evenly there its
   variance is delta² / 3. `max_age` still cuts: without a heartbeat,
