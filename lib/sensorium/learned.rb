@@ -7,13 +7,23 @@ module Sensorium
     # reference it found changed; nothing of a location or a regime it
     # learned nothing in, so a span that barely touches a regime, or a
     # sensor short of samples this time, loses nothing.
-    Learned = Data.define(:quantity, :regimes, :offsets, :shifts) do
+    # sensors: the [location, device] the source listed (nil: not
+    # said); a kept offset of a sensor no longer listed gives way too, in
+    # every regime.
+    Learned = Data.define(:quantity, :regimes, :offsets, :shifts,
+                          :sensors) do
+        def initialize(sensors: nil, **) = super
+
         # The keys of the kept offsets that give way to this learning,
         # and of those it brings.
         def gone(kept)
             keys = offsets.to_set { Learned.key(it) }
-            given = kept.select { replaced?(it, keys) }
+            given = kept.select { replaced?(it, keys) || unlisted?(it) }
             given.to_set { Learned.key(it) } | keys
+        end
+
+        def unlisted?(offset)
+            sensors && !sensors.include?([offset.location, offset.device])
         end
 
         # Whether a kept Offset's location and regime were learned again,

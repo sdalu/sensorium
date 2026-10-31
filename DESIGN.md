@@ -61,7 +61,10 @@
 - **A learning replaces what it learned again**, not whole regimes: the
   offsets of the sensors learned again, and of a location whose
   reference changed. A span that barely touches a regime, or a sensor
-  short of samples this time, keeps a model that is still good.
+  short of samples this time, keeps a model that is still good. A
+  sensor the source no longer lists is gone for good: its offsets go,
+  in every regime, so they do not linger as notes on a device nobody
+  reads.
 
 ## Fusion
 

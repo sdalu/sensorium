@@ -41,6 +41,15 @@ class LearnerReferencesTest < Minitest::Test
         assert_equal({ "a" => %w[ceil] }, temperature)
     end
 
+    # What the source listed, and the references set: what a store keeps
+    # offsets for.
+    def test_a_learning_says_what_was_listed
+        learned = learn("blue" => %w[x])
+        assert_includes learned.sensors, %w[room-a airzone]
+        assert_includes learned.sensors, %w[blue x]
+        refute_includes learned.sensors, %w[room-a nobody]
+    end
+
     # A reference set by hand is read, though no sensor lists it.
     def test_a_reference_set_is_read
         house = FakeHouse.new

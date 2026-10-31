@@ -414,7 +414,7 @@ dynamics model's `b` and a collocation's `sigmas`. Tables made before
 the survey rounds lack six columns of `sensor_offsets`: `taus`,
 `series` and `states` (text), `rate`, `off_p10` and `off_p90` (float),
 and `sensor_locations` lacks `deltas` (text); a caller with its own
-schema adds them. Another store answers the same twelve methods (see
+schema adds them. Another store answers the same thirteen methods (see
 `lib/sensorium/store/memory.rb`).
 
 Keeping dynamics (`keep_dynamics`) or collocations
@@ -425,8 +425,11 @@ Keeping a learning replaces the offsets (and shifts) of the sensors it
 learned again, and every offset of a location whose reference it found
 changed. It leaves everything else: a sensor short of samples this
 time keeps its offset, and a regime the span barely touched keeps its
-model. A store's `learned` gives each regime the span of the latest
-learning kept in it.
+model. A sensor the source no longer lists (gone from `sensors`) is
+dropped, its offsets and shifts in every regime; `forget(quantity,
+location, device)` drops one on demand, its track too. A store's
+`learned` gives each regime the span of the latest learning kept in
+it.
 
 ## Known shortfalls
 
@@ -449,8 +452,6 @@ learning kept in it.
   and kept but not used by the Fusion.
 - The per-state spreads cover the Switches and Thresholds, not the
   Modes (a Shift has its own spread) nor the Series.
-- An offset of a sensor gone for good stays in the store until its
-  location is learned against another reference.
 - A dynamics model's q is calibrated on the span it was fitted on:
   another season may move more, or less.
 - A blend takes its estimates' errors as independent.

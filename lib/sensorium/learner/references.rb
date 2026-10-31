@@ -21,6 +21,15 @@ module Sensorium
                 placed.merge(set.reject { |_, devices| devices.empty? })
             end
 
+            # [location, device] of the sensors, and of the references set.
+            def listed
+                sensors = @sensors.values.flatten
+                                  .to_set { [it.location, it.name] }
+                sensors | @locations.flat_map do |name, location|
+                    location.references.map { [name, it] }
+                end
+            end
+
             private
 
             def placed(list)

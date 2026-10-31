@@ -30,11 +30,13 @@ module Sensorium
             sensors = @source.sensors(quantity)
             load(sensors)
             regimes = @setup.regime.covered(@from, @to)
-            @references = References.new(sensors, @locations, @setup).all
+            references = References.new(sensors, @locations, @setup)
+            @references = references.all
             found = regimes.product(@references.keys)
                            .flat_map { location_offsets(*it) }
             Learned.new(quantity:, regimes:, offsets: found.map(&:first),
-                        shifts: found.flat_map(&:last))
+                        shifts: found.flat_map(&:last),
+                        sensors: references.listed)
         end
 
         private
