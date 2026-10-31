@@ -17,6 +17,15 @@ module Sensorium
                 @data   = data
             end
 
+            # { [nil, device] => { bin => value } } of the source's
+            # externals, in the transform's space; none when it tells
+            # none.
+            def self.externals(source, setup, from, to)
+                return {} unless source.respond_to?(:externals)
+                readings = source.externals(setup.quantity.name, from, to)
+                setup.series.of(setup.quantity.inward(readings))
+            end
+
             # "LOCATION/DEVICE", an external's DEVICE, each part's "%"
             # and "/" escaped (%25, %2F) so that no two names collide.
             def self.name_of(location, device)

@@ -9,18 +9,20 @@ require "sensorium"
 require_relative "sequel/tracks"
 require_relative "sequel/dynamics_rows"
 require_relative "sequel/collocation_rows"
+require_relative "sequel/transient_rows"
 require_relative "sequel/forget"
 
 module Sensorium
     module Store
         # In an SQL database, through Sequel: SQLite, MariaDB, PostgreSQL…
-        # Six tables, named by `tables`; with migrate: true they are
+        # Seven tables, named by `tables`; with migrate: true they are
         # created when missing (Store::Sequel::Schema), else they must be
         # there already, as the caller made them. Lists are kept as A,B,
         # an Offset's maps (switches, taus, series, states) as JSON.
         class Sequel
             include DynamicsRows
             include CollocationRows
+            include TransientRows
 
             MAPS = %i[switches taus series states].freeze
 
@@ -28,7 +30,8 @@ module Sensorium
                        locations: :sensor_locations,
                        tracks: :sensor_tracks,
                        dynamics: :sensor_dynamics,
-                       collocations: :sensor_collocations }.freeze
+                       collocations: :sensor_collocations,
+                       transients: :sensor_transients }.freeze
 
             include Tracks
             include Forget

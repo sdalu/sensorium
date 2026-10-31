@@ -6,7 +6,9 @@ module Sensorium
     # house-wide, an hour after a valve opened) and the aircon
     # ("aircon", per room, half an hour after a run); for humidity, the
     # creep of a sensor for six hours after its room's reference read
-    # above 80 % ("creep"). The temperature's
+    # above 80 % ("creep"); for both, the transients ("transient", a
+    # sensor moving apart from its reference, and 30 minutes after,
+    # left out). The temperature's
     # reference is a smoke detector on the ceiling, else a leak sensor
     # on the floor; neither measures humidity, whose reference is a
     # wall unit (an aircon's), else a radiator valve's. The source tells
@@ -35,14 +37,18 @@ module Sensorium
         CREEP = Influence::Threshold.new(name: "creep", above: 80,
                                          hold: 6 * 3600)
 
-        INFLUENCES = { "humidity" => [HEATING, AIRCON, CREEP] }.freeze
+        TRANSIENT = Influence::Transient.new
+
+        INFLUENCES = { "humidity" => [HEATING, AIRCON, CREEP, TRANSIENT] }
+                     .freeze
 
         module_function
 
         def room(quantity = TEMPERATURE, **settings)
             Setup.new(quantity:, regime: Regime::Calendar.new,
                       influences: INFLUENCES.fetch(quantity.name,
-                                                   [HEATING, AIRCON]),
+                                                   [HEATING, AIRCON,
+                                                    TRANSIENT]),
                       places: PLACES.fetch(quantity.name, []), **settings)
         end
     end

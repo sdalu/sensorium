@@ -23,6 +23,9 @@ module Sensorium
     #   collocations(quantity)             [Collocation]
     #   keep_collocations(quantity, list)  replaces those of the same
     #                                      location and regime
+    #   transients(quantity)               [Transient::Profile]
+    #   keep_transients(quantity, profiles) replaces those of the same
+    #                                      location, device and regime
     module Store
         # In memory: for tests, and for a learning used at once.
         class Memory
@@ -34,6 +37,7 @@ module Sensorium
                 @tracks    = {}
                 @dynamics  = []
                 @collocations = []
+                @transients = []
             end
 
             def offsets(quantity) = @offsets.select { it.quantity == quantity }
@@ -97,15 +101,24 @@ module Sensorium
                 @collocations = replaced(@collocations, quantity, list)
             end
 
+            def transients(quantity)
+                @transients.select { it.quantity == quantity }
+            end
+
+            def keep_transients(quantity, profiles)
+                @transients = replaced(@transients, quantity, profiles,
+                                       %i[location device regime])
+            end
+
             private
 
-            # The rows of `all` of another quantity, location or regime
-            # than those of `list`, then `list`.
-            def replaced(all, quantity, list)
-                keys = list.to_set { [it.location, it.regime] }
+            # The rows of `all` of another quantity, or other `by` (its
+            # location and regime) than those of `list`, then `list`.
+            def replaced(all, quantity, list, by = %i[location regime])
+                keys = list.to_set { it.to_h.values_at(*by) }
                 all.reject do |row|
                     row.quantity == quantity &&
-                        keys.include?([row.location, row.regime])
+                        keys.include?(row.to_h.values_at(*by))
                 end + list
             end
 

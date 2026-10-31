@@ -3,7 +3,7 @@
 module Sensorium
     module Store
         class Sequel
-            # The six tables, created when missing. A caller that keeps
+            # The seven tables, created when missing. A caller that keeps
             # its own schema (types, foreign keys) makes them alike and
             # opens the store with migrate: false.
             module Schema
@@ -11,7 +11,7 @@ module Sensorium
 
                 def create(db, tables)
                     %i[offsets shifts locations tracks dynamics
-                       collocations].each do |name|
+                       collocations transients].each do |name|
                         db.create_table?(tables.fetch(name)) do
                             Schema.public_send(name, self)
                         end
@@ -36,6 +36,16 @@ module Sensorium
                     t.String :sigmas, text: true, null: false
                     t.Integer :samples, null: false
                     t.primary_key %i[location quantity regime]
+                end
+
+                # A Transient::Profile's scales as JSON, { window =>
+                # [sigma, median] }.
+                def transients(t)
+                    key(t)
+                    %i[own relative].each do |name|
+                        t.String name, text: true, null: false
+                    end
+                    t.primary_key %i[location device quantity regime]
                 end
 
                 def offsets(t)

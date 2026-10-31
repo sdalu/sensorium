@@ -104,6 +104,7 @@ The influences a `Setup` names:
 | `Influence::Series` | events with numeric values, mean per bin, carried `hold` | coefficient × value |
 | `Influence::Threshold` | nothing: the location's reference, as it reads, above `above` within `hold` | a term while on |
 | `Influence::Mode` | events with a value | left out, a `Shift` per value |
+| `Influence::Transient` | nothing: each sensor's own series against its reference, and its transient profile | left out (`hold` after), no `Shift` |
 
 ```ruby
 solar   = Sensorium::Influence::Series.new(name: "solar", hold: 1800)
@@ -151,6 +152,61 @@ an error they all share (the sun on the room, the radiators' plume)
 is not seen, and an error every sensor but the reference shares is
 taken for the reference's. They measure; the Fusion does not use
 them (DESIGN.md, Fusion).
+
+## Transients
+
+A window opened, a shower, the sun on a sensor: a sudden change no
+learned term explains. A sensor's **transient profile** says how far
+it usually moves over a window; a change far outside it is an event.
+
+```ruby
+profiles = Sensorium::Transient.learn(source, setup, from:, to:,
+                                      locations: store.locations("temperature"))
+store.keep_transients("temperature", profiles)
+
+detector = Sensorium::Transient::Detector.new(setup, profiles:)
+detector.events(snapshot)
+# [Transient::Event(location, device, direction (:fall or :rise), z,
+#                   window, at)]
+```
+
+Per location, device and regime, for each window of
+`Setup#transient_windows` (600 and 1200 s), `learn` takes the sensor's
+binned series in the transform's space, carried `carry`, the bins under
+a Mode or within its hold left out, and the change over the window
+ending in each bin. Two scales (`Transient::Scale`: σ, 1.4826 × the
+median absolute deviation of the changes, and their median):
+
+- **own**, of the sensor's own change: a window cools the whole room,
+  so a live event is seen on the sensor itself;
+- **relative**, of the change of the sensor less its location's
+  reference (carried, the mean when several): only a sensor moving
+  apart from its reference distorts its offset; a whole-room change,
+  a radiator heating the room, does not. A reference has none.
+
+A window seen fewer than `min_samples` changes has no scale.
+
+The `Detector` takes, for each sensor of a `Snapshot` with a profile
+in the moment's regime, its latest reading less the one at or before
+the latest's time less the window (no older than `carry` before it),
+in the transform's space: z = (change − median) / σ of the own scale,
+an event when |z| ≥ `Setup#transient_z` (5). `Snapshot.from` reads the
+history far enough back for the longest window and the carry
+(`Snapshot::Gather.reach`).
+
+An `Influence::Transient` (name "transient", `hold` 1800 s) makes the
+Learner leave transients out of the offsets. It learns the profiles
+from the same span, before the offsets, and, for each sensor but the
+references, puts the influence on in the bins where its relative
+change over a window has |z| ≥ `transient_z` by its relative scale,
+and `hold` after. Those bins are left out of the sensor's offset and
+of its Shifts, as a Mode's are; a transient has no Shift of its own.
+The room preset sets it for both quantities.
+
+| `Setup` setting | default |
+|---|---|
+| `transient_windows` | [600, 1200] s |
+| `transient_z` | 5 |
 
 ## Fusing
 
@@ -374,10 +430,18 @@ without the outside its model needs, while a Mode holds there, or
 when the previous `Fused` has no value or σ, or is older than the
 location's `max_age`; the part is then left as it was.
 
+Given transient profiles (`transients:`, see Transients) and the
+snapshot the `Fused` was made from, the Tracker leaves every part of a
+location as it was while the `Detector` finds an event there at the
+moment, as it leaves a part with too few others: an opened window
+would read as a step and could push a CUSUM to a `jumped` that sticks
+until a relearn. Without profiles or snapshot, it tracks as before.
+
 ```ruby
 tracker  = Sensorium::Tracker.new(setup, offsets:,
                                   dynamics: store.dynamics("temperature"),
-                                  locations: store.locations("temperature"))
+                                  locations: store.locations("temperature"),
+                                  transients: store.transients("temperature"))
 tracks   = tracker.update(tracks, fused, previous:, snapshot:)
 previous = Sensorium::Fusion.new(setup, offsets:, shifts:, tracks:)
                             .location("green-room", snapshot)
@@ -444,22 +508,25 @@ Tracker's tracks, by quantity. `Store::Memory` for tests and one-off
 runs; `Store::Sequel` (`require "sensorium/store/sequel"`) for any SQL
 database, its table names configurable, its tables created when
 missing unless `migrate: false`. The Tracker's tracks, the dynamics
-models and the collocations are kept in three more tables
-(`sensor_tracks`, `tables: { tracks: }`; `sensor_dynamics`, `tables: {
-dynamics: }`; `sensor_collocations`, `tables: { collocations: }`),
-which a caller with its own schema creates too, as
+models, the collocations and the transient profiles are kept in four
+more tables (`sensor_tracks`, `tables: { tracks: }`;
+`sensor_dynamics`, `tables: { dynamics: }`; `sensor_collocations`,
+`tables: { collocations: }`; `sensor_transients`, `tables: {
+transients: }`), which a caller with its own schema creates too, as
 `Store::Sequel::Schema` does. An offset's maps (switches, taus,
 series, states) are kept as JSON, as are a location's `deltas`, a
-dynamics model's `b` and a collocation's `sigmas`. Tables made before
+dynamics model's `b`, a collocation's `sigmas` and a profile's `own`
+and `relative` scales (`{ "600": [sigma, median] }`). Tables made before
 the survey rounds lack six columns of `sensor_offsets`: `taus`,
 `series` and `states` (text), `rate`, `off_p10` and `off_p90` (float),
 and `sensor_locations` lacks `deltas` (text); a caller with its own
-schema adds them. Another store answers the same thirteen methods (see
+schema adds them. Another store answers the same fifteen methods (see
 `lib/sensorium/store/memory.rb`).
 
 Keeping dynamics (`keep_dynamics`) or collocations
 (`keep_collocations`) replaces those of the same location and regime,
-and leaves the others.
+and leaves the others; keeping transient profiles
+(`keep_transients`), those of the same location, device and regime.
 
 Keeping a learning replaces the offsets (and shifts) of the sensors it
 learned again, and every offset of a location whose reference it found
@@ -498,6 +565,21 @@ it.
 - A dynamics model's q is calibrated on the span it was fitted on:
   another season may move more, or less.
 - A blend takes its estimates' errors as independent.
+- A transient scale's σ is 1.4826 × the median absolute deviation of
+  the changes: for a sensor that reports in steps and, most ten
+  minutes, not at all, the median change and its deviation are 0, so
+  σ is 0 and every change is an event of infinite z, live and in
+  learning. A year of one house learns 77 scales of 218 at σ 0; where
+  the relative one is, the influence leaves out most of the sensor's
+  bins (an Airzone's 11 566 down to 1 183). What σ such a sensor
+  should get is not settled.
+- On that house's green-room (a year of profiles, 74 window openings
+  on cold days), at the default z the Detector finds 97 % of the
+  openings by tado and by two sensors agreeing, but with some 5 false
+  alarms a day where a fixed rule (tado falling 0.5 °C in ten minutes)
+  makes 0.10: a change's distribution is heavy-tailed, so a z of 5 on
+  its median absolute deviation is a small change (0.22 °C on tado in
+  winter).
 
 ## Gate
 

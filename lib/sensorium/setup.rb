@@ -6,7 +6,8 @@ module Sensorium
     #   regime      Regime::Calendar, Regime::Constant, or any object
     #               answering names, of(time), covered(from, to)
     #   influences  [Influence::Switch, Influence::Mode,
-    #               Influence::Series, Influence::Threshold]
+    #               Influence::Series, Influence::Threshold,
+    #               Influence::Transient]
     #   places      tags tried in turn for a location's reference when
     #               none is set ("ceiling", then "floor")
     #   bin         seconds a bin spans
@@ -25,10 +26,15 @@ module Sensorium
     #               out, is at most this share of holding the value's
     #   scale_floor a linear term is refused when it leaves |1 + gain +
     #               coefficient| below this: a correction divides by it
+    #   transient_windows  seconds over which a sensor's change is
+    #               measured against its Transient::Profile
+    #   transient_z a change is a transient when its z is at least this
+    #               in size
     Setup = Data.define(:quantity, :regime, :influences, :places, :bin,
                         :carry, :min_samples, :min_shift, :min_part,
                         :narrows, :covers, :gain, :rate, :outside,
-                        :dynamics_margin, :scale_floor)
+                        :dynamics_margin, :scale_floor, :transient_windows,
+                        :transient_z)
 
     class Setup
         DEFAULTS = { regime: Regime::Constant.new, influences: [],
@@ -36,7 +42,8 @@ module Sensorium
                      min_shift: 100, min_part: 100, narrows: 0.8,
                      covers: 0.8, gain: true, rate: true,
                      outside: nil, dynamics_margin: 0.98,
-                     scale_floor: 0.5 }.freeze
+                     scale_floor: 0.5, transient_windows: [600, 1200],
+                     transient_z: 5 }.freeze
 
         def initialize(quantity:, **settings)
             super(quantity:, **DEFAULTS.merge(settings))
@@ -46,6 +53,7 @@ module Sensorium
         def modes      = influences.grep(Influence::Mode)
         def levels     = influences.grep(Influence::Series)
         def thresholds = influences.grep(Influence::Threshold)
+        def transients = influences.grep(Influence::Transient)
         def series     = Series.new(bin)
     end
 end

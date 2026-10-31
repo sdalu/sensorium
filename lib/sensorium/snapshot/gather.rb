@@ -13,9 +13,13 @@ module Sensorium
                 found + source.externals(quantity, at - window, at)
             end
 
-            # How far back the Thresholds look: their hold and the carry.
+            # How far back the Thresholds look (their hold and the
+            # carry) and the transient Detector (the longest window and
+            # the carry: the reading at the window's start may be that
+            # old).
             def reach(setup)
-                setup.thresholds.map { it.hold + setup.carry }.max || 0
+                (setup.thresholds.map(&:hold) +
+                 setup.transient_windows).map { it + setup.carry }.max || 0
             end
 
             # { name => Set of locations } of the Switches on at `at`.

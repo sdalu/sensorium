@@ -86,6 +86,43 @@
   in every regime, so they do not linger as notes on a device nobody
   reads.
 
+## Transients
+
+- **Learned per sensor, not a fixed rule.** How far a sensor moves in
+  ten minutes depends on how it reports (a 0.1 °C step, a mean over
+  five minutes, a radiator valve's sensor that follows the water), on
+  where it sits and on the regime: a fall of 0.5 °C is an event on
+  one and noise on another. Each sensor's changes over each window
+  are its own yardstick, per regime, and the threshold is a z, the
+  same for all.
+- **σ from the median absolute deviation.** The changes a scale is
+  learned from hold the very events it must tell apart: a variance
+  would grow with every window opened, and the louder a sensor's
+  events the less it would see them. The MAD ignores them while they
+  are fewer than half; 1.4826 makes it a σ for a normal distribution.
+  The median is taken out first, so a sensor that drifts steadily over
+  a regime is not flagged for it.
+- **Two scales.** A window opened cools the whole room: live, a
+  sensor's own change says so, whatever its reference does. For
+  learning only a sensor moving apart from its reference distorts its
+  offset; a whole-room change (the radiators starting) moves both and
+  leaves the gap alone. Hence the own scale for the Detector, the
+  relative one for the influence, and none relative for a reference,
+  which has no gap to itself.
+- **Left out, not modelled**, as a Mode is: what an airing, a shower
+  or a ray of sun does to a sensor depends on the moment (how wide the
+  window, how cold outside, where the sun falls), not on any series
+  the source tells; a term fitted to it would be noise. The bins are
+  few, so leaving them out costs little, and a median already shrugs
+  off rare ones; what it cannot shrug off is a sensor aired often, or
+  in the sun every afternoon. No Shift either: a transient has no
+  value to learn one per.
+- **The Tracker stands aside during an event.** An opened window
+  reads, to the CUSUM, as a step; a long one could push it past h and
+  leave a track jumped until a relearn. The whole location is left as
+  it was, as for a part with too few others: during a whole-room
+  change the others' fusion is no truth either.
+
 ## Fusion
 
 - **A shift applies over the plain offset**, the one it was learned
