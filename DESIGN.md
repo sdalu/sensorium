@@ -210,11 +210,19 @@
   aged-reading rule of the fusion, the same inputs from the snapshot,
   and stands aside where that rule does: no model, no outside the
   model needs, a Mode holding, or a previous value past `max_age`.
-- **Updated from a Fused made without tracks**, so that each delta is
-  taken out once, by the Tracker, and a drifting part, which a tracked
-  Fused notes, is still updated and can clear. Until a part is flagged
-  it still counts in the others' fusion, and leaks a little into their
-  deltas.
+- **A Fused carries both estimates, and a Tick holds no state.** The
+  value needs each part with its track applied; the Tracker needs it
+  without, so that each delta is taken out once, by the Tracker, and a
+  drifting part, which a tracked Fused notes, is still updated and can
+  clear. Each Weighted part carries the part before its track beside
+  the part after, so one fusion per location serves both, where two
+  Fusions per tick computed every correction twice. The Tick keeps
+  nothing between calls, as the Fusion keeps nothing (Staleness): the
+  tracks come in with the Knowledge and go out updated, the previous
+  Fused is the caller's, so a Tick is a function of what it is given
+  and a store stays the one place the tracks live. Until a part is
+  flagged it still counts in the others' fusion, and leaks a little
+  into their deltas.
 
 ## Staleness
 

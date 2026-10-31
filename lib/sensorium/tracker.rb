@@ -62,24 +62,29 @@ module Sensorium
         # "outlier".
         COUNTING = [nil, "outlier"].freeze
 
-        # offsets: [Offset] of the setup's quantity, as the Fusion's;
-        # dynamics: [Dynamics::Model] and locations: { name => Location
-        # }, those set, for the witness (Witness); transients:
-        # [Transient::Profile], for the Detector.
-        def initialize(setup, offsets:, dynamics: [], locations: {},
-                       transients: [])
+        # The keywords a Tracker may be given instead of a Knowledge.
+        REQUIRED = %i[offsets].freeze
+        OPTIONAL = %i[dynamics locations transients].freeze
+
+        # knowledge: a Knowledge of the setup's quantity: its offsets, as
+        # the Fusion's; its dynamics and locations (those set), for the
+        # witness (Witness); its transients, for the Detector. Or,
+        # instead, those as keywords, offsets: required.
+        def initialize(setup, knowledge: nil, **given)
+            knowledge = Knowledge.given(knowledge, given, REQUIRED, OPTIONAL)
             @setup    = setup
             @quantity = setup.quantity
-            @offsets  = offsets.to_h do |offset|
+            @offsets  = knowledge.offsets.to_h do |offset|
                 [[offset.location, offset.regime, offset.device], offset]
             end
-            @witness = Witness.new(setup, dynamics, locations)
-            @detector = Transient::Detector.new(setup, profiles: transients,
-                                                       locations:)
+            @witness = Witness.new(setup, knowledge.dynamics,
+                                   knowledge.locations)
+            @detector = Transient::Detector.new(setup, knowledge:)
         end
 
-        # The tracks after a Fused, made by a Fusion without tracks: each
-        # part that counts, a reference or with an Offset, updated
+        # The tracks after a Fused, made with tracks or without, each
+        # part taken as it was before its Track (Weighted#untracked):
+        # each part that counts, a reference or with an Offset, updated
         # against the others, the references first. A part is left out
         # of the others while its track has jumped, or once it jumped in
         # this update. A part with a single other takes, as a second,
@@ -91,7 +96,7 @@ module Sensorium
         # the location in snapshot, every part is left as it was.
         def update(tracks, fused, previous: nil, snapshot: nil)
             return tracks if transient?(fused, snapshot)
-            counted = fused.parts.select { counts?(it) }.map(&:part)
+            counted = fused.parts.select { counts?(it) }.map(&:untracked)
             current = current(tracks, fused, counted)
             out = current.filter_map do |device, (track, _)|
                 device if track.state == :jumped
@@ -154,9 +159,12 @@ module Sensorium
             Step.new(@quantity, sigma).call(track, part, others, fused.at)
         end
 
+        # Whether the part, untracked, counts: its note the Part's when a
+        # Track was applied to it, the Weighted's otherwise.
         def counts?(weighted)
-            weighted.part.value && weighted.part.sigma &&
-                COUNTING.include?(weighted.note)
+            part = weighted.untracked
+            note = weighted.tracked? ? part.note : weighted.note
+            part.value && part.sigma && COUNTING.include?(note)
         end
 
         # { device => [Track, σ] } of the parts tracked: theirs while it

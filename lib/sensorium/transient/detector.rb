@@ -11,12 +11,16 @@ module Sensorium
         # max_age says nothing of the moment (the Fusion counts it stale),
         # so it makes no Event.
         class Detector
-            # profiles: [Profile] of the setup's quantity; locations: {
-            # name => Location }, those set, for their max_age.
-            def initialize(setup, profiles:, locations: {})
+            # knowledge: a Knowledge of the setup's quantity: its
+            # transients, the profiles, and its locations (those set),
+            # for their max_age. Or, instead, profiles: [Profile]
+            # (required) and locations: as keywords.
+            def initialize(setup, knowledge: nil, **given)
+                knowledge = Knowledge.given(knowledge, keywords(given),
+                                            %i[transients], %i[locations])
                 @setup     = setup
-                @locations = locations
-                @profiles  = profiles.to_h do |profile|
+                @locations = knowledge.locations
+                @profiles  = knowledge.transients.to_h do |profile|
                     [[profile.location, profile.device, profile.regime],
                      profile]
                 end
@@ -33,6 +37,13 @@ module Sensorium
             end
 
             private
+
+            # The keywords given, profiles: as a Knowledge's transients.
+            def keywords(given)
+                raise ArgumentError, "unknown: transients" if
+                    given.key?(:transients)
+                given.transform_keys { it == :profiles ? :transients : it }
+            end
 
             def stale?(location, age)
                 settings = @locations.fetch(location) do

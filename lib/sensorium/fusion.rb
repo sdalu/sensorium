@@ -17,25 +17,32 @@ module Sensorium
         Fused = Data.define(:location, :quantity, :at, :value, :sigma,
                             :inside, :reference, :corrected, :parts)
         # A Part, its share of the value (0..1), why it is left out, and
-        # its value brought back as the quantity reads.
-        Weighted = Data.define(:part, :weight, :note, :value)
+        # its value brought back as the quantity reads; untracked: the
+        # Part before its Track was applied (Track#apply), the Part
+        # itself when it has none, as the Tracker takes it.
+        Weighted = Data.define(:part, :weight, :note, :value, :untracked) do
+            def initialize(part:, untracked: part, **) = super
 
-        # What a Fusion may be given beside offsets and shifts.
-        OPTIONAL = { locations: {}, tracks: {}, dynamics: [] }.freeze
+            # Whether a Track was applied to the Part.
+            def tracked? = untracked != part
+        end
 
-        # offsets: [Offset]; shifts: [Shift]; locations: { name =>
-        # Location }, those set; tracks: { [location, device] => Track },
-        # the Tracker's; dynamics: [Dynamics::Model]; all of the setup's
-        # quantity.
-        def initialize(setup, offsets:, shifts:, **optional)
-            given = OPTIONAL.merge(optional)
-            unknown = given.keys - OPTIONAL.keys
-            raise ArgumentError, "unknown: #{unknown.join(", ")}" if
-                unknown.any?
+        # The keywords a Fusion may be given instead of a Knowledge.
+        REQUIRED = %i[offsets shifts].freeze
+        OPTIONAL = %i[locations tracks dynamics].freeze
+
+        # knowledge: a Knowledge of the setup's quantity, its offsets,
+        # shifts, locations (those set), tracks (the Tracker's) and
+        # dynamics; or, instead, those as keywords, offsets: and shifts:
+        # required.
+        def initialize(setup, knowledge: nil, **given)
+            knowledge = Knowledge.given(knowledge, given, REQUIRED, OPTIONAL)
             @setup     = setup
-            @offsets   = offsets.group_by { [it.location, it.regime] }
-            @shifts    = shifts.group_by { [it.location, it.regime] }
-            assign(**given)
+            @offsets   = keyed(knowledge.offsets)
+            @shifts    = keyed(knowledge.shifts)
+            @locations = knowledge.locations
+            @tracks    = knowledge.tracks
+            @dynamics  = keyed(knowledge.dynamics).transform_values(&:first)
         end
 
         # The locations it can tell: those learned, set, or read.
@@ -51,18 +58,15 @@ module Sensorium
             references = location.references
             references = learned(key) if references.empty?
             learning = learning(key, references)
-            parts = Parts.new(location, references, learning, snapshot,
-                              @setup).all
-            fused(name, snapshot.at, named(references), parts, context)
+            pairs = Parts.new(location, references, learning, snapshot,
+                              @setup).pairs
+            fused(name, snapshot.at, named(references), pairs, context)
         end
 
         private
 
-        def assign(locations:, tracks:, dynamics:)
-            @locations = locations
-            @tracks    = tracks
-            @dynamics  = dynamics.to_h { [[it.location, it.regime], it] }
-        end
+        # { [location, regime] => [row] }.
+        def keyed(rows) = rows.group_by { [it.location, it.regime] }
 
         # The references a location was learned against in the moment's
         # regime, else in any; nil when it was not learned.
