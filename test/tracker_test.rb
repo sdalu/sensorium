@@ -1,0 +1,90 @@
+# frozen_string_literal: true
+
+require "test_helper"
+require "support/tracker_helpers"
+
+# Tracker: each sensor's offset followed between learnings, in
+# FusionHelpers' room (ceil the reference, tado 1 °C low with σ 0.2,
+# Airzone 1 °C high with σ 0.08). A step of 3 σ in tado is 0.6 °C.
+class TrackerTest < Minitest::Test
+    include TrackerHelpers
+
+    # With the default track_q ((σ/2)² a day, σ the quantity's 0.1) the
+    # gain is small: ten daily steps take delta to 83 % of a 1 σ bias
+    # (0.2 °C), ten hourly steps to 40 %.
+    def test_a_constant_bias_is_learned_within_ten_steps
+        tracks = track(10, every: 86_400) { { "tado" => 19.2 } }
+        tado = tracks.fetch(%w[room tado])
+        assert_in_delta 0.2, tado.delta, 2 * Math.sqrt(tado.variance)
+        assert_operator tado.delta, :>, 0.75 * 0.2
+        assert_equal :ok, tado.state
+    end
+
+    def test_a_step_is_flagged_jumped_within_ten_updates
+        tracks = track(10)
+        tracks = track(10, tracks, from: 10) { { "tado" => 19.6 } }
+        assert_equal :jumped, tracks.fetch(%w[room tado]).state
+        assert_equal :ok, tracks.fetch(%w[room airzone]).state
+    end
+
+    def test_a_slow_ramp_drifts_before_it_jumps
+        track(240) { |step| { "tado" => 19.0 + (0.004 * step) } }
+        drifting = @states.index(:drifting)
+        refute_nil drifting
+        jumped = @states.index(:jumped)
+        assert jumped.nil? || drifting < jumped
+    end
+
+    # tado's Offset σ is 0.195: drifting past 0.585, back under 0.39.
+    def test_drifting_clears_under_two_sigma_and_jumped_stays
+        assert_equal :drifting, after(0.5, :drifting)
+        assert_equal :ok, after(0.5, :ok)
+        assert_equal :ok, after(0.3, :drifting)
+        assert_equal :drifting, after(0.7, :ok)
+        assert_equal :jumped, after(0.0, :jumped)
+    end
+
+    def test_a_relearned_offset_restarts_its_track
+        tracks = track(10) { { "tado" => 19.1 } }
+        relearned = [offset("tado", -0.9, 0.25), offset("airzone", 1.0, 0.1)]
+        fused = fusion.location("room", moment(10, { "tado" => 19.1 }))
+        tracker = Sensorium::Tracker.new(SETUP, offsets: relearned)
+        afresh = tracker.update(tracks.except(%w[room tado]), fused)
+        assert_equal afresh[%w[room tado]],
+                     tracker.update(tracks, fused)[%w[room tado]]
+    end
+
+    def test_a_part_with_fewer_than_two_others_is_not_tracked
+        fused = fusion.location("room", snapshot("room", { "ceil" => 20.0,
+                                                           "tado" => 19.0 }))
+        assert_empty tracker.update({}, fused)
+    end
+
+    def test_a_reset_track_starts_afresh
+        tracks = track(10) { { "tado" => 19.6 } }
+        tracks = tracker.reset(tracks, "room", "tado")
+        refute tracks.key?(%w[room tado])
+        assert tracks.key?(%w[room airzone])
+    end
+
+    def test_the_quantity_settings
+        quantity = Sensorium::Presets::TEMPERATURE
+        assert_in_delta 0.01 / 96, quantity.track_q
+        assert_equal [0.5, 5.0, 3.0, 2.0],
+                     quantity.to_h.values_at(:cusum_k, :cusum_h,
+                                             :drift_alarm, :drift_clear)
+    end
+
+    private
+
+    # tado's state after one update from a track at delta, its readings
+    # bearing that delta out.
+    def after(delta, state)
+        start = Sensorium::Track.fresh(offsets.first, 0.0025)
+                                .with(delta:, state:, at: AT)
+        tracks = track(1, { %w[room tado] => start }) do
+            { "tado" => 19.0 + delta }
+        end
+        tracks.fetch(%w[room tado]).state
+    end
+end

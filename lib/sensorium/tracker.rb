@@ -36,4 +36,89 @@ module Sensorium
                 cusum_down: 0.0, at: nil, state: :ok)
         end
     end
+
+    # Follows each sensor's offset between two learnings: a scalar Kalman
+    # filter on delta, a random walk over the batch-learned Offset, fed
+    # by the innovation of each part against the others' fusion, and a
+    # two-sided CUSUM on the standardised innovations to tell a jump
+    # from a drift. Tracks are { [location, device] => Track }, those of
+    # one quantity; update and reset give new ones.
+    class Tracker
+        # The Fused parts that count: a value and a σ, no note but
+        # "outlier".
+        COUNTING = [nil, "outlier"].freeze
+
+        # offsets: [Offset] of the setup's quantity, as the Fusion's.
+        def initialize(setup, offsets:)
+            @setup    = setup
+            @quantity = setup.quantity
+            @offsets  = offsets.to_h do |offset|
+                [[offset.location, offset.regime, offset.device], offset]
+            end
+        end
+
+        # The tracks after a Fused, made by a Fusion without tracks: each
+        # part that counts, with an Offset and two others or more that
+        # count, updated against them; the others left as they were.
+        def update(tracks, fused)
+            counted = fused.parts.select { counts?(it) }.map(&:part)
+            current = current(tracks, fused, counted)
+            tracks.merge(counted.filter_map do |part|
+                updated = step(fused, current, part, counted - [part]) or next
+                [[fused.location, part.device], updated]
+            end.to_h)
+        end
+
+        # The tracks without that sensor's: its next update starts afresh.
+        def reset(tracks, location, device)
+            tracks.except([location, device])
+        end
+
+        private
+
+        # The part's track updated; nil without one, or with fewer than
+        # two others.
+        def step(fused, current, part, others)
+            track = current[part.device]
+            return unless track && others.size >= 2
+            Step.new(@quantity, offset(fused, part.device))
+                .call(track, part, others(others, current), fused.at)
+        end
+
+        def counts?(weighted)
+            weighted.part.value && weighted.part.sigma &&
+                COUNTING.include?(weighted.note)
+        end
+
+        # { device => Track } of the parts with an Offset: theirs while it
+        # tracks the Offset, else a fresh one.
+        def current(tracks, fused, parts)
+            parts.filter_map do |part|
+                offset = offset(fused, part.device) or next
+                track = tracks[[fused.location, part.device]]
+                track = fresh(offset) unless track&.tracks?(offset)
+                [part.device, track]
+            end.to_h
+        end
+
+        # The location's Offset for the device in the moment's regime,
+        # learned against the Fused's reference.
+        def offset(fused, device)
+            key = [fused.location, @setup.regime.of(fused.at), device]
+            offset = @offsets[key]
+            offset if offset&.reference == fused.reference
+        end
+
+        def fresh(offset) = Track.fresh(offset, (@quantity.sigma / 2.0)**2)
+
+        # The others, each with its own delta taken out.
+        def others(parts, current)
+            parts.map do |part|
+                part.with(value: part.value - (current[part.device]&.delta ||
+                                               0.0))
+            end
+        end
+    end
 end
+
+require_relative "tracker/step"
