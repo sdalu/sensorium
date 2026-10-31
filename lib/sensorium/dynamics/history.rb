@@ -5,9 +5,10 @@ module Sensorium
         # Each location's steps over a span of history, by regime, and
         # the Models fitted on them.
         class History
-            # One bin's step: gap, outside - r (nil without an outside);
-            # on, the names of the Switches on; change, r(t + bin) - r(t).
-            Step = Data.define(:gap, :on, :change)
+            # One bin's step: bin; gap, outside - r (nil without an
+            # outside); on, the names of the Switches on; change,
+            # r(t + bin) - r(t).
+            Step = Data.define(:bin, :gap, :on, :change)
 
             def initialize(source, setup, from, to, locations)
                 @source    = source
@@ -49,16 +50,20 @@ module Sensorium
 
             def fitted(location, devices)
                 key = { location:, quantity: }
-                steps(location, devices).filter_map do |regime, list|
-                    Regression.model(key.merge(regime:), list, @setup)
+                on = @timeline.switched(location)
+                reference = reference(location, devices)
+                forecast = Forecast.new(reference, @outside, on)
+                steps(location, reference, on).filter_map do |regime, list|
+                    Validation.model(key.merge(regime:), list, @setup,
+                                     forecast)
                 end
             end
 
-            # { regime => [Step] } of a location.
-            def steps(location, devices)
-                on = @timeline.switched(location)
-                reference = reference(location, devices)
+            # { regime => [Step] } of a location, the bins where a Mode
+            # held, or held within its hold, left out.
+            def steps(location, reference, on)
                 found = reference.filter_map do |bin, r|
+                    next if @timeline.near?(location, bin)
                     step = step(reference, bin, r, on) or next
                     [regime_of(bin), step]
                 end
@@ -68,7 +73,7 @@ module Sensorium
             def step(reference, bin, r, on)
                 after = reference[bin + @series.width] or return
                 return if @outside && !@outside[bin]
-                Step.new(gap: @outside && (@outside[bin] - r),
+                Step.new(bin:, gap: @outside && (@outside[bin] - r),
                          change: after - r,
                          on: on.filter_map do |name, bins|
                              name if bins.include?(bin)

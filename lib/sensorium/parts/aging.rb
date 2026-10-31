@@ -6,7 +6,8 @@ module Sensorium
         # the transform's space. With the location's Dynamics::Model
         # for the moment's regime, it is moved by the change the model
         # predicts over its age, from the inputs at the moment (the
-        # outside among the snapshot's externals, the Switches on), and
+        # outside among the snapshot's externals, if no older than
+        # max_age, the Switches on), and
         # its σ² grows by q × age (hours); without one, or without the
         # outside its model needs, it stays and its σ grows by drift ×
         # age. For a device with a delta (send-on-delta), what the age
@@ -65,10 +66,12 @@ module Sensorium
                 [change, @model.variance(hours)]
             end
 
-            # The outside's latest value, in the transform's space.
+            # The outside's latest value, in the transform's space; nil
+            # when older than the location's max_age.
             def outside
                 name = @setup.outside or return
                 reading = @snapshot.latest[[nil, name]] or return
+                return if @snapshot.age(reading) > @location.max_age * 60
                 quantity.transform.forward(reading.value, reading.context)
             end
 

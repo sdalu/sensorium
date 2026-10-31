@@ -22,6 +22,7 @@ module Sensorium
                         t.String name, null: false
                     end
                     floats(t, %i[a c q])
+                    %i[rms_hold rms_model].each { t.Float it }
                     t.String :b, text: true, null: false
                     %i[bin steps].each { t.Integer it, null: false }
                     t.primary_key %i[location quantity regime]

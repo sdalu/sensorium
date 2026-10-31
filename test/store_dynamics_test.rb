@@ -33,7 +33,8 @@ module StoreDynamicsBehaviour
         Sensorium::Dynamics::Model.new(location:, quantity: "temperature",
                                        regime: "winter", a: 0.01,
                                        b: { "heating" => 0.05 }, c: -0.002,
-                                       q: 0.003, bin: 600, steps: 20_000)
+                                       q: 0.003, bin: 600, steps: 20_000,
+                                       rms_hold: 0.4, rms_model: 0.35)
     end
 end
 

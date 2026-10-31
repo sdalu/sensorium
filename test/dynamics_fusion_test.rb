@@ -49,6 +49,20 @@ class DynamicsFusionTest < Minitest::Test
         assert_in_delta Math.hypot(0.1, 0.5), part(fused, "ceil").part.sigma
     end
 
+    # The outside read 70 minutes ago, past the location's max_age.
+    def test_an_outside_older_than_max_age_is_not_known
+        fused = aged({ "ceil" => [20.0, 1800] }, outside: 10.0,
+                                                 outside_age: 4200)
+        assert_in_delta 20.0, fused.value
+        assert_in_delta Math.hypot(0.1, 0.5), part(fused, "ceil").part.sigma
+    end
+
+    def test_an_outside_within_max_age_counts
+        fused = aged({ "ceil" => [20.0, 1800] }, outside: 10.0,
+                                                 outside_age: 3600)
+        assert_in_delta 17.03, fused.value
+    end
+
     def test_a_model_without_an_outside_term_needs_none
         fused = aged({ "ceil" => [20.0, 1800] }, outside: nil,
                                                  model: model.with(a: 0.0))
@@ -69,16 +83,17 @@ class DynamicsFusionTest < Minitest::Test
 
     private
 
-    def aged(readings, outside: 10.0, on: false, model: self.model)
+    def aged(readings, outside: 10.0, outside_age: 0, on: false,
+             model: self.model)
         snap = snapshot("room", readings)
-        snap = with_outside(snap, outside) if outside
+        snap = with_outside(snap, outside, outside_age) if outside
         snap = snap.with(switches: { "heating" => Set[nil] }) if on
         Sensorium::Fusion.new(setup, offsets:, shifts: [], dynamics: [model])
                          .location("room", snap)
     end
 
-    def with_outside(snap, value)
-        reading = Sensorium::Reading.new(time: AT, location: nil,
+    def with_outside(snap, value, age)
+        reading = Sensorium::Reading.new(time: AT - age, location: nil,
                                          device: "outside", value:)
         snap.with(latest: snap.latest.merge([nil, "outside"] => reading))
     end

@@ -10,21 +10,25 @@ module Sensorium
             module_function
 
             # The Model, nil when the steps are fewer than
-            # setup.min_samples, the fit is singular, or a is negative.
-            def model(key, steps, setup)
+            # setup.min_samples, the fit is singular, a is negative, or
+            # no bin can be predicted an hour ahead. forecast: the
+            # location's Forecast.
+            def model(key, steps, setup, forecast)
                 return if steps.size < setup.min_samples
+                terms = fit(steps) or return
+                return if terms[:a].negative?
+                model = Model.new(**key, **terms, q: 0.0, bin: setup.bin,
+                                                  steps: steps.size)
+                q = forecast.mean_square(model, steps.map(&:bin), 1.0)
+                model.with(q:) if q
+            end
+
+            # a, b and c; nil when singular.
+            def fit(steps)
                 names = varying(steps)
                 rows = steps.map { row(it, names) }
                 found = solve(rows, steps.map(&:change)) or return
-                terms = terms(found, names, steps.first.gap)
-                return if terms[:a].negative?
-                Model.new(**key, **terms, **noise(rows, steps, found, setup))
-            end
-
-            # q, and what it was measured over.
-            def noise(rows, steps, found, setup)
-                { q: per_hour(rows, steps, found, setup.bin), bin: setup.bin,
-                  steps: steps.size }
+                terms(found, names, steps.first.gap)
             end
 
             # The Switches both on and off over the steps.
@@ -45,15 +49,6 @@ module Sensorium
                 a = gap ? found.first : 0.0
                 b = found.drop(gap ? 1 : 0).first(names.size)
                 { a:, b: names.zip(b).to_h, c: found.last }
-            end
-
-            # The variance of what the fit leaves, per step (over n - p),
-            # brought to an hour.
-            def per_hour(rows, steps, found, bin)
-                left = rows.zip(steps).sum do |row, step|
-                    (step.change - Stats.dot(row, found))**2
-                end
-                left / (rows.size - found.size) * 3600 / bin
             end
 
             # β of y on the rows, by the normal equations of the columns
