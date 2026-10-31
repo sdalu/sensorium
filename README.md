@@ -295,8 +295,9 @@ of the other parts that count (a value and a σ, no note but
 `outlier`), each with its own delta taken out, less those whose track
 has jumped, before or in this update. The references are updated
 first, then the other parts, each in the `Fused`'s order. A part with
-fewer than two others is left as it was. Each update is a scalar
-Kalman step over a random walk:
+fewer than two others is left as it was, unless a **witness** stands
+in for the second (below). Each update is a scalar Kalman step over a
+random walk:
 
     y         = value − delta − the others' fusion
     R         = σ² + the others' fusion's σ²
@@ -357,6 +358,28 @@ Sensorium::Fusion.new(setup, offsets:, shifts:, tracks:)
 them would have each delta taken out twice, and its drifting parts
 would not count. `tracker.reset(tracks, "green-room", "tado")` drops a
 track, which starts afresh at its next update.
+
+In a location of three, a jumped part leaves each other one with a
+single other. Given the location's dynamics (see Staleness), the
+previous `Fused` (made *with* the tracks, so its jumped parts were
+already out) and the snapshot the current one was made from, the
+Tracker makes a witness: the previous value moved by the model to the
+moment, as an aged reading is, with the moment's inputs (the outside,
+the Switches on), its σ² the previous one's plus q × the hours since.
+It counts as one more other for a part that has a single one. There is
+none without a model for the location and the moment's regime,
+without the outside its model needs, while a Mode holds there, or
+when the previous `Fused` has no value or σ, or is older than the
+location's `max_age`; the part is then left as it was.
+
+```ruby
+tracker  = Sensorium::Tracker.new(setup, offsets:,
+                                  dynamics: store.dynamics("temperature"),
+                                  locations: store.locations("temperature"))
+tracks   = tracker.update(tracks, fused, previous:, snapshot:)
+previous = Sensorium::Fusion.new(setup, offsets:, shifts:, tracks:)
+                            .location("green-room", snapshot)
+```
 
 The gain is small by design. In the tests' room (a sensor of
 σ 0.2 °C against two of 0.1 and 0.08), ten hourly updates take delta
@@ -452,9 +475,11 @@ learning kept in it.
   change only when learning runs again.
 - Until a sensor is flagged jumped, the others' deltas take in a
   little of its step (0.008 °C of 0.6 in the tests' room).
-- In a location of three, a jumped sensor leaves each other one with
-  a single other: their tracks stand still until a relearn or a
-  reset.
+- In a location of three with a jumped sensor, the witness is made
+  from the two others: a bias on one of them is shared between their
+  deltas. In the tests' room, 48 hourly updates take tado's delta to
+  60 % of a 0.2 bias while Airzone's moves by −0.075. Without
+  dynamics, their tracks stand still until a relearn or a reset.
 - The room preset's humidity σ and drift are first guesses, not
   measured: triple collocation needs three humidity series in a
   location.

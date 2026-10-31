@@ -138,7 +138,8 @@
   drift; `track_q` bounds how fast the level may wander. The truth for
   a part is the others' fusion, the part left out, or it would pull its
   own truth; with fewer than two others a disagreement cannot be put on
-  either side, so the part is left as it was.
+  either side, so the part is left as it was, unless a witness stands
+  in (below).
 - **A slow filter, a CUSUM for jumps.** The gain is kept small so that
   noise does not move delta: a constant bias takes about a day to be
   learned at an hourly cadence. A step would then be absorbed over
@@ -157,6 +158,18 @@
   left in the others' fusion would pull them after it; within an
   update the references go first, and a part that has jumped is left
   out of every later part's others.
+- **A witness from the location's own dynamics** for a part left with
+  a single other, as in a room of three once one sensor has jumped. A
+  disagreement between two cannot be put on either side; the room's
+  last fused value, moved by its model to the moment, is a third that
+  depends on neither reading now, its σ grown by what the model
+  cannot tell over the time since. It comes from a Fused made with the
+  tracks, so the jumped part is already out of it. The previous value
+  holds both sensors' deltas, so a bias on one is in part put on the
+  other; that still beats standing still until a relearn. It is the
+  aged-reading rule of the fusion, the same inputs from the snapshot,
+  and stands aside where that rule does: no model, no outside the
+  model needs, a Mode holding, or a previous value past `max_age`.
 - **Updated from a Fused made without tracks**, so that each delta is
   taken out once, by the Tracker, and a drifting part, which a tracked
   Fused notes, is still updated and can clear. Until a part is flagged
