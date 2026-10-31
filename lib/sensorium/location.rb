@@ -7,17 +7,24 @@ module Sensorium
     #              when several (default: the Setup's places)
     #   sigma, drift, max_age  the Quantity's, unless set
     #   exclude    devices left out
+    #   deltas     { device => the change it reports on }, as the
+    #              quantity reads (before the transform): a device that
+    #              reports only when its value moved by that much
+    #              (send-on-delta)
     Location = Data.define(:name, :references, :sigma, :drift, :max_age,
-                           :exclude)
+                           :exclude, :deltas)
 
     class Location
         UNSET = { sigma: nil, drift: nil, max_age: nil }.freeze
 
         def self.default(name) = new(name:)
 
-        def initialize(name:, references: [], exclude: [], **settings)
+        def initialize(name:, references: [], exclude: [], deltas: {},
+                       **settings)
             super(name:, references: Array(references),
-                  exclude: Array(exclude), **UNSET, **settings)
+                  exclude: Array(exclude),
+                  deltas: (deltas || {}).transform_keys(&:to_s),
+                  **UNSET, **settings)
         end
 
         # The settings left unset taken from the quantity.

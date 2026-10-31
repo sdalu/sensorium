@@ -34,6 +34,15 @@ module StoreBehaviour
         assert_empty @store.locations("humidity")
     end
 
+    def test_a_locations_deltas_are_set_and_reset
+        @store.set_location("temperature", "blue",
+                            { deltas: { "tado" => 0.1, "plain" => 0.5 } })
+        blue = @store.locations("temperature").fetch("blue")
+        assert_equal({ "tado" => 0.1, "plain" => 0.5 }, blue.deltas)
+        @store.set_location("temperature", "blue", { deltas: nil })
+        assert_empty @store.locations("temperature").fetch("blue").deltas
+    end
+
     private
 
     def learned = Winter.learned

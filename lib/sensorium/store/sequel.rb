@@ -89,11 +89,19 @@ module Sensorium
                 table(:shifts).multi_insert(learned.shifts.map(&:to_h))
             end
 
-            # A Location's settings as its row's columns.
+            # A Location's settings as its row's columns: lists as A,B,
+            # deltas as JSON.
             def columns(settings)
                 settings.to_h do |key, value|
-                    [key == :references ? :reference : key,
-                     value.is_a?(Array) ? value.join(",") : value]
+                    [key == :references ? :reference : key, column(value)]
+                end
+            end
+
+            def column(value)
+                case value
+                when Array then value.join(",")
+                when Hash then JSON.generate(value)
+                else value
                 end
             end
 
@@ -115,6 +123,7 @@ module Sensorium
                 Location.new(name: row[:location],
                              references: row[:reference]&.split(","),
                              exclude: row[:exclude]&.split(","),
+                             deltas: JSON.parse(row[:deltas] || "{}"),
                              **row.slice(:sigma, :drift, :max_age))
             end
         end

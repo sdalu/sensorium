@@ -48,6 +48,7 @@ module Sensorium
                     %i[reference exclude].each { t.String it }
                     %i[sigma drift].each { t.Float it }
                     t.Integer :max_age
+                    t.String :deltas, text: true
                     t.primary_key %i[location quantity]
                 end
 
