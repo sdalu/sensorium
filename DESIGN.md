@@ -95,6 +95,20 @@
   the shared error from one σ to another rather than accounting for
   it, so it stays a measurement.
 
+## Blending
+
+- **Blending is not fusion.** Fusion estimates one location's truth
+  from sensors that measure it; a blend says which locations matter,
+  by a weight from outside (occupancy, area). Occupancy must not move
+  a room's value, so it is a separate step over fused values, and it
+  knows nothing of rooms: any keyed estimates, any weights.
+- **In the quantity's own units**, from the values as they read: what
+  the blend answers (the temperature where people are) is read in
+  them.
+- **Errors taken as independent**, so σ shrinks as the weight spreads
+  over more estimates; locations sharing an error (one reference, one
+  sun) make it optimistic, as it is for the fusion.
+
 ## Tracking
 
 - **A scalar random-walk Kalman filter over the batch offset.** The

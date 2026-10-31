@@ -239,6 +239,31 @@ may be dead.
 store.set_location("temperature", "green-room", { deltas: { "hue-1" => 0.2 } })
 ```
 
+## Blending
+
+`Blend` makes several estimates one, each with a weight the caller
+gives: the temperature where people are (rooms weighted by how
+occupied they are), a floor's (its rooms by area), a house's. The
+estimates are keyed by whatever the caller names them, and are
+anything answering `value` and `sigma`: a `Fused`, an `Estimate`, a
+`Blended`.
+
+```ruby
+rooms   = fusion.locations(snapshot).to_h { [it, fusion.location(it, snapshot)] }
+blended = Sensorium::Blend.new({ "downstairs" => 0.8, "green-room" => 0.2 })
+                          .of(rooms)
+blended.value     # the weighted mean
+blended.sigma     # √Σ (w / W)² σ², nil if one that counts has none
+blended.shares    # { key => Share(weight, value, sigma) }
+```
+
+Weights are a Hash (missing keys weigh 0) or anything answering
+`call(key)`; a weight below zero is refused. An estimate without a
+value does not count, the others' shares filling its place; with no
+weight anywhere there is no value, and the caller chooses what stands
+in (equal weights give the plain mean). Estimates that say their
+quantity must say the same one; `at` is the latest they say.
+
 ## Tracking
 
 Between two learnings an offset can move: a sensor moved, re-batteried
@@ -427,6 +452,7 @@ learning kept in it.
 - A dynamics model is a straight line over the reading's age (fine
   while a × age in bins is small), and its q is calibrated on the span
   it was fitted on: another season may move more, or less.
+- A blend takes its estimates' errors as independent.
 - A neighbour name is "LOCATION/DEVICE": a location "a/b" with a
   device "c" and a location "a" with a device "b/c" collide.
 
