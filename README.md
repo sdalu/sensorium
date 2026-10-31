@@ -143,7 +143,8 @@ with `outside` the external series `Setup#outside` names (none: a is
 0) and `on` 1 while each Switch is on (its hard hold, not its
 exposure). An aged reading is moved by what the model predicts over
 its age, from the inputs at the moment (the outside's latest value
-among the snapshot's externals, the Switches on), (a × (outside −
+among the snapshot's externals, if no older than the location's
+`max_age`, the Switches on), (a × (outside −
 value) + Σ b × on + c) × age in bins, and its σ² grows by q × t, q
 the variance the model leaves, per hour. Without a model for the
 moment's regime, or without the outside value when a ≠ 0, the drift
@@ -162,11 +163,19 @@ fusion = Sensorium::Fusion.new(setup, offsets: store.offsets("temperature"),
 `Dynamics.learn` takes the location's reference as the learner does
 (the `Location`'s, else the setup's `places`), fits the model by least
 squares over the bins of the carried reference series where every term
-is known, and gives no model for a location and regime seen less than
-`min_samples` steps, or with a < 0 (a room running away from the
-outside is not a model). A Switch never off, or never on, in a regime
-is left out: its term cannot be told from c. It is learned apart from
-`Learner#learn`, so a caller can run it on its own schedule.
+is known and no Mode held (nor within its hold), and gives no model for
+a location and regime seen less than `min_samples` steps, or with
+a < 0 (a room running away from the outside is not a model). A Switch
+never off, or never on, in a regime is left out: its term cannot be
+told from c. q is the mean square of the error of predicting the
+reference an hour ahead, as the Fusion does, over the bins fitted.
+
+Each model is validated: fitted without the last tenth of its steps
+(a week at least), it must predict the reference two hours ahead from
+those steps with a lower RMS error than holding the last value, or the
+location and regime get no model; kept, it is fitted again on all its
+steps and carries both errors (`rms_hold`, `rms_model`). It is learned
+apart from `Learner#learn`, so a caller can run it on its own schedule.
 
 A **send-on-delta** sensor reports only when its value moved by a
 threshold: an unchanged value is within that delta of the truth as
@@ -265,11 +274,12 @@ learning kept in it.
   measured.
 - An offset of a sensor gone for good stays in the store until its
   location is learned against another reference.
-- A dynamics model is fitted over every bin, a Mode's (the aircon's)
-  included, and is applied as a straight line over the reading's age
-  (fine while a × age in bins is small: under 0.1 an hour on
-  MadHouse). Its q, fitted per step, under-states how fast the error of
-  a held value grows in most rooms of MadHouse (DESIGN.md).
+- A dynamics model is fitted without the bins under a Mode, but the
+  Fusion applies it under one too; it is a straight line over the
+  reading's age (fine while a × age in bins is small: under 0.1 an
+  hour on MadHouse). Its validation margins are mostly a few
+  thousandths of a degree, and its q is off by up to 4 × either way on
+  MadHouse's October (DESIGN.md).
 - A neighbour name is "LOCATION/DEVICE": a location "a/b" with a
   device "c" and a location "a" with a device "b/c" collide.
 

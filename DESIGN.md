@@ -185,15 +185,36 @@ though it was known to be within its reporting step.
   what the learner reads; it is fitted in closed form by least
   squares on the carried reference series, as the learner builds it,
   and refused when a < 0 (a room running away from the outside is not
-  a room) or seen less than `min_samples` steps. The Switches enter
-  by their hard hold, not their filtered exposure: the time constant
-  of the room already filters them.
+  a room) or seen less than `min_samples` steps.
+- **Every Switch by its hard hold**, a filtered one too: the room's
+  own time constant filters it already, and the exposure's τ was
+  chosen for a sensor's offset, not for the room.
+- **A Switch never off, or never on, in a regime is left out** of that
+  regime's fit: its column would be the constant's, or nothing.
+- **The bins under a Mode are left out of the fit**, and its hold
+  after, as the learner does for the offsets: the aircon drives the
+  room by far more than anything the model has, and a synthetic
+  aircon cooling the room two hours a day biased a by a quarter.
+- **Kept only when it beats holding the last value.** Each location
+  and regime is fitted without the last tenth of its steps (a week of
+  them at least), then predicts the reference two hours ahead from
+  each of those steps, as the Fusion would; it is kept only if its RMS
+  error is lower than holding's, then fitted again on all its steps.
+  Both errors stay on the model (`rms_hold`, `rms_model`).
+- **q from an hour ahead, not from one step.** The carried series is
+  steady between reports, so its steps are far from independent, and
+  six times a step's residual variance said little of an hour's error.
+  q is the mean square of the error of predicting an hour ahead, as
+  the Fusion does, over the bins fitted. On a synthetic room whose
+  noise is an AR(1) of coefficient 0.9 it comes within 4 % of the true
+  hour's error; the one-step rule gave a fourteenth of it.
 - **Only the time update, applied per reading.** No fused state is
   kept between calls: the Fusion stays a function of the snapshot.
   Each reading is moved by the model's predicted change over its age,
-  from the inputs at the moment, and its σ² grows by q × age. The
-  change is a straight line (Euler over the age): with a below 0.014
-  per bin on MadHouse and `max_age` an hour, a × age stays under 0.1.
+  from the inputs at the moment (the outside only if read within the
+  location's `max_age`), and its σ² grows by q × age. The change is a
+  straight line (Euler over the age): with a below 0.014 per bin on
+  MadHouse and `max_age` an hour, a × age stays under 0.1.
 - **Send-on-delta as a cap, not a model.** A value that has not moved
   by its delta is within ±delta of the truth; spread evenly there its
   variance is delta² / 3. The cap applies to whichever age term holds,
@@ -201,46 +222,53 @@ though it was known to be within its reporting step.
   from a dead sensor.
 
 What MadHouse's year showed (`Presets.room`, outside: the weather
-station; learned 2025-10-31 to 2026-10-31, 26 models of 9 locations,
-12 400 to 16 900 steps each; toilet-downstairs got no summer model,
-refused for too few steps or a < 0, the run did not print which).
-Outside summer the living rooms follow the outside with τ = bin / a of
-67 to 260 h, the toilets hardly at all (500 to 3 300 h), the garage in
-13 to 17 h; in summer τ is longer still in most rooms (up to 1 600 h).
-The heating term is 0.01 to 0.03 °C per bin in winter in seven
-locations of nine; c carries the rest. q is 0.004 to 0.11 K² per hour,
-against the drift rule's 1 K² after an hour.
+station; 2025-10-31 to 2026-10-31, 27 regimes over 9 locations). 20
+models were kept, 7 refused:
 
-Held out, the model trained to 2026-10-01 predicted October's
-reference (the "mid" models, about 4 300 starts per location), RMS in
-°C, holding the last value against the model as the Fusion applies it
-(inputs at the target time):
+| location | winter | mid | summer |
+|---|---|---|---|
+| bathroom | kept (0.322 → 0.318) | refused (0.440, 0.442) | kept (0.353 → 0.353) |
+| downstairs | kept (0.310 → 0.291) | kept (0.525 → 0.524) | kept (0.274 → 0.256) |
+| garage | kept (1.018 → 0.730) | kept (0.698 → 0.528) | kept (0.883 → 0.563) |
+| green-room | kept (0.529 → 0.523) | kept (0.540 → 0.536) | refused (0.217, 0.233) |
+| red-room | refused (0.280, 0.281) | kept (0.619 → 0.563) | kept (0.354 → 0.350) |
+| shower-room | kept (0.162 → 0.151) | refused (0.123, 0.128) | kept (0.092 → 0.090) |
+| toilet-downstairs | refused (0.059, 0.059) | kept (0.065 → 0.063) | refused: a < 0 or singular on the first nine tenths |
+| toilet-upstairs | kept (0.150 → 0.136) | refused (0.090, 0.094) | kept (0.069 → 0.069) |
+| under-the-sink | kept (0.544 → 0.536) | kept (0.559 → 0.549) | kept (0.390 → 0.375) |
 
-| location | 1 h hold | 1 h model | 2 h hold | 2 h model | 4 h hold | 4 h model |
-|---|---|---|---|---|---|---|
-| bathroom | 0.359 | 0.359 | 0.407 | 0.407 | 0.456 | 0.463 |
-| downstairs | 0.286 | 0.283 | 0.433 | 0.428 | 0.613 | 0.600 |
-| garage | 0.365 | 0.276 | 0.648 | 0.425 | 1.131 | 0.698 |
-| green-room | 0.214 | 0.217 | 0.317 | 0.325 | 0.480 | 0.499 |
-| red-room | 0.450 | 0.452 | 0.534 | 0.542 | 0.613 | 0.668 |
-| shower-room | 0.068 | 0.063 | 0.118 | 0.110 | 0.210 | 0.203 |
-| toilet-downstairs | 0.045 | 0.044 | 0.066 | 0.064 | 0.108 | 0.103 |
-| toilet-upstairs | 0.058 | 0.058 | 0.090 | 0.090 | 0.147 | 0.152 |
-| under-the-sink | 0.269 | 0.266 | 0.447 | 0.435 | 0.670 | 0.658 |
-| all, pooled | 0.274 | 0.262 | 0.392 | 0.357 | 0.577 | 0.502 |
+(the validation's RMS two hours ahead, °C: holding → the model.) Only
+the garage gains clearly; elsewhere a model is kept or refused by a
+few thousandths. The aircon holds in most of green-room's and
+red-room's mid and summer bins: 2 500 to 4 600 steps are left, against
+some 12 500 elsewhere. τ = bin / a is 12 to 17 h in the garage, 36 to
+200 h in the living rooms, 600 to 3 300 h in the toilets; the heating
+term is 0.01 to 0.03 °C per bin in winter in seven locations of nine.
+q is 0.0025 to 0.26 K² per hour.
 
-Stepping the model bin by bin with each bin's inputs did about as
-well (pooled 0.263, 0.362, 0.496). The garage gains most; most rooms
-gain a little; green-room and red-room do slightly worse than holding
-at every horizon. Within `max_age` (an hour) the change the model
-predicts is small but for the garage: its gain at fusion is mostly in
-σ, which no longer swamps an hour-old reading. That σ is not
-calibrated: the hold-out's 1 h error variance is about 3 × q in
-bathroom, downstairs, red-room and under-the-sink (2 × in
-green-room), and 0.5 to 0.9 × q in the garage, the shower room and the
-toilets. A per-step residual variance scaled to an hour assumes
-independent steps; the carried series, steady between reports, makes
-them anything but.
+Held out: the models learned 2025-10-31 to 2026-10-01 (validated
+the same way, so for "mid" on its last tenth, in May) predicted October's
+reference. Only three locations kept a "mid" model; RMS in °C from the
+starts outside a Mode, holding against the model as the Fusion applies
+it, then q against October's mean square error an hour ahead:
+
+| location | starts | 1 h hold | 1 h model | 2 h hold | 2 h model | 4 h hold | 4 h model | q | 1 h MSE |
+|---|---|---|---|---|---|---|---|---|---|
+| garage | 4 326 | 0.365 | 0.276 | 0.648 | 0.425 | 1.130 | 0.697 | 0.339 | 0.076 |
+| green-room | 232 | 0.198 | 0.198 | 0.345 | 0.346 | 0.554 | 0.557 | 0.063 | 0.039 |
+| red-room | 275 | 0.357 | 0.343 | 0.530 | 0.474 | 0.649 | 0.615 | 0.050 | 0.118 |
+| pooled | | 0.358 | 0.277 | 0.630 | 0.425 | 1.087 | 0.687 | | |
+
+Over every start, the aircon's included (green-room and red-room
+4 326 and 4 324), green-room's model is worse than holding at every
+horizon (1 h 0.216 against 0.214, 2 h 0.323 against 0.317, 4 h 0.501
+against 0.480), red-room's too (0.452 against 0.450, 0.548 against
+0.534, 0.703 against 0.612), and red-room's hour error is 4 × q: the
+Fusion applies a model under the aircon that was not fitted there.
+The validation in May did not foresee October's green-room;
+its margins are of the order of their noise. q is now on the safe
+side in the garage (4 × October's error: April and May moved it more)
+and in green-room (1.6 ×), still short in red-room (2.4 × short).
 
 ## Ruled out
 
@@ -254,10 +282,10 @@ them anything but.
   survey cites: each location would need several parameters
   identified jointly with its neighbours (maximum likelihood on
   stochastic differential equations), and the fusion would have to
-  carry a state across locations. The held-out month leaves little for
-  it: over an hour, the first-order model already moves the value
-  little, and holding the last value is within 0.06 °C of it at every
-  horizon everywhere but the garage.
+  carry a state across locations. The validation leaves little for it:
+  two hours ahead, the first-order model beats holding the last value
+  by a few hundredths of a degree at most, everywhere but the
+  garage.
 - **Learning the shift over the full model**, the other way to make a
   shift and its use agree: it needs the neighbour at the run's bins,
   and falls back to the plain offset anyway when it is missing. Under
