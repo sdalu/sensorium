@@ -169,6 +169,79 @@ term reached (kept at 0.8).
   prototype source tags no sensor "wall" or "valve", so the humidity
   learning found no reference and learned nothing.
 
+## Staleness (2026-10-31)
+
+The survey (sections 4, 5.2 item 7, 5.3 item 5) found the linear σ
+growth the weakest part of the fusion: an hour-old reading lost
+almost all its weight (drift 1 °C/h against σ 0.1), whatever the room
+was doing, and a report-on-change sensor's steady value looked stale
+though it was known to be within its reporting step.
+
+- **A first-order ARX of the reference, per location and regime.**
+  One state, r, driven by the gap to the outside, each Switch's
+  on-state and a constant: the discrete form of a one-resistance,
+  one-capacitance room (a = bin / τ), which is what the survey's
+  Kalman time update needs and nothing more. Its inputs are already
+  what the learner reads; it is fitted in closed form by least
+  squares on the carried reference series, as the learner builds it,
+  and refused when a < 0 (a room running away from the outside is not
+  a room) or seen less than `min_samples` steps. The Switches enter
+  by their hard hold, not their filtered exposure: the time constant
+  of the room already filters them.
+- **Only the time update, applied per reading.** No fused state is
+  kept between calls: the Fusion stays a function of the snapshot.
+  Each reading is moved by the model's predicted change over its age,
+  from the inputs at the moment, and its σ² grows by q × age. The
+  change is a straight line (Euler over the age): with a below 0.014
+  per bin on MadHouse and `max_age` an hour, a × age stays under 0.1.
+- **Send-on-delta as a cap, not a model.** A value that has not moved
+  by its delta is within ±delta of the truth; spread evenly there its
+  variance is delta² / 3. The cap applies to whichever age term holds,
+  and `max_age` still cuts: without a heartbeat, silence cannot be told
+  from a dead sensor.
+
+What MadHouse's year showed (`Presets.room`, outside: the weather
+station; learned 2025-10-31 to 2026-10-31, 26 models of 9 locations,
+12 400 to 16 900 steps each; toilet-downstairs got no summer model,
+refused for too few steps or a < 0, the run did not print which).
+Outside summer the living rooms follow the outside with τ = bin / a of
+67 to 260 h, the toilets hardly at all (500 to 3 300 h), the garage in
+13 to 17 h; in summer τ is longer still in most rooms (up to 1 600 h).
+The heating term is 0.01 to 0.03 °C per bin in winter in seven
+locations of nine; c carries the rest. q is 0.004 to 0.11 K² per hour,
+against the drift rule's 1 K² after an hour.
+
+Held out, the model trained to 2026-10-01 predicted October's
+reference (the "mid" models, about 4 300 starts per location), RMS in
+°C, holding the last value against the model as the Fusion applies it
+(inputs at the target time):
+
+| location | 1 h hold | 1 h model | 2 h hold | 2 h model | 4 h hold | 4 h model |
+|---|---|---|---|---|---|---|
+| bathroom | 0.359 | 0.359 | 0.407 | 0.407 | 0.456 | 0.463 |
+| downstairs | 0.286 | 0.283 | 0.433 | 0.428 | 0.613 | 0.600 |
+| garage | 0.365 | 0.276 | 0.648 | 0.425 | 1.131 | 0.698 |
+| green-room | 0.214 | 0.217 | 0.317 | 0.325 | 0.480 | 0.499 |
+| red-room | 0.450 | 0.452 | 0.534 | 0.542 | 0.613 | 0.668 |
+| shower-room | 0.068 | 0.063 | 0.118 | 0.110 | 0.210 | 0.203 |
+| toilet-downstairs | 0.045 | 0.044 | 0.066 | 0.064 | 0.108 | 0.103 |
+| toilet-upstairs | 0.058 | 0.058 | 0.090 | 0.090 | 0.147 | 0.152 |
+| under-the-sink | 0.269 | 0.266 | 0.447 | 0.435 | 0.670 | 0.658 |
+| all, pooled | 0.274 | 0.262 | 0.392 | 0.357 | 0.577 | 0.502 |
+
+Stepping the model bin by bin with each bin's inputs did about as
+well (pooled 0.263, 0.362, 0.496). The garage gains most; most rooms
+gain a little; green-room and red-room do slightly worse than holding
+at every horizon. Within `max_age` (an hour) the change the model
+predicts is small but for the garage: its gain at fusion is mostly in
+σ, which no longer swamps an hour-old reading. That σ is not
+calibrated: the hold-out's 1 h error variance is about 3 × q in
+bathroom, downstairs, red-room and under-the-sink (2 × in
+green-room), and 0.5 to 0.9 × q in the garage, the shower room and the
+toilets. A per-step residual variance scaled to an hour assumes
+independent steps; the carried series, steady between reports, makes
+them anything but.
+
 ## Ruled out
 
 - **A lag term**: a lagged boiler-pipe gap gained nothing in
@@ -176,6 +249,15 @@ term reached (kept at 0.8).
 - **Online learning**: a year of MadHouse's history (some 30
   sensors) learns in about four minutes over the network; a nightly or
   weekly batch is enough.
+- **A full RC network** for staleness (several capacitances per room,
+  walls, rooms coupled to each other), the grey-box hierarchy the
+  survey cites: each location would need several parameters
+  identified jointly with its neighbours (maximum likelihood on
+  stochastic differential equations), and the fusion would have to
+  carry a state across locations. The held-out month leaves little for
+  it: over an hour, the first-order model already moves the value
+  little, and holding the last value is within 0.06 °C of it at every
+  horizon everywhere but the garage.
 - **Learning the shift over the full model**, the other way to make a
   shift and its use agree: it needs the neighbour at the run's bins,
   and falls back to the plain offset anyway when it is missing. Under
