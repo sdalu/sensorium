@@ -51,8 +51,8 @@ class FusionEdgesTest < Minitest::Test
     # A misspelt option would silently fuse without what it names.
     def test_an_unknown_option_is_refused
         assert_raises(ArgumentError) do
-            Sensorium::Fusion.new(Sensorium::Presets.room, offsets: [],
-                                                           shifts: [], track: {})
+            Sensorium::Fusion.new(Sensorium::Presets.room,
+                                  offsets: [], shifts: [], track: {})
         end
     end
 
