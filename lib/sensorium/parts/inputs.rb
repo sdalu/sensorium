@@ -3,8 +3,9 @@
 module Sensorium
     class Parts
         # What a location's models need at the moment besides each
-        # sensor's reading, from the snapshot: the filtered Switches'
-        # exposures, the Series' values, the reference's rate.
+        # sensor's reading, from the snapshot: the Switches and
+        # Thresholds on, the filtered Switches' exposures, the Series'
+        # values, the reference's rate.
         class Inputs
             # location: a resolved Location; references: [device], nil
             # when it has none.
@@ -14,7 +15,11 @@ module Sensorium
                 @snapshot   = snapshot
                 @quantity   = setup.quantity
                 @series     = setup.series
+                @setup      = setup
             end
+
+            # The names of the Switches and of the Thresholds on.
+            def on = @snapshot.on(@location.name) + thresholds
 
             # An offset's exposures, values and dr_dt (Offset::Moment).
             def of(offset)
@@ -27,7 +32,8 @@ module Sensorium
             def exposures(taus)
                 taus.to_h do |name, tau|
                     at = @snapshot.at
-                    [name, @series.filtered(on(name), at - (5 * tau), at, tau)
+                    [name, @series.filtered(pulsed(name), at - (5 * tau), at,
+                                            tau)
                                   .fetch(@series.bin(at))]
                 end
             end
@@ -46,9 +52,27 @@ module Sensorium
 
             private
 
-            def on(name)
+            def pulsed(name)
                 by = @snapshot.pulses.fetch(name, {})
                 by.fetch(nil, Set.new) | by.fetch(@location.name, Set.new)
+            end
+
+            # The Thresholds on: the reference, as it reads, above within
+            # their hold.
+            def thresholds
+                return [] if @setup.thresholds.empty? || @references.empty?
+                now = @series.bin(@snapshot.at)
+                raw = raw_reference
+                @setup.thresholds.filter_map do |threshold|
+                    threshold.name if threshold.on(raw, @series).include?(now)
+                end
+            end
+
+            def raw_reference
+                @series.reference(@references.map do |device|
+                    @series.means(@snapshot.history
+                                           .fetch([@location.name, device], []))
+                end, @setup.carry)
             end
 
             def rate(device)

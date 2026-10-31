@@ -19,11 +19,14 @@ module Sensorium
         end
 
         # From a source as the Learner's, the readings of the `window`
-        # seconds before at.
+        # seconds before at (and further back in the history, as far as
+        # the Thresholds need).
         def self.from(source, setup, at:, window: 3 * 3600)
             gather = Snapshot::Gather
-            readings = gather.readings(source, setup, at, window)
-            new(at:, latest: latest(readings), history: history(readings),
+            readings = gather.readings(source, setup, at,
+                                       [window, gather.reach(setup)].max)
+            new(at:, history: history(readings),
+                latest: latest(readings.select { it.time >= at - window }),
                 switches: gather.switches(source, setup, at),
                 modes: gather.modes(source, setup, at),
                 feeds: gather.feeds(source, setup, at),

@@ -44,6 +44,7 @@ module Sensorium
         def load(sensors)
             readings = @source.readings(quantity, @from, @to, names(sensors))
             @data = @series.of(@setup.quantity.inward(readings))
+            @thresholds = Thresholds.new(@setup, readings)
             @neighbours = Neighbours.new(@series, @setup.carry, sensors,
                                          @data.merge(externals))
             @timeline = Timeline.new(@setup, @source, @from, @to)
@@ -98,7 +99,9 @@ module Sensorium
 
         # What a location's sensors may be fitted with (Fit::Terms).
         def terms(location)
-            { switches: @timeline.switches(location),
+            { switches: @timeline.switches(location)
+                                 .merge(@thresholds.of(location,
+                                                       @references[location])),
               filtered: @timeline.exposures(location),
               series: @timeline.series(location),
               candidates: @neighbours.gaps(location, carried(location)),
@@ -138,3 +141,4 @@ end
 
 require_relative "learner/references"
 require_relative "learner/neighbours"
+require_relative "learner/thresholds"

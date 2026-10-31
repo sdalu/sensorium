@@ -50,6 +50,23 @@ module Sensorium
             end
         end
 
+        # On while the location's own reference, as it reads (before the
+        # transform), was above `above` within the past `hold` seconds
+        # (a humidity sensor's creep after a shower). Learned and applied
+        # as a Switch; it needs no events.
+        Threshold = Data.define(:name, :above, :hold) do
+            def initialize(name:, above:, hold: 3600)
+                super(name: name.to_s, above:, hold:)
+            end
+
+            # The bins it is on, from the reference's { bin => value }.
+            def on(reference, series)
+                series.spans(reference.filter_map do |bin, value|
+                    bin if value > above
+                end, hold)
+            end
+        end
+
         # The location an event counts for: nil for the whole site.
         def self.where(influence, location)
             influence.scope == :site ? nil : location

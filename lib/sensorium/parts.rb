@@ -81,7 +81,7 @@ module Sensorium
 
         # What holds for a sensor's model at the moment: Offset::Moment.
         def moment(device)
-            { on: @snapshot.on(@location.name), neighbour: neighbour(device),
+            { on: @inputs.on, neighbour: neighbour(device),
               **@inputs.of(@offsets[device]) }
         end
 

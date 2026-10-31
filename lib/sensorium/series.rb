@@ -54,6 +54,11 @@ module Sensorium
             end
         end
 
+        # The mean of the series, each carried `seconds`.
+        def reference(all, seconds)
+            mean(all.map { carried(it, seconds) })
+        end
+
         # { bin => mean } over the bins every series has; the one series
         # itself when alone.
         def mean(all)

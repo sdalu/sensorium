@@ -6,7 +6,7 @@ module Sensorium
     #   regime      Regime::Calendar, Regime::Constant, or any object
     #               answering names, of(time), covered(from, to)
     #   influences  [Influence::Switch, Influence::Mode,
-    #               Influence::Series]
+    #               Influence::Series, Influence::Threshold]
     #   places      tags tried in turn for a location's reference when
     #               none is set ("ceiling", then "floor")
     #   bin         seconds a bin spans
@@ -33,9 +33,10 @@ module Sensorium
             super(quantity:, **DEFAULTS.merge(settings))
         end
 
-        def switches = influences.grep(Influence::Switch)
-        def modes    = influences.grep(Influence::Mode)
-        def levels   = influences.grep(Influence::Series)
-        def series   = Series.new(bin)
+        def switches   = influences.grep(Influence::Switch)
+        def modes      = influences.grep(Influence::Mode)
+        def levels     = influences.grep(Influence::Series)
+        def thresholds = influences.grep(Influence::Threshold)
+        def series     = Series.new(bin)
     end
 end

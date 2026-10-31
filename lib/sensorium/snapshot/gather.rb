@@ -13,6 +13,11 @@ module Sensorium
                 found + source.externals(quantity, at - window, at)
             end
 
+            # How far back the Thresholds look: their hold and the carry.
+            def reach(setup)
+                setup.thresholds.map { it.hold + setup.carry }.max || 0
+            end
+
             # { name => Set of locations } of the Switches on at `at`.
             def switches(source, setup, at)
                 setup.switches.to_h do |switch|

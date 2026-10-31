@@ -4,7 +4,9 @@ module Sensorium
     # Setups for the rooms of a house, as first measured in one (winter
     # 2025-26): calendar seasons; the radiators' water ("heating",
     # house-wide, an hour after a valve opened) and the aircon
-    # ("aircon", per room, half an hour after a run). The temperature's
+    # ("aircon", per room, half an hour after a run); for humidity, the
+    # creep of a sensor for six hours after its room's reference read
+    # above 80 % ("creep"). The temperature's
     # reference is a smoke detector on the ceiling, else a leak sensor
     # on the floor; neither measures humidity, whose reference is a
     # wall unit (an aircon's), else a radiator valve's. The source tells
@@ -30,11 +32,17 @@ module Sensorium
         AIRCON  = Influence::Mode.new(name: "aircon", scope: :location,
                                       hold: 1800)
 
+        CREEP = Influence::Threshold.new(name: "creep", above: 80,
+                                         hold: 6 * 3600)
+
+        INFLUENCES = { "humidity" => [HEATING, AIRCON, CREEP] }.freeze
+
         module_function
 
         def room(quantity = TEMPERATURE, **settings)
             Setup.new(quantity:, regime: Regime::Calendar.new,
-                      influences: [HEATING, AIRCON],
+                      influences: INFLUENCES.fetch(quantity.name,
+                                                   [HEATING, AIRCON]),
                       places: PLACES.fetch(quantity.name, []), **settings)
         end
     end
