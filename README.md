@@ -372,6 +372,33 @@ weight anywhere there is no value, and the caller chooses what stands
 in (equal weights give the plain mean). Estimates that say their
 quantity must say the same one; `at` is the latest they say.
 
+## Filtering
+
+An optional layer over the Fusion: `Filter` follows a location's
+fused values over time with a Kalman filter, so that between two
+fusions its value is predicted and its σ grows as it should, and each
+fusion corrects it by its own σ.
+
+```ruby
+filter = Sensorium::Filter.new(setup, dynamics:, locations:)
+state  = filter.step(state, fused, snapshot:)   # nil the first time
+filter.estimate(state)                          # Estimate, as it reads
+store.keep_filters("temperature", [state])
+```
+
+Between `state.at` and the Fused's moment it predicts with the
+location's dynamics model for the regime (as ageing does: the outside
+within `max_age`, the Switches on, none while a Mode holds), the
+variance growing by q × hours; without one, the value stays and the
+variance grows by (drift × hours)². A Fused with a value and a σ then
+updates it (gain = P / (P + σ²)); one without (no reference, nothing
+counted) only predicts; one older than the state is ignored. The state
+is in the transform's space; `estimate(state, context)` brings it back
+(a humidity at the location's temperature). The Fusion keeps no state:
+the `Filter::State` is the caller's, given back at each step, and kept
+by a store (`filters`, `keep_filters`) when it must outlive the
+process.
+
 ## Tracking
 
 Between two learnings an offset can move: a sensor moved, re-batteried
@@ -541,11 +568,12 @@ Tracker's tracks, by quantity. `Store::Memory` for tests and one-off
 runs; `Store::Sequel` (`require "sensorium/store/sequel"`) for any SQL
 database, its table names configurable, its tables created when
 missing unless `migrate: false`. The Tracker's tracks, the dynamics
-models, the collocations and the transient profiles are kept in four
-more tables (`sensor_tracks`, `tables: { tracks: }`;
-`sensor_dynamics`, `tables: { dynamics: }`; `sensor_collocations`,
-`tables: { collocations: }`; `sensor_transients`, `tables: {
-transients: }`), which a caller with its own schema creates too, as
+models, the collocations, the transient profiles and the Filter's
+states are kept in five more tables (`sensor_tracks`, `tables: {
+tracks: }`; `sensor_dynamics`, `tables: { dynamics: }`;
+`sensor_collocations`, `tables: { collocations: }`;
+`sensor_transients`, `tables: { transients: }`; `sensor_filters`,
+`tables: { filters: }`), which a caller with its own schema creates too, as
 `Store::Sequel::Schema` does. An offset's maps (switches, taus,
 series, states) are kept as JSON, as are a location's `deltas`, a
 dynamics model's `b`, a collocation's `sigmas` and a profile's `own`
@@ -553,7 +581,7 @@ and `relative` thresholds (`{ "600": [fall, rise] }`). Tables made before
 the survey rounds lack six columns of `sensor_offsets`: `taus`,
 `series` and `states` (text), `rate`, `off_p10` and `off_p90` (float),
 and `sensor_locations` lacks `deltas` (text); a caller with its own
-schema adds them. Another store answers the same fifteen methods (see
+schema adds them. Another store answers the same seventeen methods (see
 `lib/sensorium/store/memory.rb`).
 
 Keeping dynamics (`keep_dynamics`) or collocations

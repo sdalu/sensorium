@@ -30,6 +30,13 @@ class FilterTest < Minitest::Test
         assert_operator Math.sqrt(state.variance), :<, 0.1
     end
 
+    # One update at the state's moment: gain 0.01 / (0.01 + 0.04).
+    def test_an_update_weighs_state_and_reading_by_their_variances
+        state = filter.step(start, fused(21.0, 0.2, at: AT))
+        assert_in_delta 20.2, state.value
+        assert_in_delta 0.008, state.variance
+    end
+
     # Without a model, the drift rule: the value stays, the variance
     # grows by (drift × hours)² before the update.
     def test_without_a_model_the_drift_rule

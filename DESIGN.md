@@ -159,6 +159,21 @@
   the shared error from one σ to another rather than accounting for
   it, so it stays a measurement.
 
+## Filtering
+
+- **A layer, not a change to the Fusion.** A fused value depends only
+  on its snapshot, which keeps it reproducible and the Fusion free of
+  state; a Kalman filter over the fused values needs a state carried
+  from call to call. Kept apart, the state is the caller's to keep (a
+  store holds it), and a caller who wants none does not pay for it.
+- **The same prediction as ageing.** Between two fusions the state
+  moves by the location's dynamics model with the inputs ageing uses
+  (Parts::Driven), or stays under the drift rule: a filter and the
+  Fusion that disagree on how a room moves would fight each other.
+- **Scalar, per location.** The fused value already combines the
+  sensors; filtering it, rather than every sensor, keeps one state per
+  location and leaves the sensors' weighing to the Fusion.
+
 ## Blending
 
 - **Blending is not fusion.** Fusion estimates one location's truth
