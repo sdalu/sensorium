@@ -147,7 +147,8 @@ among the snapshot's externals, if no older than the location's
 `max_age`, the Switches on), (a × (outside −
 value) + Σ b × on + c) × age in bins, and its σ² grows by q × t, q
 the variance the model leaves, per hour. Without a model for the
-moment's regime, or without the outside value when a ≠ 0, the drift
+moment's regime, without the outside value when a ≠ 0, or while a
+Mode holds (the model was fitted without those bins), the drift
 rule.
 
 ```ruby
@@ -172,7 +173,8 @@ reference an hour ahead, as the Fusion does, over the bins fitted.
 
 Each model is validated: fitted without the last tenth of its steps
 (a week at least), it must predict the reference two hours ahead from
-those steps with a lower RMS error than holding the last value, or the
+those steps with an RMS error at most `Setup#dynamics_margin` (98 %)
+of holding the last value's, or the
 location and regime get no model; kept, it is fitted again on all its
 steps and carries both errors (`rms_hold`, `rms_model`). It is learned
 apart from `Learner#learn`, so a caller can run it on its own schedule.
@@ -274,12 +276,10 @@ learning kept in it.
   measured.
 - An offset of a sensor gone for good stays in the store until its
   location is learned against another reference.
-- A dynamics model is fitted without the bins under a Mode, but the
-  Fusion applies it under one too; it is a straight line over the
-  reading's age (fine while a × age in bins is small: under 0.1 an
-  hour on MadHouse). Its validation margins are mostly a few
-  thousandths of a degree, and its q is off by up to 4 × either way on
-  MadHouse's October (DESIGN.md).
+- A dynamics model is a straight line over the reading's age (fine
+  while a × age in bins is small: under 0.1 an hour on MadHouse), and
+  its q is off by up to 4 × either way on MadHouse's October
+  (DESIGN.md).
 - A neighbour name is "LOCATION/DEVICE": a location "a/b" with a
   device "c" and a location "a" with a device "b/c" collide.
 

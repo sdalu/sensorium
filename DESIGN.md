@@ -199,8 +199,14 @@ though it was known to be within its reporting step.
   and regime is fitted without the last tenth of its steps (a week of
   them at least), then predicts the reference two hours ahead from
   each of those steps, as the Fusion would; it is kept only if its RMS
-  error is lower than holding's, then fitted again on all its steps.
-  Both errors stay on the model (`rms_hold`, `rms_model`).
+  error is at most 98 % of holding's (`Setup#dynamics_margin`), then
+  fitted again on all its steps. Both errors stay on the model
+  (`rms_hold`, `rms_model`). The margin is there because most rooms
+  won or lost by a few thousandths, which is noise: green-room's mid
+  model won its May validation by 0.7 % and lost in October.
+- **Not while a Mode holds.** The model is fitted without the bins
+  under a Mode, so it says nothing of them: while the aircon runs, a
+  reading ages by the drift rule.
 - **q from an hour ahead, not from one step.** The carried series is
   steady between reports, so its steps are far from independent, and
   six times a step's residual variance said little of an hour's error.
@@ -222,8 +228,13 @@ though it was known to be within its reporting step.
   from a dead sensor.
 
 What MadHouse's year showed (`Presets.room`, outside: the weather
-station; 2025-10-31 to 2026-10-31, 27 regimes over 9 locations). 20
-models were kept, 7 refused:
+station; 2025-10-31 to 2026-10-31, 27 regimes over 9 locations). The
+run kept a model whenever it beat holding at all: 20 kept, 7
+refused. With the 2 % margin, applied after it from the same numbers,
+11 are kept: downstairs in winter and summer, the garage in all three
+seasons, red-room mid-season, the shower room in winter and summer,
+toilet-downstairs mid-season, toilet-upstairs in winter, under-the-sink
+in summer. The run's table:
 
 | location | winter | mid | summer |
 |---|---|---|---|
