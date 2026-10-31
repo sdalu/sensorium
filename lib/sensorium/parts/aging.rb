@@ -57,10 +57,12 @@ module Sensorium
 
             def floored(estimate) = [estimate.sigma, quantity.floor].max
 
-            # [change, variance] by the model; nil without one, or
-            # without what it needs.
+            # [change, variance] by the model; nil without one, without
+            # what it needs, or while a Mode holds (the model was fitted
+            # without those bins).
             def modelled(value, hours)
                 return unless @model
+                return unless @snapshot.holding(@location.name).empty?
                 on = @snapshot.on(@location.name)
                 change = @model.change(value, outside, on, hours) or return
                 [change, @model.variance(hours)]
