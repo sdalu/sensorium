@@ -43,7 +43,7 @@ module Sensorium
             key = [name, @setup.regime.of(snapshot.at)]
             references = location.references
             references = learned(key) if references.empty?
-            learning = learning(key)
+            learning = learning(key, references)
             parts = Parts.new(location, references, learning, snapshot,
                               @setup).all
             fused(name, snapshot.at, references&.join("+"), parts, context)
@@ -64,23 +64,29 @@ module Sensorium
                       .resolve(@setup.quantity)
         end
 
-        def learning(key)
+        def learning(key, references)
             offsets = @offsets.fetch(key, []).to_h { [it.device, it] }
             Parts::Learning.new(
                 offsets:,
                 shifts: @shifts.fetch(key, []).to_h do |shift|
                     [[shift.device, shift.influence, shift.mode], shift]
                 end,
-                tracks: tracks(key.first, offsets)
+                tracks: tracks(key, references, offsets)
             )
         end
 
-        # { device => Track } of the location, those that track the
-        # offset they would apply to.
-        def tracks(name, offsets)
+        # { device => Track } of the location, those whose fingerprint is
+        # the moment's: a reference's, or its Offset's.
+        def tracks(key, references, offsets)
+            name, regime = key
             @tracks.filter_map do |(where, device), track|
-                [device, track] if where == name &&
-                                   track.tracks?(offsets[device])
+                next unless where == name && references
+                print = if references.include?(device)
+                            Track.reference(regime, references.join("+"))
+                        else
+                            offsets[device]&.then { Track.fingerprint(it) }
+                        end
+                [device, track] if track.fingerprint == print
             end.to_h
         end
     end

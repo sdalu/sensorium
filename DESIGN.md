@@ -188,8 +188,28 @@ next batch learning, and nothing said so.
   Takruri's neighbourhood mean of corrected readings: with the part
   in, it would pull its own truth. With fewer than two others a
   disagreement cannot be put on either side, so the part is left as it
-  was. The sole reference has no Offset to track and is not tracked:
-  its error is the location's definition of truth.
+  was.
+- **References tracked, but pinned.** A reference has no Offset; its
+  reading is the location's definition of truth. Left untracked, a
+  reference that jumped made every sensor next to it look jumped
+  instead. Tracked like the others, it let the deltas wander together
+  (a bias on one sensor shared with the reference and the rest, none
+  learning it). So a reference's track runs the CUSUM and the jump
+  state on the same innovation, but its delta stays 0 and its variance
+  (σ/2)²: the references stay the anchor, and drift has no meaning for
+  them. A jumped reference does not count; the other sensors'
+  corrections stay as they are, their offsets defining r as what the
+  reference reads when healthy.
+- **References first, and a jumped part out of the others.** In each
+  update the references go first, then the other parts; a part whose
+  track has jumped, before or in this update, is left out of every
+  later part's others. Otherwise a jumped part keeps pulling the
+  others' fusion: a reference that stepped by 5 σ made the tightest
+  sensor beside it jump at the same update. In order, the reference is
+  flagged at its second update and taken out at once; the other
+  sensors, a single other each left, stand still. Within each group
+  the order is the Fused's, so a sensor that jumps is left out only of
+  those updated after it.
 - **Updated from a Fused made without tracks.** The innovation is then
   measured against what the Offsets alone say, and the Tracker takes
   each delta out once, itself; a drifting part, which a tracked Fused
@@ -201,7 +221,8 @@ next batch learning, and nothing said so.
   persists and forgets one that does not; k = 0.5 and h = 5 are the
   textbook pair for a shift of one innovation σ. In the tests' room a
   step of 3 σ is flagged at the third update and a ramp of
-  0.004 °C/h is not, over ten days: the filter keeps up with it, and the drift
+  0.004 °C/h is not, over ten days: the filter keeps up with it, and
+  the drift
   alarm (|delta| past 3 Offset σ, cleared under 2) says it instead,
   the Offset's σ being the spread the batch learning already counted
   as noise. A jumped track stays jumped until the next learning or a
@@ -210,19 +231,17 @@ next batch learning, and nothing said so.
   bias with a time constant of the order of √(R / track_q) hours at an
   hourly cadence (some 20 h for the tests' σ 0.2 °C sensor): a
   constant bias takes days to be learned, and one that comes at once
-  is a jump. A
-  bias of 2 σ is learned (past 75 %, and within 2 √variance) after
-  48 hourly updates (88 %) or ten daily ones (83 %); ten hourly ones
+  is a jump. A bias of 2 σ is learned (past 75 %, and within
+  2 √variance) after 48 hourly updates (88 %) or ten daily ones
+  (80 %); ten hourly ones
   take 40 %. A slow learner is intended: a jump is the CUSUM's to
   catch.
-- **A jump leaks a little into the others' deltas.** The update runs
-  on an untracked Fused, so a jumped part is still one of the others
-  of each other part, and until its own delta has caught up with its
-  step the others' deltas take in a share of it: 0.03 °C of a 0.6 °C
-  step after ten hourly updates in the tests' room, 0.002 °C after
-  fifty. Accepted: it fades as the jumped part's delta catches up,
-  and keeping the update on what the Offsets alone say is what lets a
-  drifting part clear.
+- **A jump leaks a little into the others' deltas** in the updates
+  before it is flagged: the part still counts in the others' fusion
+  then. In the tests' room a 0.6 °C step leaves 0.008 °C in Airzone's
+  delta. Accepted: from the flag on the part is left out, and keeping
+  the update on what the Offsets alone say is what lets a drifting
+  part clear.
 
 ## Ruled out
 

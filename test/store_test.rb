@@ -44,6 +44,13 @@ module StoreBehaviour
         assert_equal tracks, @store.tracks("temperature")
     end
 
+    def test_a_references_track_comes_back
+        tracks = { %w[room ceil] => track(:jumped, device: "ceil")
+                                    .with(constant: nil, plain: nil) }
+        @store.keep_tracks("temperature", tracks)
+        assert_equal tracks, @store.tracks("temperature")
+    end
+
     private
 
     def track(state, device: "tado")

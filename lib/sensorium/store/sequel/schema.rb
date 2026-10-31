@@ -50,8 +50,8 @@ module Sensorium
                 def tracks(t)
                     key(t)
                     %i[reference state].each { t.String it, null: false }
-                    floats(t, %i[constant plain delta variance cusum_up
-                                 cusum_down])
+                    %i[constant plain].each { t.Float it }
+                    floats(t, %i[delta variance cusum_up cusum_down])
                     t.Time :tracked_at, null: false
                     t.primary_key %i[location device quantity]
                 end

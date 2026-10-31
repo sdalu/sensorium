@@ -8,16 +8,12 @@ module Sensorium
     # :ok, :drifting or :jumped. regime, reference, constant and plain
     # are the fingerprint of the Offset it tracks: once the location's
     # Offset for the device has another (a relearn), the track starts
-    # afresh.
+    # afresh. A reference's track has no Offset: constant and plain nil,
+    # reference the location's references ("a+b").
     Track = Data.define(:location, :device, :quantity, :regime, :reference,
                         :constant, :plain, :delta, :variance, :cusum_up,
                         :cusum_down, :at, :state) do
         def fingerprint = [regime, reference, constant, plain]
-
-        # Whether it tracks that Offset (nil: none).
-        def tracks?(offset)
-            !offset.nil? && fingerprint == Track.fingerprint(offset)
-        end
 
         # A Parts::Part that counts, as the Fusion takes it: delta taken
         # out, variance added to its σ²; when jumped, it does not count,
@@ -38,13 +34,20 @@ module Sensorium
             [offset.regime, offset.reference, offset.constant, offset.plain]
         end
 
+        # A reference's: references, the location's ("a+b").
+        def self.reference(regime, references) = [regime, references, nil, nil]
+
         # A track of the offset as it starts: delta 0, with that variance.
         def self.fresh(offset, variance)
-            new(location: offset.location, device: offset.device,
-                quantity: offset.quantity, regime: offset.regime,
-                reference: offset.reference, constant: offset.constant,
-                plain: offset.plain, delta: 0.0, variance:, cusum_up: 0.0,
-                cusum_down: 0.0, at: nil, state: :ok)
+            start(**offset.to_h.slice(:location, :device, :quantity, :regime,
+                                      :reference, :constant, :plain),
+                  variance:)
+        end
+
+        # A track as it starts, of what the keywords say.
+        def self.start(constant: nil, plain: nil, **)
+            new(constant:, plain:, delta: 0.0, cusum_up: 0.0,
+                cusum_down: 0.0, at: nil, state: :ok, **)
         end
     end
 
@@ -69,15 +72,18 @@ module Sensorium
         end
 
         # The tracks after a Fused, made by a Fusion without tracks: each
-        # part that counts, with an Offset and two others or more that
-        # count, updated against them; the others left as they were.
+        # part that counts, a reference or with an Offset, updated
+        # against the others, the references first. A part is left out
+        # of the others while its track has jumped, or once it jumped in
+        # this update; a part with fewer than two others is left as it
+        # was, as are the tracks of other parts.
         def update(tracks, fused)
             counted = fused.parts.select { counts?(it) }.map(&:part)
             current = current(tracks, fused, counted)
-            tracks.merge(counted.filter_map do |part|
-                updated = step(fused, current, part, counted - [part]) or next
-                [[fused.location, part.device], updated]
-            end.to_h)
+            out = current.filter_map do |device, (track, _)|
+                device if track.state == :jumped
+            end
+            tracks.merge(updated(fused, counted, current, out))
         end
 
         # The tracks without that sensor's: its next update starts afresh.
@@ -87,12 +93,31 @@ module Sensorium
 
         private
 
+        # { [location, device] => Track } updated, the references first,
+        # in the Fused's order; out: the devices left out of the others,
+        # those that jump added.
+        def updated(fused, counted, current, out)
+            ordered(fused, counted).each_with_object({}) do |part, done|
+                others = counted.reject { out.include?(it.device) } - [part]
+                track = step(fused, current, part, others) or next
+                out << part.device if track.state == :jumped
+                done[[fused.location, part.device]] = track
+            end
+        end
+
+        # The references first, then the other parts, each in the Fused's
+        # order.
+        def ordered(fused, parts)
+            references = fused.reference&.split("+") || []
+            parts.partition { references.include?(it.device) }.flatten
+        end
+
         # The part's track updated; nil without one, or with fewer than
         # two others.
         def step(fused, current, part, others)
-            track = current[part.device]
+            track, sigma = current[part.device]
             return unless track && others.size >= 2
-            Step.new(@quantity, offset(fused, part.device))
+            Step.new(@quantity, sigma)
                 .call(track, part, others(others, current), fused.at)
         end
 
@@ -101,32 +126,52 @@ module Sensorium
                 COUNTING.include?(weighted.note)
         end
 
-        # { device => Track } of the parts with an Offset: theirs while it
-        # tracks the Offset, else a fresh one.
+        # { device => [Track, σ] } of the parts tracked: theirs while it
+        # has the fingerprint of the moment, else a fresh one; σ, what
+        # their drift is measured in, nil for a reference.
         def current(tracks, fused, parts)
             parts.filter_map do |part|
-                offset = offset(fused, part.device) or next
+                found = basis(fused, part.device) or next
+                fresh, sigma = found
                 track = tracks[[fused.location, part.device]]
-                track = fresh(offset) unless track&.tracks?(offset)
-                [part.device, track]
+                track = fresh unless track&.fingerprint == fresh.fingerprint
+                [part.device, [track, sigma]]
             end.to_h
         end
 
-        # The location's Offset for the device in the moment's regime,
-        # learned against the Fused's reference.
+        # A fresh Track of the device and the σ its drift is measured in:
+        # a reference's, without (it never drifts); another's, of its
+        # Offset learned against the Fused's references, with its σ; nil
+        # without.
+        def basis(fused, device)
+            if fused.reference&.split("+")&.include?(device)
+                [reference(fused, device), nil]
+            elsif (offset = offset(fused, device))
+                [Track.fresh(offset, variance), offset.sigma]
+            end
+        end
+
+        def reference(fused, device)
+            Track.start(location: fused.location, device:,
+                        quantity: fused.quantity, regime: regime(fused),
+                        reference: fused.reference, variance:)
+        end
+
         def offset(fused, device)
-            key = [fused.location, @setup.regime.of(fused.at), device]
-            offset = @offsets[key]
+            offset = @offsets[[fused.location, regime(fused), device]]
             offset if offset&.reference == fused.reference
         end
 
-        def fresh(offset) = Track.fresh(offset, (@quantity.sigma / 2.0)**2)
+        def regime(fused) = @setup.regime.of(fused.at)
+
+        # A fresh track's: (σ/2)², σ the quantity's.
+        def variance = (@quantity.sigma / 2.0)**2
 
         # The others, each with its own delta taken out.
         def others(parts, current)
             parts.map do |part|
-                part.with(value: part.value - (current[part.device]&.delta ||
-                                               0.0))
+                track, = current[part.device]
+                part.with(value: part.value - (track&.delta || 0.0))
             end
         end
     end

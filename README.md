@@ -134,17 +134,18 @@ location with no reference gets the plain mean, `corrected` false and
 
 Between two learnings an offset can move: a sensor moved, re-batteried
 or ageing reads wrong until the next learning. The `Tracker` follows,
-for each sensor with an `Offset`, a `Track`: `delta`, its corrected
+for each sensor with an `Offset` and for each reference, a `Track`: `delta`, its corrected
 value minus the truth, as estimated, with its `variance`; the two sides
 of a CUSUM; `at`, the time of its last update; and a `state`, `:ok`,
 `:drifting` or `:jumped`.
 
 The truth, for one part of a `Fused`, is the `Combine.robust` fusion
 of the other parts that count (a value and a σ, no note but
-`outlier`), each with its own delta taken out. A part with fewer than
-two others is left as it was. A sole reference has no offset and is
-not tracked, but is one of the others. Each update is a scalar Kalman
-step over a random walk:
+`outlier`), each with its own delta taken out, less those whose track
+has jumped, before or in this update. The references are updated
+first, then the other parts, each in the `Fused`'s order. A part with
+fewer than two others is left as it was. Each update is a scalar
+Kalman step over a random walk:
 
     y         = value − delta − the others' fusion
     R         = σ² + the others' fusion's σ²
@@ -154,7 +155,11 @@ step over a random walk:
 
 A track starts at delta 0, variance (σ/2)², σ the quantity's; it starts
 afresh when the location's offset for the device is relearned (another
-regime, reference, constant or plain).
+regime, reference, constant or plain). A reference's track is pinned:
+the references are the anchor, so its delta stays 0 and its variance
+(σ/2)²; only its CUSUM runs, and it may jump, never drift. Its
+fingerprint is the regime and the location's references ("a+b"),
+constant and plain nil.
 
 The alarms run on z = y / √(variance + R):
 
@@ -163,7 +168,7 @@ The alarms run on z = y / √(variance + R):
   jumped. It stays so until its offset is relearned or
   `Tracker#reset` drops it.
 - **drifting**: |delta| above `drift_alarm` × the offset's σ; back to
-  ok under `drift_clear` × σ.
+  ok under `drift_clear` × σ. Not for a reference.
 
 | `Quantity` setting | default |
 |---|---|
@@ -175,8 +180,10 @@ The alarms run on z = y / √(variance + R):
 
 In the fusion, a tracked part's corrected value has its delta taken
 out and its σ² the track's variance added; a jumped one does not count
-(`jumped`), a drifting one counts (`drifting`). A track is applied only
-while it tracks the offset the fusion uses.
+(`jumped`), a drifting one counts (`drifting`). A jumped reference
+does not count either; the other sensors' corrections stay as they
+are, their offsets telling what the reference reads when healthy. A
+track is applied only while its fingerprint is the moment's.
 
 ```ruby
 offsets = store.offsets("temperature")
@@ -203,8 +210,8 @@ track, which starts afresh at its next update.
 The gain is small by design. In the tests' room (a sensor of
 σ 0.2 °C against two of 0.1 and 0.08), ten hourly updates take delta
 to 40 % of a constant bias, 48 hourly ones to 88 % and ten daily ones
-to 83 %, while a step of
-3 σ is flagged jumped at the third update.
+to 80 %, while a step of 3 σ is flagged jumped at the third update,
+and the reference stepping by 5 σ at the second.
 
 ## Any quantity
 
@@ -280,10 +287,11 @@ learning kept in it.
   neighbour are ever fitted together.
 - Only an offset's level is followed online (Tracking); its terms
   change only when learning runs again.
-- A sole reference is not tracked: when it jumps, every other sensor
-  of its location looks jumped.
-- Until a jumped sensor's own delta has caught up, the others' deltas
-  take in a little of its step (0.03 °C of 0.6 in the tests' room).
+- Until a sensor is flagged jumped, the others' deltas take in a
+  little of its step (0.008 °C of 0.6 in the tests' room).
+- In a location of three, a jumped sensor leaves each other one with
+  a single other: their tracks stand still until a relearn or a
+  reset.
 - The room preset's humidity σ and drift are first guesses, not
   measured.
 - An offset of a sensor gone for good stays in the store until its

@@ -25,6 +25,22 @@ class TrackedFusionTest < Minitest::Test
         assert_in_delta 20.0, fused.value, 0.03
     end
 
+    # ceil, the sole reference (σ 0.1), steps by 5 σ: its track jumps
+    # within ten hourly updates, tado's and Airzone's do not, and from
+    # the flag on the fused value, without ceil, stays within 2 σ of
+    # the truth (20 °C).
+    def test_a_reference_that_jumps_is_flagged_and_left_out
+        tracks = track(10)
+        flagged = 10.times.map do |i|
+            tracks = track(1, tracks, from: 10 + i) { { "ceil" => 20.5 } }
+            tracks.fetch(%w[room ceil]).state == :jumped &&
+                truth_kept?(tracks, 10 + i)
+        end
+        assert flagged.last
+        assert_equal [:ok], tracks.values_at(%w[room tado], %w[room airzone])
+                                  .map(&:state).uniq
+    end
+
     def test_a_drifting_part_counts_with_its_delta_taken_out
         tado = part(tracked(tado(0.7, :drifting))
                     .location("room", moment(0, { "tado" => 19.7 })), "tado")
@@ -49,6 +65,16 @@ class TrackedFusionTest < Minitest::Test
     end
 
     private
+
+    # Whether, with the tracks, ceil does not count and the fused value
+    # is within 2 σ of 20 °C.
+    def truth_kept?(tracks, step)
+        fused = tracked(tracks).location("room",
+                                         moment(step, { "ceil" => 20.5 }))
+        assert_equal "jumped", note(fused, "ceil")
+        assert_in_delta 20.0, fused.value, 2 * fused.sigma
+        true
+    end
 
     def tracked(tracks)
         Sensorium::Fusion.new(SETUP, offsets:, shifts: [], tracks:)
