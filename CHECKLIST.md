@@ -3,10 +3,10 @@
 ## Gates
 
 - [ ] `bundle exec rake` passes: tests, then RuboCop.
-- [ ] If the learner or the fit changed, does the room preset still
-  learn on real history what DESIGN.md's "What it learns against
-  ClimatControl" says, or does that section need rewriting? The run
-  needs a house's database, so it is not part of the suite.
+- [ ] If the learner or the fit changed, does the real-history
+  comparison (CLAUDE.local.md) show only differences the commit
+  message explains? The run needs a house's database, so it is not
+  part of the suite.
 
 ## Documents
 

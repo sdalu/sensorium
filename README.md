@@ -134,8 +134,7 @@ name (`"a+b"` for a mean). It assumes the series' errors independent:
 an error they all share (the sun on the room, the radiators' plume)
 is not seen, and an error every sensor but the reference shares is
 taken for the reference's. They measure; the Fusion does not use
-them: on MadHouse's held-out days they made its σ less honest, not
-more (DESIGN.md, "Honest σ").
+them (DESIGN.md, Fusion).
 
 ## Fusing
 
@@ -414,22 +413,20 @@ learning kept in it.
   a single other: their tracks stand still until a relearn or a
   reset.
 - The room preset's humidity σ and drift are first guesses, not
-  measured: triple collocation needs three series in a location, and
-  MadHouse has two (its Airzone and its tado) wherever humidity is
-  learned.
+  measured: triple collocation needs three humidity series in a
+  location.
 - The fused σ still assumes the parts' errors independent: an error
   they share (the reference's, the sun, a radiator's plume) is not in
   it, and neither triple collocation nor a leave-one-out on the same
-  data can see one (DESIGN.md, Honest σ). The collocations are learned
+  data can see one (DESIGN.md, Fusion). The collocations are learned
   and kept but not used by the Fusion.
 - The per-state spreads cover the Switches and Thresholds, not the
   Modes (a Shift has its own spread) nor the Series.
 - An offset of a sensor gone for good stays in the store until its
   location is learned against another reference.
 - A dynamics model is a straight line over the reading's age (fine
-  while a × age in bins is small: under 0.1 an hour on MadHouse), and
-  its q is off by up to 4 × either way on MadHouse's October
-  (DESIGN.md).
+  while a × age in bins is small), and its q is calibrated on the span
+  it was fitted on: another season may move more, or less.
 - A neighbour name is "LOCATION/DEVICE": a location "a/b" with a
   device "c" and a location "a" with a device "b/c" collide.
 
