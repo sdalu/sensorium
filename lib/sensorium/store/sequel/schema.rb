@@ -11,7 +11,7 @@ module Sensorium
 
                 def create(db, tables)
                     %i[offsets shifts locations tracks dynamics
-                       collocations transients].each do |name|
+                       collocations transients filters].each do |name|
                         db.create_table?(tables.fetch(name)) do
                             Schema.public_send(name, self)
                         end
@@ -85,6 +85,13 @@ module Sensorium
                     %i[sigma drift].each { t.Float it }
                     t.Integer :max_age
                     t.String :deltas, text: true
+                    t.primary_key %i[location quantity]
+                end
+
+                def filters(t)
+                    %i[location quantity].each { t.String it, null: false }
+                    floats(t, %i[value variance])
+                    t.Time :filtered_at, null: false
                     t.primary_key %i[location quantity]
                 end
 

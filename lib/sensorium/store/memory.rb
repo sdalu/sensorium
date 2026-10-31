@@ -25,6 +25,8 @@ module Sensorium
     #   keep_collocations(quantity, list)  replaces those of the same
     #                                      location and regime
     #   transients(quantity)               [Transient::Profile]
+    #   filters(quantity)                  { location => Filter::State }
+    #   keep_filters(quantity, states)     replaces them all
     #   keep_transients(quantity, profiles) replaces those of the same
     #                                      location, device and regime
     module Store
@@ -36,6 +38,7 @@ module Sensorium
                 @spans     = {}
                 @locations = {}
                 @tracks    = {}
+                @filters   = {}
                 @dynamics  = []
                 @collocations = []
                 @transients = []
@@ -105,6 +108,12 @@ module Sensorium
 
             def transients(quantity)
                 @transients.select { it.quantity == quantity }
+            end
+
+            def filters(quantity) = @filters.fetch(quantity, {})
+
+            def keep_filters(quantity, states)
+                @filters[quantity] = states.to_h { [it.location, it] }.freeze
             end
 
             def keep_transients(quantity, profiles)

@@ -7,6 +7,7 @@ require "sequel"
 require "sensorium"
 
 require_relative "sequel/tracks"
+require_relative "sequel/filters"
 require_relative "sequel/dynamics_rows"
 require_relative "sequel/collocation_rows"
 require_relative "sequel/transient_rows"
@@ -31,9 +32,11 @@ module Sensorium
                        tracks: :sensor_tracks,
                        dynamics: :sensor_dynamics,
                        collocations: :sensor_collocations,
-                       transients: :sensor_transients }.freeze
+                       transients: :sensor_transients,
+                       filters: :sensor_filters }.freeze
 
             include Tracks
+            include Filters
             include Forget
 
             def initialize(db, tables: {}, migrate: true)
