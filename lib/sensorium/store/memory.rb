@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "knowing"
+
 module Sensorium
     # Where what a learning found is kept, and the locations' settings.
     # A store answers, each for one quantity (its name):
@@ -28,9 +30,13 @@ module Sensorium
     #   transients(quantity)               [Transient::Profile]
     #   keep_transients(quantity, profiles) replaces those of the same
     #                                      location, device and regime
+    #   knowledge(quantity)                Knowledge, all of the above
+    #                                      (Store::Knowing)
     module Store
         # In memory: for tests, and for a learning used at once.
         class Memory
+            include Knowing
+
             def initialize
                 @offsets   = []
                 @shifts    = []

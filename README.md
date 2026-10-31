@@ -430,21 +430,22 @@ shifts  = store.shifts("temperature")
 tracker = Sensorium::Tracker.new(setup, offsets:)
 tracks  = store.tracks("temperature")
 
-# fuse, without tracks: the Tracker takes each delta out itself
-fused  = Sensorium::Fusion.new(setup, offsets:, shifts:)
+fused  = Sensorium::Fusion.new(setup, offsets:, shifts:, tracks:)
                           .location("green-room", snapshot)
+fused.value                                     # with the tracks
 tracks = tracker.update(tracks, fused)          # new tracks, pure
 store.keep_tracks("temperature", tracks)        # replaces those given
-
-# the value, with the tracks
-Sensorium::Fusion.new(setup, offsets:, shifts:, tracks:)
-                 .location("green-room", snapshot).value
 ```
 
-`Tracker#update` takes a `Fused` made without tracks: one made with
-them would have each delta taken out twice, and its drifting parts
-would not count. `tracker.reset(tracks, "green-room", "tado")` drops a
-track, which starts afresh at its next update.
+A `Tick` does all of it for every location at once: see Running it.
+
+`Tracker#update` takes a `Fused` made with tracks or without: each
+`Weighted` part carries, as `untracked`, the `Part` before its track
+was applied (the part itself when it has none), and the Tracker takes
+that, so each delta is taken out once, by the Tracker, and a drifting
+part still counts and can clear. Made with tracks or without, the
+`Fused` gives the same tracks. `tracker.reset(tracks, "green-room",
+"tado")` drops a track, which starts afresh at its next update.
 
 In a location of three, a jumped part leaves each other one with a
 single other. Given the location's dynamics (see Staleness), the
@@ -472,8 +473,7 @@ tracker  = Sensorium::Tracker.new(setup, offsets:,
                                   locations: store.locations("temperature"),
                                   transients: store.transients("temperature"))
 tracks   = tracker.update(tracks, fused, previous:, snapshot:)
-previous = Sensorium::Fusion.new(setup, offsets:, shifts:, tracks:)
-                            .location("green-room", snapshot)
+previous = fused                                # made with the tracks
 ```
 
 The gain is small by design. In the tests' room (a sensor of
@@ -481,6 +481,52 @@ The gain is small by design. In the tests' room (a sensor of
 to 40 % of a constant bias, 48 hourly ones to 88 % and ten daily ones
 to 80 %, while a step of 3 σ is flagged jumped at the third update,
 and the reference stepping by 5 σ at the second.
+
+## Running it
+
+What a store keeps of a quantity is one `Knowledge`
+(`store.knowledge("temperature")`: offsets, shifts, locations, tracks,
+dynamics, transient profiles); the `Fusion`, the `Tracker` and the
+`Transient::Detector` each take it as `knowledge:`. A `Tick` runs the
+ten-minute cycle on it:
+
+```ruby
+setup    = Sensorium::Presets.room
+previous = {}
+loop do                                         # every ten minutes
+    snapshot = Sensorium::Snapshot.from(source, setup, at: Time.now)
+    tick = Sensorium::Tick.new(setup, store.knowledge("temperature"))
+                          .call(snapshot, previous:)
+    tick.fused        # { location => Fused }, made with the tracks
+    tick.events       # [Transient::Event] of the moment
+    store.keep_tracks("temperature", tick.tracks)
+    previous = tick.fused
+    sleep 600
+end
+```
+
+Each location is fused once, with the tracks the `Knowledge` holds;
+the `Tracker` is updated from those `Fused` (each part as it was
+before its track, see Tracking), with `previous` for the witness and
+the snapshot for the `Detector`; and the `Detector` gives the events.
+The tracks updated show in the next tick's `Fused`, not in this one's.
+
+A blend, if wanted, takes the `Fused` as they come:
+
+```ruby
+Sensorium::Blend.new({ "downstairs" => 0.8, "green-room" => 0.2 })
+                .of(tick.fused).value
+```
+
+A `Tick` holds nothing between calls: the tracks it gives back are all
+those it was given, updated, and `keep_tracks` keeps them for the next
+`store.knowledge`; `previous` is the caller's to keep. A process
+restarted without it loses only the witness for one tick. For a
+quantity with a transform, `call(snapshot, context:)` takes each
+location's context ({ location => context }, or anything answering
+`call(location)`): humidity is brought back at the location's
+temperature, the temperature tick's value; without one, a `Fused` has
+its `inside` but no `value` or `sigma` as the quantity reads.
 
 ## Any quantity
 
@@ -550,7 +596,8 @@ the survey rounds lack six columns of `sensor_offsets`: `taus`,
 `series` and `states` (text), `rate`, `off_p10` and `off_p90` (float),
 and `sensor_locations` lacks `deltas` (text); a caller with its own
 schema adds them. Another store answers the same fifteen methods (see
-`lib/sensorium/store/memory.rb`). A time `Store::Sequel` keeps
+`lib/sensorium/store/memory.rb`), and `knowledge(quantity)` from them
+by including `Store::Knowing`. A time `Store::Sequel` keeps
 (`learned_from`, `learned_to`, `learned_at`, `tracked_at`) is stored and read back as UTC, independently of the
 database's own timezone setting.
 

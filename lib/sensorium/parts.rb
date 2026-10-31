@@ -38,10 +38,15 @@ module Sensorium
             @aging    = Aging.new(location, learning.dynamics, snapshot, setup)
         end
 
-        def all
+        def all = pairs.map(&:first)
+
+        # [[Part, the Part before its Track was applied]], the two the
+        # same Part for a sensor without a Track.
+        def pairs
             @snapshot.devices(@location.name).map do |device|
-                tracked(part(device,
-                             @snapshot.latest[[@location.name, device]]))
+                part = part(device,
+                            @snapshot.latest[[@location.name, device]])
+                [tracked(part), part]
             end
         end
 

@@ -4,15 +4,16 @@ module Sensorium
     class Fusion
         private
 
-        def fused(name, at, reference, parts, context)
-            counted = parts.select(&:value)
-            value, sigma, factors = combine(reference, counted)
+        # pairs: [[Part, the Part before its Track was applied]].
+        def fused(name, at, reference, pairs, context)
+            parts = pairs.map(&:first)
+            value, sigma, factors = combine(reference, parts.select(&:value))
             fused = Fused.new(location: name, quantity: @setup.quantity.name,
                               at:, value: nil, sigma: nil,
                               inside: Estimate.new(value:, sigma:),
                               reference:, corrected: !reference.nil?,
                               parts: nil)
-            outward(fused, shares(parts, factors), context)
+            outward(fused, shares(parts, factors), pairs.to_h, context)
         end
 
         # The reference's inverse-variance fusion, Student-t reweighted
@@ -50,14 +51,16 @@ module Sensorium
         def outlier_factor = @setup.quantity.outlier_factor
 
         # The fused value and each part's brought back as the quantity
-        # reads, with the context given.
-        def outward(fused, shares, context)
+        # reads, with the context given; untracked: { Part => the Part
+        # before its Track was applied }.
+        def outward(fused, shares, untracked, context)
             inside = fused.inside
             value = back(inside.value, context)
             fused.with(value:, sigma: back_sigma(inside, value),
                        parts: shares.map do |part, (weight, note)|
                            Weighted.new(part:, weight:, note:,
-                                        value: back(part.value, context))
+                                        value: back(part.value, context),
+                                        untracked: untracked.fetch(part))
                        end)
         end
 

@@ -6,6 +6,7 @@ require "sequel"
 
 require "sensorium"
 
+require_relative "knowing"
 require_relative "sequel/clock"
 require_relative "sequel/location_rows"
 require_relative "sequel/tracks"
@@ -39,6 +40,7 @@ module Sensorium
 
             include Tracks
             include Forget
+            include Knowing
 
             def initialize(db, tables: {}, migrate: true)
                 @db     = db
