@@ -234,6 +234,12 @@
   in a regime is left out: its column would be the constant's.
 - **Without the bins under a Mode, and not applied under one**: the
   aircon drives the room far more than anything the model has.
+- **Priors as numbers, not physics.** A room's time constant and
+  heating gain follow from its walls, volume and ventilation, but those
+  are a building's, not a sensor's, and the method that turns them
+  into numbers is a country's: sensorium takes the result, a Gaussian
+  prior per coefficient, added to the least squares, and leaves where
+  it comes from to the caller.
 - **Kept only when it beats holding the last value** by
   `dynamics_margin`, two hours ahead, on the last tenth of its steps
   held out: rooms whose model wins or loses by a few thousandths are

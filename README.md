@@ -308,6 +308,22 @@ never off, or never on, in a regime is left out: its term cannot be
 told from c. q is the mean square of the error of predicting the
 reference an hour ahead, as the Fusion does, over the bins fitted.
 
+What the caller knows of a room beforehand can be given as a prior:
+`priors:` maps a location to a `Dynamics::Prior` (or answers
+`call(location, regime)` with one), its `a`, `c` and each `b` a
+`[mean, σ]`. A time constant τ in hours is a = bin / (τ × 3600). The
+fit adds each prior's precision to the data's, so a loose prior gives
+way to a long history and a tight one holds where the history is thin;
+the validation fits with the same prior. Where a prior comes from (a
+building's walls and volume, another room, a past year) is the
+caller's.
+
+```ruby
+prior  = Sensorium::Dynamics::Prior.new(a: [600.0 / (40 * 3600), 0.002])
+models = Sensorium::Dynamics.learn(source, setup, from:, to:,
+                                   priors: { "green-room" => prior })
+```
+
 Each model is validated: fitted without the last tenth of its steps
 (a week at least), it must predict the reference two hours ahead from
 those steps with an RMS error at most `Setup#dynamics_margin` (98 %)
