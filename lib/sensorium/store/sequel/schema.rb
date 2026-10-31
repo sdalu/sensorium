@@ -3,21 +3,17 @@
 module Sensorium
     module Store
         class Sequel
-            # The three tables, created when missing. A caller that keeps
+            # The four tables, created when missing. A caller that keeps
             # its own schema (types, foreign keys) makes them alike and
             # opens the store with migrate: false.
             module Schema
                 module_function
 
                 def create(db, tables)
-                    db.create_table?(tables.fetch(:offsets)) do
-                        Schema.offsets(self)
-                    end
-                    db.create_table?(tables.fetch(:shifts)) do
-                        Schema.shifts(self)
-                    end
-                    db.create_table?(tables.fetch(:locations)) do
-                        Schema.locations(self)
+                    %i[offsets shifts locations tracks].each do |name|
+                        db.create_table?(tables.fetch(name)) do
+                            Schema.public_send(name, self)
+                        end
                     end
                 end
 
@@ -49,6 +45,15 @@ module Sensorium
                     %i[sigma drift].each { t.Float it }
                     t.Integer :max_age
                     t.primary_key %i[location quantity]
+                end
+
+                def tracks(t)
+                    key(t)
+                    %i[reference state].each { t.String it, null: false }
+                    floats(t, %i[constant plain delta variance cusum_up
+                                 cusum_down])
+                    t.Time :tracked_at, null: false
+                    t.primary_key %i[location device quantity]
                 end
 
                 def key(t)

@@ -13,6 +13,8 @@ module Sensorium
     #   set_location(quantity, name, settings)
     #                                      settings: { key => value, nil
     #                                      back to the default }
+    #   tracks(quantity)                   { [location, device] => Track }
+    #   keep_tracks(quantity, tracks)      replaces them all
     module Store
         # In memory: for tests, and for a learning used at once.
         class Memory
@@ -21,6 +23,7 @@ module Sensorium
                 @shifts    = []
                 @spans     = {}
                 @locations = {}
+                @tracks    = {}
             end
 
             def offsets(quantity) = @offsets.select { it.quantity == quantity }
@@ -51,6 +54,12 @@ module Sensorium
                 end
                 @locations[[quantity, name]] =
                     Location.new(**now.to_h, **settings)
+            end
+
+            def tracks(quantity) = @tracks.fetch(quantity, {})
+
+            def keep_tracks(quantity, tracks)
+                @tracks[quantity] = tracks.dup.freeze
             end
 
             private

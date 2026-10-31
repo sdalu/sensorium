@@ -6,10 +6,12 @@ require "sequel"
 
 require "sensorium"
 
+require_relative "sequel/tracks"
+
 module Sensorium
     module Store
         # In an SQL database, through Sequel: SQLite, MariaDB, PostgreSQL…
-        # Three tables, named by `tables`; with migrate: true they are
+        # Four tables, named by `tables`; with migrate: true they are
         # created when missing (Store::Sequel::Schema), else they must be
         # there already, as the caller made them. Lists are kept as A,B,
         # an Offset's maps (switches, taus, series) as JSON.
@@ -17,7 +19,10 @@ module Sensorium
             MAPS = %i[switches taus series].freeze
 
             TABLES = { offsets: :sensor_offsets, shifts: :sensor_shifts,
-                       locations: :sensor_locations }.freeze
+                       locations: :sensor_locations,
+                       tracks: :sensor_tracks }.freeze
+
+            include Tracks
 
             def initialize(db, tables: {}, migrate: true)
                 @db     = db
