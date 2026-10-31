@@ -166,7 +166,9 @@ profiles = Sensorium::Transient.learn(source, setup, from:, to:,
                                       locations: store.locations("temperature"))
 store.keep_transients("temperature", profiles)
 
-detector = Sensorium::Transient::Detector.new(setup, profiles:)
+detector = Sensorium::Transient::Detector.new(
+    setup, profiles:, locations: store.locations("temperature")
+)
 detector.events(snapshot)
 # [Transient::Event(location, device, direction (:fall or :rise), z,
 #                   window, at)]
