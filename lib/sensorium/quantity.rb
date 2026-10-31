@@ -7,15 +7,19 @@ module Sensorium
     #   drift     how fast the value may move, per hour: an old reading
     #             is trusted less by drift × its age
     #   max_age   minutes after which a reading is not used
-    #   outlier   how many σ off the others a sensor is dropped
+    #   robust_nu the Student-t ν the Fusion reweights parts by: lower
+    #             downweights a disagreeing part harder (4)
+    #   outlier_factor a part's reweighted share of 1/σ² below which it
+    #             is noted "outlier" (0.2)
     #   floor     the least σ a reading is given, however tight its
     #             offset was learned (a quarter of sigma unless set)
     #   transform Transform::Identity, Transform::AbsoluteHumidity…
     Quantity = Data.define(:name, :unit, :sigma, :drift, :max_age,
-                           :outlier, :floor, :transform)
+                           :robust_nu, :outlier_factor, :floor, :transform)
 
     class Quantity
-        DEFAULTS = { unit: nil, max_age: 60, outlier: 3, floor: nil,
+        DEFAULTS = { unit: nil, max_age: 60, robust_nu: 4.0,
+                     outlier_factor: 0.2, floor: nil,
                      transform: Transform::Identity }.freeze
 
         def initialize(name:, sigma:, **settings)

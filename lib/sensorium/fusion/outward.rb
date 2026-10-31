@@ -6,22 +6,48 @@ module Sensorium
 
         def fused(name, at, reference, parts, context)
             counted = parts.select(&:value)
-            outlier = reference && Combine.outlier(counted,
-                                                   @setup.quantity.outlier)
-            kept = counted - [outlier]
+            value, sigma, factors = combine(reference, counted)
             fused = Fused.new(location: name, quantity: @setup.quantity.name,
                               at:, value: nil, sigma: nil,
-                              inside: inside(kept, reference), reference:,
-                              corrected: !reference.nil?, parts: nil)
-            outward(fused, Combine.shares(parts, kept, outlier), context)
+                              inside: Estimate.new(value:, sigma:),
+                              reference:, corrected: !reference.nil?,
+                              parts: nil)
+            outward(fused, shares(parts, factors), context)
         end
 
-        # Weighted with a reference, the plain mean without.
-        def inside(kept, reference)
-            value, sigma = Combine.public_send(reference ? :weighted : :mean,
-                                               kept)
-            Estimate.new(value:, sigma:)
+        # The reference's inverse-variance fusion, Student-t reweighted
+        # (Combine.robust) once two parts or more count; the plain mean
+        # without a reference. factors is flat (1.0, never "outlier")
+        # wherever Combine.robust did not run.
+        def combine(reference, counted)
+            return [*Combine.mean(counted), flat(counted)] unless reference
+            return [*Combine.weighted(counted), flat(counted)] if
+                counted.size < 2
+            Combine.robust(counted, @setup.quantity.robust_nu)
         end
+
+        def flat(parts) = parts.to_h { [it, 1.0] }
+
+        # { part => [its share of the value, why it is left out] },
+        # weighted 1/σ² times its factor; below the quantity's
+        # outlier_factor, noted "outlier".
+        def shares(parts, factors)
+            weighed = factors.to_h { |part, f| [part, f * base(part)] }
+            total = [weighed.values.sum, Float::MIN].max
+            parts.to_h do |part|
+                [part, [weighed.fetch(part, 0) / total, note(part, factors)]]
+            end
+        end
+
+        def base(part) = part.sigma ? 1 / (part.sigma**2) : 1.0
+
+        def note(part, factors)
+            factor = factors[part]
+            return part.note unless factor && factor < outlier_factor
+            "outlier"
+        end
+
+        def outlier_factor = @setup.quantity.outlier_factor
 
         # The fused value and each part's brought back as the quantity
         # reads, with the context given.
