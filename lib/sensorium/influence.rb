@@ -30,6 +30,17 @@ module Sensorium
             def value(raw) = raw && raw != false ? raw.to_s : nil
         end
 
+        # A level (the PV inverter's power, W): events with numeric
+        # values, binned as their mean per bin and carried `hold`
+        # seconds. Learned as coefficient × value, kept only when it
+        # narrows the spread; at fusion its latest value within `hold`,
+        # the plain offset when there is none.
+        Series = Data.define(:name, :scope, :hold) do
+            def initialize(name:, scope: :site, hold: 3600)
+                super(name: name.to_s, scope: scope.to_sym, hold:)
+            end
+        end
+
         # The location an event counts for: nil for the whole site.
         def self.where(influence, location)
             influence.scope == :site ? nil : location

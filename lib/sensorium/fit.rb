@@ -4,8 +4,10 @@ module Sensorium
     # One sensor's offset from its location's reference, bin by bin
     # (diffs: { bin => sensor - reference }), fitted as a constant, then
     # with each Switch in turn (switches: { name => bins it was on }),
-    # then with the linear terms: a gain on the reference's level
-    # (levels: { bin => reference }) and the gap to a neighbour
+    # then each Series (series: { name => { bin => value } }) as
+    # coefficient × value, then with the linear terms: a gain on the
+    # reference's level (levels: { bin => reference }) and the gap to a
+    # neighbour
     # (candidates: { name => { bin => reference - neighbour } }), the one
     # that narrows most first, then both together, then a term on the
     # reference's rate (rates: { bin => dr/dt per hour }). A term is kept
@@ -13,15 +15,19 @@ module Sensorium
     # it was.
     class Fit
         # residuals: { bin => what the model leaves }.
-        Model = Data.define(:constant, :switches, :gain, :neighbour,
-                            :coefficient, :rate, :residuals) do
+        Model = Data.define(:constant, :switches, :series, :gain,
+                            :neighbour, :coefficient, :rate,
+                            :residuals) do
             def spread = Stats.spread(residuals.values)
         end
 
         # What a model may be fitted with besides the reference's level,
         # each optional (described above).
-        Terms = Data.define(:switches, :candidates, :rates) do
-            def initialize(switches: {}, candidates: {}, rates: nil) = super
+        Terms = Data.define(:switches, :series, :candidates, :rates) do
+            def initialize(switches: {}, series: {}, candidates: {},
+                           rates: nil)
+                super
+            end
         end
 
         def initialize(diffs, setup, levels:, **terms)
@@ -35,6 +41,9 @@ module Sensorium
             best = @terms.switches.reduce(plain) do |kept, (name, on)|
                 better(kept, switch(kept, name, on))
             end
+            best = @terms.series.reduce(best) do |kept, (name, values)|
+                better(kept, Linear.series(kept, name, values, @setup))
+            end
             rated(linear(best))
         end
 
@@ -42,7 +51,8 @@ module Sensorium
         def plain
             @plain ||= begin
                 value = Stats.median(@diffs.values)
-                Model.new(constant: value, switches: {}, gain: nil,
+                Model.new(constant: value, switches: {}, series: {},
+                          gain: nil,
                           neighbour: nil, coefficient: nil, rate: nil,
                           residuals: @diffs.transform_values { it - value })
             end

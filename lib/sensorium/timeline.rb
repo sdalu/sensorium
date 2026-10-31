@@ -2,18 +2,16 @@
 
 module Sensorium
     # The influences over a span of history, by bin, from the source's
-    # events: when each Switch was on, and when each Mode held which
-    # value. A site-wide influence is kept under the location nil.
+    # events: when each Switch was on, when each Mode held which value,
+    # and each Series' level. A site-wide influence is kept under the
+    # location nil.
     class Timeline
         def initialize(setup, source, from, to)
             @series = setup.series
-            events = ->(name) { Timeline.events(source, name, from, to) }
-            @on = setup.switches.to_h do |switch|
-                [switch.name, on(switch, events.call(switch.name))]
-            end
-            @modes = setup.modes.to_h do |mode|
-                [mode.name, held(mode, events.call(mode.name))]
-            end
+            @events = ->(name) { Timeline.events(source, name, from, to) }
+            @on     = each_of(setup.switches) { on(*it) }
+            @modes  = each_of(setup.modes) { held(*it) }
+            @levels = each_of(setup.levels) { levels(*it) }
         end
 
         # The source's events, none when it tells none.
@@ -26,6 +24,14 @@ module Sensorium
         def switches(location)
             @on.transform_values do |by|
                 by.fetch(nil, Set.new) | by.fetch(location, Set.new)
+            end
+        end
+
+        # { name => { bin => value } } of the Series where the location
+        # is.
+        def series(location)
+            @levels.transform_values do |by|
+                by.fetch(nil, {}).merge(by.fetch(location, {}))
             end
         end
 
@@ -52,6 +58,29 @@ module Sensorium
                   .transform_values do |list|
                       @series.spans(list.map(&:first), switch.hold)
                   end
+        end
+
+        # { name => what the block makes of the influence and its
+        # events }.
+        def each_of(influences)
+            influences.to_h do |influence|
+                [influence.name, yield([influence,
+                                        @events.call(influence.name)])]
+            end
+        end
+
+        # { where => { bin => mean } }, carried `hold`.
+        def levels(level, events)
+            events.group_by { Influence.where(level, it[1]) }
+                  .transform_values do |list|
+                      @series.carried(means(list), level.hold)
+                  end
+        end
+
+        def means(events)
+            events.group_by { @series.bin(it.first) }.transform_values do |list|
+                list.sum { it.last.to_f } / list.size
+            end
         end
 
         def held(mode, events)

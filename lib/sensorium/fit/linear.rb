@@ -27,6 +27,13 @@ module Sensorium
                 end
             end
 
+            def series(model, name, values, setup)
+                fit(model, [values], setup) do |base, (slope)|
+                    { constant: model.constant + base,
+                      series: model.series.merge(name => slope) }
+                end
+            end
+
             def rate(model, rates, setup)
                 fit(model, [rates], setup) do |base, (slope)|
                     { constant: model.constant + base, rate: slope }

@@ -5,7 +5,8 @@ module Sensorium
     #   quantity    the Quantity
     #   regime      Regime::Calendar, Regime::Constant, or any object
     #               answering names, of(time), covered(from, to)
-    #   influences  [Influence::Switch, Influence::Mode]
+    #   influences  [Influence::Switch, Influence::Mode,
+    #               Influence::Series]
     #   places      tags tried in turn for a location's reference when
     #               none is set ("ceiling", then "floor")
     #   bin         seconds a bin spans
@@ -34,6 +35,7 @@ module Sensorium
 
         def switches = influences.grep(Influence::Switch)
         def modes    = influences.grep(Influence::Mode)
+        def levels   = influences.grep(Influence::Series)
         def series   = Series.new(bin)
     end
 end

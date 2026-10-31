@@ -78,6 +78,7 @@ module Sensorium
             @offsets[device].correct(value, on: @snapshot.on(@location.name),
                                             neighbour: neighbour(device),
                                             shifts: shifts(device),
+                                            values: @inputs.values,
                                             dr_dt: @inputs.dr_dt)
         end
 

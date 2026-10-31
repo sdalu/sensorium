@@ -25,7 +25,8 @@ module StoreTermsBehaviour
                               quantity: "temperature", regime: "winter",
                               reference: "r", constant: 0.2,
                               switches: { "heating" => 0.4 }, gain: nil,
-                              neighbour: nil, coefficient: nil, rate: -0.5,
+                              series: { "solar" => 4e-4 }, neighbour: nil,
+                              coefficient: nil, rate: -0.5,
                               p10: -0.1, p90: 0.1, samples: 1000,
                               plain: 0.25, plain_p10: -0.5, plain_p90: 0.5)
     end

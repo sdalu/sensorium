@@ -3,7 +3,8 @@
 module Sensorium
     class Parts
         # What a location's models need at the moment besides each
-        # sensor's reading, from the snapshot: the reference's rate.
+        # sensor's reading, from the snapshot: the Series' values, the
+        # reference's rate.
         class Inputs
             # location: a resolved Location; references: [device], nil
             # when it has none.
@@ -13,6 +14,9 @@ module Sensorium
                 @snapshot   = snapshot
                 @quantity   = setup.quantity
             end
+
+            # { name => value } of the Series where the location is.
+            def values = @snapshot.fed(@location.name)
 
             # The reference's rate, per hour: the mean of each
             # reference's, from its two latest readings within max_age;

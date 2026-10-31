@@ -35,6 +35,17 @@ module Sensorium
                 end
             end
 
+            # { name => { location => value } }: each Series' latest
+            # value within its hold.
+            def feeds(source, setup, at)
+                setup.levels.to_h do |level|
+                    latest = events(source, level, at).sort_by(&:first)
+                    [level.name, latest.to_h do |_, location, value|
+                        [Influence.where(level, location), value.to_f]
+                    end]
+                end
+            end
+
             def events(source, influence, at)
                 Timeline.events(source, influence.name,
                                 at - influence.hold, at)

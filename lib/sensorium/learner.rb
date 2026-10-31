@@ -95,6 +95,7 @@ module Sensorium
             fit = Fit.new(calm, @setup,
                           levels: carried,
                           switches: @timeline.switches(one.location),
+                          series: @timeline.series(one.location),
                           candidates: @neighbours.gaps(one.location, carried),
                           rates: rates(one.location))
             Offset.new(**one.to_h, **Learned.values(fit.model, fit.plain))
