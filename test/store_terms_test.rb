@@ -13,6 +13,13 @@ module StoreTermsBehaviour
         assert_equal [offset], @store.offsets("temperature")
     end
 
+    def test_the_spreads_per_state_come_back
+        offset = rich.with(states: { "heating" => [-0.3, 0.4] },
+                           off_p10: -0.05, off_p90: 0.06)
+        @store.keep(learned(offset), from: AT, to: AT, at: AT)
+        assert_equal [offset], @store.offsets("temperature")
+    end
+
     private
 
     def learned(offset)

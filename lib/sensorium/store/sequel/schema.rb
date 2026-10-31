@@ -3,14 +3,15 @@
 module Sensorium
     module Store
         class Sequel
-            # The four tables, created when missing. A caller that keeps
+            # The six tables, created when missing. A caller that keeps
             # its own schema (types, foreign keys) makes them alike and
             # opens the store with migrate: false.
             module Schema
                 module_function
 
                 def create(db, tables)
-                    %i[offsets shifts locations tracks dynamics].each do |name|
+                    %i[offsets shifts locations tracks dynamics
+                       collocations].each do |name|
                         db.create_table?(tables.fetch(name)) do
                             Schema.public_send(name, self)
                         end
@@ -28,17 +29,35 @@ module Sensorium
                     t.primary_key %i[location quantity regime]
                 end
 
+                def collocations(t)
+                    %i[location quantity regime].each do |name|
+                        t.String name, null: false
+                    end
+                    t.String :sigmas, text: true, null: false
+                    t.Integer :samples, null: false
+                    t.primary_key %i[location quantity regime]
+                end
+
                 def offsets(t)
                     key(t)
                     t.String :reference, null: false
                     t.Float :constant, null: false
-                    %i[switches taus series].each { t.String it, text: true }
-                    %i[gain coefficient rate].each { t.Float it }
+                    maps(t)
                     t.String :neighbour
                     widths(t)
                     floats(t, %i[plain plain_p10 plain_p90])
                     learned(t)
                     t.primary_key %i[location device quantity regime]
+                end
+
+                # An Offset's maps, as JSON, and its optional numbers.
+                def maps(t)
+                    %i[switches taus series states].each do |name|
+                        t.String name, text: true
+                    end
+                    %i[gain coefficient rate off_p10 off_p90].each do |name|
+                        t.Float name
+                    end
                 end
 
                 def shifts(t)

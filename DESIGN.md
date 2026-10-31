@@ -35,6 +35,12 @@ downstairs Airzone in winter, follows the garage's other sensor
 more. No gain term was kept: for temperature it narrows nothing, as
 ClimatControl had found.
 
+Since the scale floor (below, Choices), two of those 25 no longer hold:
+learned on the first 305 days of that year, red-room's Airzone in
+mid-season and in summer followed corridor/nite-owl with k −0.65 and
+−0.69, which the floor refuses (1 + k = 0.35 and 0.31); they keep the
+constant alone. The full year was not learned again.
+
 Where sensorium departs from `Sensing`, on purpose:
 
 - **A term is judged over the bins it covers.** `Sensing` compared a
@@ -69,6 +75,18 @@ Where sensorium departs from `Sensing`, on purpose:
   errors-in-variables fit needs the error covariance of r − n too,
   which nothing measures yet. A pair's gain is therefore still biased
   toward zero by about σ²/var(r).
+- **A scale floor on the linear terms.** A correction is (reading −
+  the other terms + k × neighbour) / (1 + gain + k), and its σ is the
+  spread over |1 + gain + k|. On MadHouse's humidity tado learned
+  k ≈ −0.9 against several neighbours (1 + k = 0.1): the term narrows
+  the spread of the fit, since the sensor mostly follows the
+  neighbour, but corrected back to r its noise is multiplied by ten.
+  A linear term, or the pair, that leaves |1 + gain + k| below
+  `scale_floor` (0.5: at most a doubling) is refused where it would
+  have been kept, and the Fit keeps the model before it; a less
+  narrowing candidate is not tried in its place, for a sensor that
+  follows another place more than its own is no estimate of its
+  reference either.
 - **The gain is new.** It did nothing for temperature; it is there for
   sensors wrong by a share (CO₂, light, particles). `Setup#gain` turns
   it off.
@@ -356,8 +374,122 @@ its margins are of the order of their noise. q is now on the safe
 side in the garage (4 × October's error: April and May moved it more)
 and in green-room (1.6 ×), still short in red-room (2.4 × short).
 
+## Honest σ (survey, 2026-10-31)
+
+The survey's first-ranked item (sections 2.3, 2.5, 5.2 items 1–2,
+5.3 items 1 and 7): an offset's σ was one p10..p90 over all its calm
+bins, and the fused σ assumed every part's error independent.
+
+- **A spread per state.** What the model leaves is wider while a
+  radiator runs by a sensor. The Fit keeps, for each Switch or
+  Threshold kept as a term, the spread over the bins it was on, and
+  the spread over the bins all of them were off, each over `min_part`
+  bins; a filtered Switch is on over its hard hold, as the Snapshot
+  tells it. A reading takes the widest spread of the Switches on, so
+  two influences at once are not counted as calm as either alone; a
+  Switch on without a spread of its own counts as the spread of every
+  bin. On MadHouse's first 305 days only green-room's tado in
+  mid-season keeps a Switch (the heating): 0.70 on, 0.47 off, 0.54
+  over all. Everywhere else the offset's σ is unchanged.
+- **Triple collocation for each series' own error** (Stoffelen; Vogel
+  and Ménard for more than three series): the variance of xᵢ − xⱼ is
+  σᵢ² + σⱼ² when the errors are independent, so cov(xᵢ − xⱼ, xᵢ − xₖ)
+  is σᵢ², averaged over the pairs of the others. The sensors are
+  corrected by their offsets bin by bin, with the terms that held
+  (switches, exposures, neighbour, series, rate), over the calm bins
+  only; the reference is its carried series, as the learner's. A
+  negative estimate means the series' error is too small to tell from
+  the others' noise: nil, not zero, so it never takes all the
+  weight. With several references, each is a series beside their mean
+  and shares its error: the estimate is then biased; MadHouse sets
+  none.
+- **What triple collocation cannot see.** An error every series
+  shares is not in any difference. An error shared by every series but
+  one is in all the differences with that one: triple collocation
+  puts it on that one. In a room whose sensors all feel the radiator
+  but the reference does not, the reference's σ comes out as its own
+  plus the shared error, and the fused σ is as wrong as before, only
+  elsewhere. Nor can a leave-one-out on the same data see it: with
+  σᵢ² + σⱼ² fitted to the variances of the differences, the variance
+  of a part less the fusion of the others is exactly σₖ² + the fused
+  σ². Simulated (20 000 bins, σ 0.1, 0.2, 0.3, a shared σ 0.3 on the
+  two sensors), triple collocation gives the reference 0.316 and the
+  leave-one-out var(z) is 1.000: no inflation can be learned from it.
+  This is why the inflation of the fused σ the survey asked for is not
+  in this round.
+
+What MadHouse's history says (temperature, `Presets.room`, learned on
+2025-10-31 to 2026-09-01, 305 days). Three locations have three
+series or more over `min_samples` common calm bins, in eight regimes;
+σ in °C:
+
+| location | regime | bins | reference | airzone | tado |
+|---|---|---|---|---|---|
+| downstairs | winter | 18 736 | bob-marley 0.189 | 0.717 | 0.059 |
+| downstairs | mid | 7 643 | bob-marley 0.131 | 0.533 | 0.120 |
+| downstairs | summer | 5 249 | bob-marley 0.093 | 0.601 | 0.097 |
+| green-room | winter | 15 551 | snoop-dogg 0.133 | 0.362 | 0.185 |
+| green-room | mid | 2 959 | snoop-dogg 0.143 | 0.253 | 0.148 |
+| red-room | winter | 16 334 | absolem 0.066 | 0.266 | 0.497 |
+| red-room | mid | 4 181 | absolem: not measurable | 0.318 | 0.406 |
+| red-room | summer | 1 637 | absolem 0.252 | 0.286 | 0.138 |
+
+The references are not the 0.1 °C the preset gives them everywhere:
+0.07 to 0.25. On the training span itself, a leave-one-out with these
+σ gives var(z) 1.026 (downstairs), 0.974 (green-room) and 1.001
+(red-room), as it must.
+
+Held out: fused at every hour of 2026-09-01 to 2026-10-31 (1 441
+instants) with what the first 305 days learned, each part with
+three counted or more left out in turn, z = (its corrected value −
+the others' fusion) / √(its σ² + the fusion's σ²), the others fused
+as the Fusion does (Student-t reweighted). "today" is the learning
+without the scale floor and without the spreads per state; "S4" with
+the floor; "S1" with both; "TC" with each part's base σ (before
+ageing) its triple collocation σ where measurable, as a patch outside
+the gem; "TC × λ" with the fused σ inflated by the λ the 305 days
+gave by moments (downstairs 1.161, green-room 1.000, red-room 1.002).
+
+| location | z | today | S4 | S1 | TC | TC × λ |
+|---|---|---|---|---|---|---|
+| downstairs | 3 402 | 1.936 | 1.936 | 1.936 | 2.107 | 1.991 |
+| green-room | 2 160 | 0.880 | 0.880 | 0.872 | 1.093 | 1.093 |
+| red-room | 3 432 | 1.566 | 0.775 | 0.775 | 1.161 | 1.159 |
+| pooled | 8 994 | 1.561 | 1.253 | 1.251 | 1.511 | 1.466 |
+
+(var(z); honest is 1.) The scale floor does all of red-room's gain:
+its Airzone's neighbour term, refused, had multiplied the noise by
+three. The spreads per state change one offset. Triple collocation's
+σ move green-room and red-room past 1 and leave downstairs where it
+was; downstairs' mean z is 0.21 to 0.23 under every variant: the
+autumn's offsets are not the year's, a bias no σ learned on the year
+can absorb. The λ by moments is the mean square of (x_k − fusion) less
+σ_k², over the mean fused σ²; the brief's form, (var(z) − 1) × the
+mean of (σ_k² + fs²) / fs², gives 1.038, 1.000 and 1.000.
+
+Humidity (`Presets.room(HUMIDITY)`, the whole year): every location
+learned has two series only, its Airzone (the reference, "wall") and
+its tado, so no σ can be measured and the preset's σ 0.3 g/m³ and
+drift 0.5 g/m³/h stay first guesses. The scale floor refuses tado's
+neighbour in 7 of the 11 offsets it had learned (k −0.54 to −0.94);
+only green-room's (k −0.07, −0.16) are kept.
+
+Decided: the scale floor and the spreads per state are in; triple
+collocation stays a measurement and does not feed the Fusion (it took
+the held-out var(z) from 1.25 back to 1.51); the inflation is ruled
+out below. What remains of the excess is downstairs' bias, an offset
+that moved since the year it was learned on: the Tracker's to follow,
+not σ's to cover.
+
 ## Ruled out
 
+- **An inflation of the fused σ for shared errors**, learned by a
+  leave-one-out on the triple collocation σ: on the same data it is 1
+  by construction (the shared error is already on one series'
+  σ), so it learns nothing; on MadHouse it came out 1.16, 1.00 and
+  1.00 and moved the held-out var(z) from 1.51 to 1.47 only. Shared
+  errors need a series that does not share them (a reference sensor
+  shielded from the radiator), which no location has.
 - **A lag term**: a lagged boiler-pipe gap gained nothing in
   ClimatControl's trials. (The rate term above is not a lagged copy.)
 - **Online learning** of the model's terms: a year of MadHouse's

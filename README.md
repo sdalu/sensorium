@@ -67,6 +67,19 @@ Each term is kept only if it narrows the spread of what is left
 covers. The constant alone is kept too (`plain`), the fallback when the
 neighbour, a series' value or dr/dt has no fresh value.
 
+A correction solves the model for r, so it divides by 1 + gain +
+coefficient: a gain or a neighbour (or the pair) that leaves that
+below `Setup#scale_floor` (0.5) in magnitude is refused, and the model
+before it kept. A neighbour coefficient of −0.9 would multiply the
+sensor's noise by ten.
+
+What the model leaves is not as wide in every state: a sensor near a
+radiator is rougher while it runs. Besides the spread of every bin
+(p10..p90), an offset keeps the spread over the bins each Switch or
+Threshold kept as a term was on (`states`, `{ name => [p10, p90] }`),
+and over the bins all of them were off (`off_p10..off_p90`), each when
+it has `min_part` bins. A filtered Switch is on over its hard hold.
+
 The influences a `Setup` names:
 
 | influence | told by | learned as |
@@ -95,6 +108,35 @@ mean when several, each then learned against it too), else its first
 sensor tagged with one of the setup's `places` (for temperature,
 "ceiling", then "floor"). A location with none is not learned.
 
+### Measuring σ
+
+An offset's spread is that of the sensor against the reference, so it
+holds the reference's error as well as the sensor's. Where a location
+has three series or more (its reference and two sensors learned
+against it), triple collocation tells each one's own error apart,
+without a truth:
+
+```ruby
+offsets      = store.offsets("temperature")
+collocations = Sensorium::Collocation.learn(source, setup, from:, to:,
+                                            offsets:)
+store.keep_collocations("temperature", collocations)
+collocations.first.sigmas   # { "ceil" => 0.11, "tado" => 0.21, ... }
+```
+
+Per location and regime, over the calm bins (no Mode held, nor within
+its hold) where every series has a value (`min_samples` at least),
+each sensor is corrected by its offset with what held at that bin, as
+the learner read it, and the error variance of series i is the mean,
+over the pairs (j, k) of the others, of cov(xᵢ − xⱼ, xᵢ − xₖ). A
+negative estimate is not measurable (nil). The reference is under its
+name (`"a+b"` for a mean). It assumes the series' errors independent:
+an error they all share (the sun on the room, the radiators' plume)
+is not seen, and an error every sensor but the reference shares is
+taken for the reference's. They measure; the Fusion does not use
+them: on MadHouse's held-out days they made its σ less honest, not
+more (DESIGN.md, "Honest σ").
+
 ## Fusing
 
 ```ruby
@@ -115,7 +157,11 @@ switch's exposure over the 5 τ before, each series' latest value
 within its hold, and dr/dt from the reference's two latest readings
 within `max_age` (`Snapshot#history`). Without a series' value or
 dr/dt, the plain offset. Each reading is weighted
-by 1/σ². σ is never below the quantity's `floor`, grows with the
+by 1/σ², σ the offset's spread / 2.563 / |1 + gain + coefficient|:
+while Switches kept as its terms are on, the widest of their spreads
+(the spread of every bin for one without its own), with none on the
+spread while all were off; an offset without them, the spread of every
+bin. σ is never below the quantity's `floor`, grows with the
 reading's age (see Staleness), and a reading older than `max_age`
 does not count. A location without references set takes those it was
 learned against in the moment's regime. With two sensors or more, the
@@ -328,22 +374,26 @@ still needs the re-emission or the stamp to stay under `max_age`.
 ## Stores
 
 A store keeps what a learning found, the locations' settings and the
-Tracker's tracks, by quantity. `Store::Memory` for tests and one-off runs;
-`Store::Sequel` (`require "sensorium/store/sequel"`) for any SQL
-database, its table names configurable, its tables created when missing
-unless `migrate: false`. The Tracker's tracks and the dynamics models
-are kept in two more tables (`sensor_tracks`, `tables: { tracks: }`;
-`sensor_dynamics`, `tables: { dynamics: }`), which a caller with its
-own schema creates too, as `Store::Sequel::Schema` does. An offset's
-maps (switches, taus, series) are kept as JSON, as are a location's
-`deltas` and a dynamics model's `b`. Tables made before the survey
-rounds lack three columns of `sensor_offsets`: `taus` and `series`
-(text) and `rate` (float), and `sensor_locations` lacks `deltas`
-(text); a caller with its own schema adds them. Another store answers
-the same ten methods (see `lib/sensorium/store/memory.rb`).
+Tracker's tracks, by quantity. `Store::Memory` for tests and one-off
+runs; `Store::Sequel` (`require "sensorium/store/sequel"`) for any SQL
+database, its table names configurable, its tables created when
+missing unless `migrate: false`. The Tracker's tracks, the dynamics
+models and the collocations are kept in three more tables
+(`sensor_tracks`, `tables: { tracks: }`; `sensor_dynamics`, `tables: {
+dynamics: }`; `sensor_collocations`, `tables: { collocations: }`),
+which a caller with its own schema creates too, as
+`Store::Sequel::Schema` does. An offset's maps (switches, taus,
+series, states) are kept as JSON, as are a location's `deltas`, a
+dynamics model's `b` and a collocation's `sigmas`. Tables made before
+the survey rounds lack six columns of `sensor_offsets`: `taus`,
+`series` and `states` (text), `rate`, `off_p10` and `off_p90` (float),
+and `sensor_locations` lacks `deltas` (text); a caller with its own
+schema adds them. Another store answers the same twelve methods (see
+`lib/sensorium/store/memory.rb`).
 
-Keeping dynamics (`keep_dynamics`) replaces the models of the same
-location and regime, and leaves the others.
+Keeping dynamics (`keep_dynamics`) or collocations
+(`keep_collocations`) replaces those of the same location and regime,
+and leaves the others.
 
 Keeping a learning replaces the offsets (and shifts) of the sensors it
 learned again, and every offset of a location whose reference it found
@@ -364,7 +414,16 @@ learning kept in it.
   a single other: their tracks stand still until a relearn or a
   reset.
 - The room preset's humidity σ and drift are first guesses, not
-  measured.
+  measured: triple collocation needs three series in a location, and
+  MadHouse has two (its Airzone and its tado) wherever humidity is
+  learned.
+- The fused σ still assumes the parts' errors independent: an error
+  they share (the reference's, the sun, a radiator's plume) is not in
+  it, and neither triple collocation nor a leave-one-out on the same
+  data can see one (DESIGN.md, Honest σ). The collocations are learned
+  and kept but not used by the Fusion.
+- The per-state spreads cover the Switches and Thresholds, not the
+  Modes (a Shift has its own spread) nor the Series.
 - An offset of a sensor gone for good stays in the store until its
   location is learned against another reference.
 - A dynamics model is a straight line over the reading's age (fine

@@ -107,6 +107,9 @@ module Sensorium
 
         def dot(xs, ys) = xs.zip(ys).sum { |x, y| x * y }
 
+        # The covariance of two series of the same length (over n).
+        def covariance(xs, ys) = dot(centred(xs), centred(ys)) / xs.size
+
         def mean(values) = values.sum.fdiv(values.size)
     end
 end

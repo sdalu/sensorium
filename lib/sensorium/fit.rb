@@ -14,7 +14,9 @@ module Sensorium
     # that narrows most first, then both together, then a term on the
     # reference's rate (rates: { bin => dr/dt per hour }). A term is kept
     # only when it narrows the spread (p10..p90) to setup.narrows of what
-    # it was.
+    # it was; a linear term, or pair, only when it leaves |1 + gain +
+    # coefficient| at setup.scale_floor at least, else the model before
+    # it is kept.
     class Fit
         # residuals: { bin => what the model leaves }.
         Model = Data.define(:constant, :switches, :taus, :series, :gain,
@@ -25,10 +27,12 @@ module Sensorium
 
         # What a model may be fitted with besides the reference's level,
         # each optional (described above).
+        # held: { name => bins it was on } of the filtered Switches, their
+        # hard hold, for the spreads per state.
         Terms = Data.define(:switches, :filtered, :series, :candidates,
-                            :rates) do
+                            :rates, :held) do
             def initialize(switches: {}, filtered: {}, series: {},
-                           candidates: {}, rates: nil)
+                           candidates: {}, rates: nil, held: {})
                 super
             end
         end
@@ -48,6 +52,14 @@ module Sensorium
                 better(kept, filtered(kept, name, by_tau))
             end
             rated(linear(series(best)))
+        end
+
+        # { states:, off_p10:, off_p90: } of a model (Offset): what it
+        # leaves while each of its Switches was on, and while all were
+        # off, each over setup.min_part bins at least.
+        def states(model)
+            States.of(model, @terms.held.merge(@terms.switches),
+                      @setup.min_part)
         end
 
         # The constant alone.
@@ -79,9 +91,18 @@ module Sensorium
         end
 
         def linear(model)
-            first = better(model, singles(model).min_by { ratio(model, it) })
+            first = better(model, scaled(singles(model)
+                                             .min_by { ratio(model, it) }))
             return first if first.equal?(model)
-            better(first, both(model, first))
+            better(first, scaled(both(model, first)))
+        end
+
+        # The model tried, nil when what r is multiplied by, solved for,
+        # falls below the scale floor.
+        def scaled(tried)
+            return unless tried
+            scale = 1 + (tried.gain || 0.0) + (tried.coefficient || 0.0)
+            tried if scale.abs >= @setup.scale_floor
         end
 
         # The filtered Switch with the time constant that narrows most.
@@ -126,3 +147,4 @@ end
 
 require_relative "fit/linear"
 require_relative "fit/median"
+require_relative "fit/states"
