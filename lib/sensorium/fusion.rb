@@ -21,12 +21,14 @@ module Sensorium
         Weighted = Data.define(:part, :weight, :note, :value)
 
         # offsets: [Offset]; shifts: [Shift]; locations: { name =>
-        # Location }, those set; all of the setup's quantity.
-        def initialize(setup, offsets:, shifts:, locations: {})
+        # Location }, those set; tracks: { [location, device] => Track },
+        # the Tracker's; all of the setup's quantity.
+        def initialize(setup, offsets:, shifts:, locations: {}, tracks: {})
             @setup     = setup
             @offsets   = offsets.group_by { [it.location, it.regime] }
             @shifts    = shifts.group_by { [it.location, it.regime] }
             @locations = locations
+            @tracks    = tracks
         end
 
         # The locations it can tell: those learned, set, or read.
@@ -63,12 +65,23 @@ module Sensorium
         end
 
         def learning(key)
+            offsets = @offsets.fetch(key, []).to_h { [it.device, it] }
             Parts::Learning.new(
-                offsets: @offsets.fetch(key, []).to_h { [it.device, it] },
+                offsets:,
                 shifts: @shifts.fetch(key, []).to_h do |shift|
                     [[shift.device, shift.influence, shift.mode], shift]
-                end
+                end,
+                tracks: tracks(key.first, offsets)
             )
+        end
+
+        # { device => Track } of the location, those that track the
+        # offset they would apply to.
+        def tracks(name, offsets)
+            @tracks.filter_map do |(where, device), track|
+                [device, track] if where == name &&
+                                   track.tracks?(offsets[device])
+            end.to_h
         end
     end
 end

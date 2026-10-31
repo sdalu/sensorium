@@ -18,6 +18,17 @@ module Sensorium
         def tracks?(offset)
             !offset.nil? && fingerprint == Track.fingerprint(offset)
         end
+
+        # A Parts::Part that counts, as the Fusion takes it: delta taken
+        # out, variance added to its σ²; when jumped, it does not count,
+        # when drifting, it is noted.
+        def apply(part)
+            return part.with(value: nil, sigma: nil, note: "jumped") if
+                state == :jumped
+            part.with(value: part.value - delta,
+                      sigma: Math.sqrt((part.sigma**2) + variance),
+                      note: ("drifting" if state == :drifting))
+        end
     end
 
     class Track
