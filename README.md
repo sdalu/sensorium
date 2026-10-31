@@ -412,7 +412,16 @@ learning kept in it.
   a single other: their tracks stand still until a relearn or a
   reset.
 - The room preset's humidity σ and drift are first guesses, not
-  measured.
+  measured: triple collocation needs three series in a location, and
+  MadHouse has two (its Airzone and its tado) wherever humidity is
+  learned.
+- The fused σ still assumes the parts' errors independent: an error
+  they share (the reference's, the sun, a radiator's plume) is not in
+  it, and neither triple collocation nor a leave-one-out on the same
+  data can see one (DESIGN.md, Honest σ). The collocations are learned
+  and kept but not used by the Fusion.
+- The per-state spreads cover the Switches and Thresholds, not the
+  Modes (a Shift has its own spread) nor the Series.
 - An offset of a sensor gone for good stays in the store until its
   location is learned against another reference.
 - A dynamics model is a straight line over the reading's age (fine
