@@ -120,8 +120,8 @@ class SequelStoreTest < Minitest::Test
 
     # A moment in the autumn hour Europe/Paris repeats (2026-10-25,
     # 00:30 UTC is 02:30 CEST, then again as 02:30 CET an hour later):
-    # kept and read back under that zone, a track's, a filter state's
-    # and a learning's time must stay the instant given.
+    # kept and read back under that zone, a track's and a learning's
+    # time must stay the instant given.
     def test_times_round_trip_through_the_repeated_dst_hour
         at = Time.utc(2026, 10, 25, 0, 30)
         with_tz("Europe/Paris") { assert_dst_round_trip(at) }
@@ -131,7 +131,6 @@ class SequelStoreTest < Minitest::Test
 
     def assert_dst_round_trip(at)
         assert_equal at, track_at(at)
-        assert_equal at, filter_at(at)
         assert_equal at, learned_at(at)
     end
 
@@ -140,19 +139,9 @@ class SequelStoreTest < Minitest::Test
         @store.tracks("temperature")[%w[room tado]].at
     end
 
-    def filter_at(at)
-        @store.keep_filters("temperature", [filter_state(at)])
-        @store.filters("temperature")["room"].at
-    end
-
     def learned_at(at)
         @store.keep(learned, from: at, to: at, at:)
         @store.learned("temperature")["winter"].last
-    end
-
-    def filter_state(at)
-        Sensorium::Filter::State.new(location: "room", quantity: "temperature",
-                                     at:, value: 20.0, variance: 0.01)
     end
 
     def with_tz(name)

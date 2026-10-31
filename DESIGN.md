@@ -19,25 +19,21 @@
   errors-in-variables fit needs the error covariance of r − n too,
   which nothing measures. A pair's gain is therefore biased toward
   zero by about σ²/var(r).
-- **A greedy choice, then one joint refit.** Choosing terms one at a
-  time keeps the choice simple and each step's test (the 80 %) honest,
-  but a term fitted early takes in what a later one would explain
-  where their regressors move together. Refitting the chosen terms
-  together, by least squares, gives each its own share. The refit
-  must leave no wider a spread than the greedy model over the same
-  bins: the medians of the Switch terms shrug off rough bins that
-  least squares would follow, and then the greedy model is the better
-  one. It is done once, over the terms already chosen, not as a new
-  search: a term that only narrowed by taking another's share stays
-  in. A single term is not refitted: there is nothing to share, and a
-  gain alone keeps its Deming line, which least squares would bias.
+- **A greedy choice.** Terms are chosen one at a time, each tested on
+  what the ones before it left (the 80 %): simple, and each step's test
+  honest. A term fitted early can take in some of a later one's share
+  where their regressors move together; with a single term beside the
+  constant, which is all the house measured ever kept, there is no
+  share to divide.
 - **A gain alone is a Deming line.** Least squares of s − r on a noisy
   r biases the gain toward zero by about σ²/var(r), and within one
   regime var(r) is small. The gain is a Deming line of s on r, the
   variance ratio being what s's error is once r's (the quantity's σ)
   is taken out of the spread the line leaves, at least `floor`²,
   re-estimated until it settles. It is there for sensors wrong by a
-  share (CO₂, light, particles); `Setup#gain` turns it off.
+  share (CO₂, light, particles); `Setup#gain` turns it off, and the
+  room preset leaves it off with the rate term: no sensor of the house
+  measured kept either.
 - **A scale floor on the linear terms.** A correction is (reading −
   the other terms + k × neighbour) / (1 + gain + k), and its σ is the
   spread over |1 + gain + k|. A sensor that mostly follows another
@@ -159,21 +155,6 @@
   the shared error from one σ to another rather than accounting for
   it, so it stays a measurement.
 
-## Filtering
-
-- **A layer, not a change to the Fusion.** A fused value depends only
-  on its snapshot, which keeps it reproducible and the Fusion free of
-  state; a Kalman filter over the fused values needs a state carried
-  from call to call. Kept apart, the state is the caller's to keep (a
-  store holds it), and a caller who wants none does not pay for it.
-- **The same prediction as ageing.** Between two fusions the state
-  moves by the location's dynamics model with the inputs ageing uses
-  (Parts::Driven), or stays under the drift rule: a filter and the
-  Fusion that disagree on how a room moves would fight each other.
-- **Scalar, per location.** The fused value already combines the
-  sensors; filtering it, rather than every sensor, keeps one state per
-  location and leaves the sensors' weighing to the Fusion.
-
 ## Blending
 
 - **Blending is not fusion.** Fusion estimates one location's truth
@@ -286,6 +267,21 @@
   the way in, or a term would stop applying after a round-trip.
 
 ## Ruled out
+
+- **A Kalman filter over the fused values.** Replayed on MadHouse's
+  September and October (10-minute ticks, each room's reference held
+  out), it narrowed σ by 28 % and the error not at all (RMS 0.223 to
+  0.220 °C), so its 2σ coverage fell from 0.94 to 0.88: successive
+  fused values share their offsets' error, which a filter averages as
+  if it were noise. Updating only on newer readings changed nothing.
+- **An inflation of the fused σ learned on held-out days.** Learned on
+  MadHouse's September, it left October further from honest than no
+  inflation at all (pooled var(z) 1.37 raw, 1.44 inflated): the excess
+  was one sensor's level moving (downstairs Airzone, mean z +0.77), the
+  Tracker's to follow, not a scale on σ.
+- **A joint refit of the chosen terms.** No offset of the house kept
+  two terms beside the constant, so it never ran; it returns if data
+  ever needs it.
 
 - **An inflation of the fused σ for shared errors**, learned by a
   leave-one-out on triple collocation σ: on the same data it is 1 by

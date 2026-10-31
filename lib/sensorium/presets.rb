@@ -43,7 +43,8 @@ module Sensorium
             Setup.new(quantity:, regime: Regime::Calendar.new,
                       influences: INFLUENCES.fetch(quantity.name,
                                                    [HEATING, AIRCON]),
-                      places: PLACES.fetch(quantity.name, []), **settings)
+                      places: PLACES.fetch(quantity.name, []), gain: false,
+                      rate: false, **settings)
         end
     end
 end

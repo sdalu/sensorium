@@ -68,16 +68,10 @@ covers. The constant alone is kept too (`plain`), the fallback when the
 neighbour, a series' value or dr/dt has no fresh value.
 
 The terms are chosen one after the other, each fitted on what the
-ones before it left, so a term fitted early takes in some of a later
-one's when their regressors move together (a Switch on while the gap
-to the neighbour is wider). Once chosen, two terms or more are
-refitted together, once: one least-squares regression of the gap on a
-constant and each kept term's regressor (a Switch's on-state, or its
-exposure at its τ; a series' value; r for the gain; r - neighbour;
-dr/dt), over the bins they all cover. The refit is kept only if what
-it leaves is no wider (p10..p90) than what the greedy model left over
-the same bins, and it passes the scale floor below; else the greedy
-model. A model with a single term is left as it is.
+ones before it left. The room preset tries neither a gain nor a rate
+term (`gain: false`, `rate: false`): no sensor of the house it was
+measured on kept either; `Presets.room(gain: true, rate: true)` puts
+them back.
 
 A correction solves the model for r, so it divides by 1 + gain +
 coefficient: a gain or a neighbour (or the pair) that leaves that
@@ -374,33 +368,6 @@ weight anywhere there is no value, and the caller chooses what stands
 in (equal weights give the plain mean). Estimates that say their
 quantity must say the same one; `at` is the latest they say.
 
-## Filtering
-
-An optional layer over the Fusion: `Filter` follows a location's
-fused values over time with a Kalman filter, so that between two
-fusions its value is predicted and its σ grows as it should, and each
-fusion corrects it by its own σ.
-
-```ruby
-filter = Sensorium::Filter.new(setup, dynamics:, locations:)
-state  = filter.step(state, fused, snapshot:)   # nil the first time
-filter.estimate(state)                          # Estimate, as it reads
-store.keep_filters("temperature", [state])
-```
-
-Between `state.at` and the Fused's moment it predicts with the
-location's dynamics model for the regime (as ageing does: the outside
-within `max_age`, the Switches on, none while a Mode holds), the
-variance growing by q × hours; without one, the value stays and the
-variance grows by (drift × hours)². A Fused with a value and a σ then
-updates it (gain = P / (P + σ²)); one without (no reference, nothing
-counted) only predicts; one older than the state is ignored. The state
-is in the transform's space; `estimate(state, context)` brings it back
-(a humidity at the location's temperature). The Fusion keeps no state:
-the `Filter::State` is the caller's, given back at each step, and kept
-by a store (`filters`, `keep_filters`) when it must outlive the
-process.
-
 ## Tracking
 
 Between two learnings an offset can move: a sensor moved, re-batteried
@@ -570,12 +537,11 @@ Tracker's tracks, by quantity. `Store::Memory` for tests and one-off
 runs; `Store::Sequel` (`require "sensorium/store/sequel"`) for any SQL
 database, its table names configurable, its tables created when
 missing unless `migrate: false`. The Tracker's tracks, the dynamics
-models, the collocations, the transient profiles and the Filter's
-states are kept in five more tables (`sensor_tracks`, `tables: {
-tracks: }`; `sensor_dynamics`, `tables: { dynamics: }`;
-`sensor_collocations`, `tables: { collocations: }`;
-`sensor_transients`, `tables: { transients: }`; `sensor_filters`,
-`tables: { filters: }`), which a caller with its own schema creates too, as
+models, the collocations and the transient profiles are kept in four
+more tables (`sensor_tracks`, `tables: { tracks: }`;
+`sensor_dynamics`, `tables: { dynamics: }`; `sensor_collocations`,
+`tables: { collocations: }`; `sensor_transients`, `tables: {
+transients: }`), which a caller with its own schema creates too, as
 `Store::Sequel::Schema` does. An offset's maps (switches, taus,
 series, states) are kept as JSON, as are a location's `deltas`, a
 dynamics model's `b`, a collocation's `sigmas` and a profile's `own`
@@ -583,10 +549,9 @@ and `relative` thresholds (`{ "600": [fall, rise] }`). Tables made before
 the survey rounds lack six columns of `sensor_offsets`: `taus`,
 `series` and `states` (text), `rate`, `off_p10` and `off_p90` (float),
 and `sensor_locations` lacks `deltas` (text); a caller with its own
-schema adds them. Another store answers the same seventeen methods (see
+schema adds them. Another store answers the same fifteen methods (see
 `lib/sensorium/store/memory.rb`). A time `Store::Sequel` keeps
-(`learned_from`, `learned_to`, `learned_at`, `tracked_at`,
-`filtered_at`) is stored and read back as UTC, independently of the
+(`learned_from`, `learned_to`, `learned_at`, `tracked_at`) is stored and read back as UTC, independently of the
 database's own timezone setting.
 
 Every `keep_*` method follows the one rule: it replaces what shares
@@ -594,8 +559,7 @@ the kept rows' key, and leaves the rest. Keeping dynamics
 (`keep_dynamics`) or collocations (`keep_collocations`) replaces those
 of the same location and regime; transient profiles
 (`keep_transients`), those of the same location, device and regime;
-tracks (`keep_tracks`), those of the same location and device; filter
-states (`keep_filters`), those of the same location.
+and tracks (`keep_tracks`), those of the same location and device.
 
 Keeping a learning replaces the offsets (and shifts) of the sensors it
 learned again, and every offset of a location whose reference it found
@@ -610,9 +574,6 @@ it.
 
 ## Known shortfalls
 
-- A gain refitted with other terms is a least-squares one, biased
-  toward zero by about σ²/var(r), as the gain of a gain and neighbour
-  pair is; only a gain alone is a Deming line.
 - Only an offset's level is followed online (Tracking); its terms
   change only when learning runs again.
 - Until a sensor is flagged jumped, the others' deltas take in a
