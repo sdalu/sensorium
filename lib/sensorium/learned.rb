@@ -43,9 +43,15 @@ module Sensorium
         def self.terms(model)
             { constant: model.constant.round(3),
               switches: model.switches.transform_values { it.round(3) },
+              taus: model.taus,
+              series: model.series.transform_values { significant(it) },
               gain: model.gain&.round(4), neighbour: model.neighbour,
-              coefficient: model.coefficient&.round(3) }
+              coefficient: model.coefficient&.round(3),
+              rate: model.rate&.round(3) }
         end
+
+        # Four significant digits: a coefficient on watts is small.
+        def self.significant(value) = Float(format("%.4g", value))
 
         def self.widths(values, prefix = "")
             %w[p10 p90].zip([0.1, 0.9]).to_h do |key, fraction|

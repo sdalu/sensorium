@@ -20,7 +20,7 @@ module Sensorium
 
         # location: a resolved Location; references: [device], nil when
         # it has none.
-        def initialize(location, references, learning, snapshot, quantity)
+        def initialize(location, references, learning, snapshot, setup)
             @location = location
             @name     = references&.join("+")
             @sole     = references&.one? && references.first
@@ -29,7 +29,8 @@ module Sensorium
             end
             @shifts   = learning.shifts
             @snapshot = snapshot
-            @quantity = quantity
+            @quantity = setup.quantity
+            @inputs   = Inputs.new(location, references, snapshot, setup)
         end
 
         def all
@@ -74,9 +75,14 @@ module Sensorium
                 return Estimate.new(value:,
                                     sigma: @location.sigma)
             end
-            @offsets[device].correct(value, on: @snapshot.on(@location.name),
-                                            neighbour: neighbour(device),
-                                            shifts: shifts(device))
+            @offsets[device].correct(value, shifts: shifts(device),
+                                            **moment(device))
+        end
+
+        # What holds for a sensor's model at the moment: Offset::Moment.
+        def moment(device)
+            { on: @inputs.on, neighbour: neighbour(device),
+              **@inputs.of(@offsets[device]) }
         end
 
         # The neighbour's value, when it is fresh enough.
@@ -94,3 +100,5 @@ module Sensorium
         end
     end
 end
+
+require_relative "parts/inputs"

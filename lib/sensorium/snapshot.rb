@@ -4,19 +4,38 @@ module Sensorium
     # The site at a moment, as the fusion needs it: each sensor's latest
     # reading, as it reads (latest: { [location, device] => Reading },
     # externals under the location nil), the Switches on (switches:
-    # { name => locations, nil for the whole site }) and the Modes
-    # holding (modes: { location or nil => { name => value } }).
-    Snapshot = Data.define(:at, :latest, :switches, :modes) do
-        def initialize(switches: {}, modes: {}, **) = super
+    # { name => locations, nil for the whole site }), the Modes holding
+    # (modes: { location or nil => { name => value } }), each Series'
+    # latest value within its hold (feeds: { name => { location or nil
+    # => value } }), the bins each filtered Switch was on over five of
+    # its longest time constant (pulses: { name => { location or nil =>
+    # Set of bins } }) and the readings before the latest (history:
+    # { [location, device] => [Reading] }, oldest first).
+    Snapshot = Data.define(:at, :latest, :switches, :modes, :feeds,
+                           :pulses, :history) do
+        def initialize(**given)
+            super(switches: {}, modes: {}, feeds: {}, pulses: {}, history: {},
+                  **given)
+        end
 
         # From a source as the Learner's, the readings of the `window`
-        # seconds before at.
+        # seconds before at (and further back in the history, as far as
+        # the Thresholds need).
         def self.from(source, setup, at:, window: 3 * 3600)
             gather = Snapshot::Gather
-            new(at:,
-                latest: latest(gather.readings(source, setup, at, window)),
+            readings = gather.readings(source, setup, at,
+                                       [window, gather.reach(setup)].max)
+            new(at:, history: history(readings),
+                latest: latest(readings.select { it.time >= at - window }),
                 switches: gather.switches(source, setup, at),
-                modes: gather.modes(source, setup, at))
+                modes: gather.modes(source, setup, at),
+                feeds: gather.feeds(source, setup, at),
+                pulses: gather.pulses(source, setup, at))
+        end
+
+        def self.history(readings)
+            readings.group_by { [it.location, it.device] }
+                    .transform_values { it.sort_by(&:time) }
         end
 
         def self.latest(readings)
@@ -52,6 +71,14 @@ module Sensorium
         # [[name, value]] of the Modes holding where the location is.
         def holding(location)
             modes.fetch(nil, {}).merge(modes.fetch(location, {})).to_a
+        end
+
+        # { name => value } of the Series where the location is.
+        def fed(location)
+            feeds.filter_map do |name, by|
+                value = by.fetch(location) { by[nil] }
+                [name, value] if value
+            end.to_h
         end
 
         def age(reading) = at - reading.time

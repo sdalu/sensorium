@@ -35,22 +35,54 @@ For every sensor of a location, bin by bin (10 minutes), the learner
 models the gap to the location's reference r:
 
     sensor - r = constant
-               + Σ switch terms (each while its Switch is on)
+               + Σ switch terms (each while its Switch is on,
+                                 or × its exposure when filtered)
+               + Σ series coefficients × their values
                + gain × r
                + coefficient × (r - neighbour)
+               + rate × dr/dt
 
 - **constant**: the median gap.
 - **switches**: an influence that is on or off (the radiators' water
-  hot, house-wide, for an hour after a valve opened).
-- **gain**: the sensor reads a share too high or too low.
+  hot, house-wide, for an hour after a valve opened). A Switch given a
+  time constant (`tau:`) is *filtered*: its term is term × exposure,
+  the exposure a first-order filter of its on-state (0..1), and the
+  time constant is chosen from those given (`Influence::TAUS`: 10 min,
+  30 min, 1 h, 2 h) as the one that narrows most. A **threshold** is
+  a switch the learner derives from the location's own reference: on
+  while it read above a level within the past hours (a humidity
+  sensor's creep after a shower).
+- **series**: a level that moves the sensor in proportion (the PV
+  inverter's power, for the sun on a sensor).
+- **gain**: the sensor reads a share too high or too low. Fitted as a
+  Deming line, the reference read with an error of its quantity's σ.
 - **neighbour**: the sensor also follows another place: another
   location's sensor, or an external series (the outside). The one that
   fits best is chosen from the data.
+- **rate**: the sensor is slower than the reference and lags it on
+  every change (dr/dt per hour, `Setup#rate`).
 
 Each term is kept only if it narrows the spread of what is left
 (p10..p90) to 80 % of what it was, both measured over the bins the term
 covers. The constant alone is kept too (`plain`), the fallback when the
-neighbour has no fresh reading.
+neighbour, a series' value or dr/dt has no fresh value.
+
+The influences a `Setup` names:
+
+| influence | told by | learned as |
+|---|---|---|
+| `Influence::Switch` | events, on when true or positive | a term while on (`hold` after), or × its exposure with `tau:` |
+| `Influence::Series` | events with numeric values, mean per bin, carried `hold` | coefficient × value |
+| `Influence::Threshold` | nothing: the location's reference, as it reads, above `above` within `hold` | a term while on |
+| `Influence::Mode` | events with a value | left out, a `Shift` per value |
+
+```ruby
+solar   = Sensorium::Influence::Series.new(name: "solar", hold: 1800)
+heating = Sensorium::Presets::HEATING.with(tau: Sensorium::Influence::TAUS)
+setup   = Sensorium::Presets.room.with(
+    influences: [heating, Sensorium::Presets::AIRCON, solar]
+)
+```
 
 A **mode** (the aircon heating or cooling) is not a term: the bins
 under it, and its hold after, are left out of the fit, and each value it
@@ -77,7 +109,12 @@ fused.parts       # each sensor: raw, corrected, weight, note
 ```
 
 Each reading is corrected to the reference with its offset (while a
-mode holds, with the plain offset and the mode's shift), and weighted
+mode holds, with the plain offset and the mode's shift), given what
+holds at the moment: the switches and thresholds on, a filtered
+switch's exposure over the 5 τ before, each series' latest value
+within its hold, and dr/dt from the reference's two latest readings
+within `max_age` (`Snapshot#history`). Without a series' value or
+dr/dt, the plain offset. Each reading is weighted
 by 1/σ². σ is never below the quantity's `floor`, grows with the
 reading's age (`drift` per hour), and a reading older than `max_age`
 does not count. A location without references set takes those it was
@@ -104,6 +141,11 @@ value is brought back at the location's temperature:
 humidity = Sensorium::Presets.room(Sensorium::Presets::HUMIDITY)
 fusion.location("green-room", snapshot, context: { temperature: 20.4 })
 ```
+
+A capacitive humidity sensor creeps: it reads high for hours after a
+humid spell. The room preset adds, for humidity only, a threshold
+"creep": on for six hours after the location's reference read above
+80 %.
 
 Ceiling and floor sensors (smoke and leak detectors) seldom measure
 humidity: the room preset takes a sensor tagged "wall" (an aircon's
@@ -134,7 +176,11 @@ A store keeps what a learning found and the locations' settings, by
 quantity. `Store::Memory` for tests and one-off runs;
 `Store::Sequel` (`require "sensorium/store/sequel"`) for any SQL
 database, its table names configurable, its tables created when missing
-unless `migrate: false`. Another store answers the same six methods
+unless `migrate: false`. An offset's maps (switches, taus, series)
+are kept as JSON. Tables made before this round lack three columns of
+`sensor_offsets`: `taus` and `series` (text) and `rate` (float); a
+caller with its own schema adds them. Another store answers the same
+six methods
 (see `lib/sensorium/store/memory.rb`).
 
 Keeping a learning replaces the offsets (and shifts) of the sensors it

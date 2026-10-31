@@ -44,6 +44,7 @@ module Sensorium
         def load(sensors)
             readings = @source.readings(quantity, @from, @to, names(sensors))
             @data = @series.of(@setup.quantity.inward(readings))
+            @thresholds = Thresholds.new(@setup, readings)
             @neighbours = Neighbours.new(@series, @setup.carry, sensors,
                                          @data.merge(externals))
             @timeline = Timeline.new(@setup, @source, @from, @to)
@@ -91,12 +92,20 @@ module Sensorium
         end
 
         def fit(one, calm)
-            carried = carried(one.location)
-            fit = Fit.new(calm, @setup,
-                          levels: carried,
-                          switches: @timeline.switches(one.location),
-                          candidates: @neighbours.gaps(one.location, carried))
+            fit = Fit.new(calm, @setup, levels: carried(one.location),
+                                        **terms(one.location))
             Offset.new(**one.to_h, **Learned.values(fit.model, fit.plain))
+        end
+
+        # What a location's sensors may be fitted with (Fit::Terms).
+        def terms(location)
+            { switches: @timeline.switches(location)
+                                 .merge(@thresholds.of(location,
+                                                       @references[location])),
+              filtered: @timeline.exposures(location),
+              series: @timeline.series(location),
+              candidates: @neighbours.gaps(location, carried(location)),
+              rates: rates(location) }
         end
 
         # { bin => sensor - reference } of the regime's bins.
@@ -119,6 +128,11 @@ module Sensorium
             )
         end
 
+        # The reference's rate, per hour, once per location.
+        def rates(location)
+            (@rates ||= {})[location] ||= @series.rates(carried(location))
+        end
+
         def regime_of(bin)
             (@regimes ||= {})[bin] ||= @setup.regime.of(Time.at(bin))
         end
@@ -127,3 +141,4 @@ end
 
 require_relative "learner/references"
 require_relative "learner/neighbours"
+require_relative "learner/thresholds"
