@@ -19,6 +19,18 @@
   errors-in-variables fit needs the error covariance of r − n too,
   which nothing measures. A pair's gain is therefore biased toward
   zero by about σ²/var(r).
+- **A greedy choice, then one joint refit.** Choosing terms one at a
+  time keeps the choice simple and each step's test (the 80 %) honest,
+  but a term fitted early takes in what a later one would explain
+  where their regressors move together. Refitting the chosen terms
+  together, by least squares, gives each its own share. The refit
+  must leave no wider a spread than the greedy model over the same
+  bins: the medians of the Switch terms shrug off rough bins that
+  least squares would follow, and then the greedy model is the better
+  one. It is done once, over the terms already chosen, not as a new
+  search: a term that only narrowed by taking another's share stays
+  in. A single term is not refitted: there is nothing to share, and a
+  gain alone keeps its Deming line, which least squares would bias.
 - **A gain alone is a Deming line.** Least squares of s − r on a noisy
   r biases the gain toward zero by about σ²/var(r), and within one
   regime var(r) is small. The gain is a Deming line of s on r, the
@@ -58,6 +70,14 @@
   spread over the bins all of them were off, each over `min_part`
   bins. A reading takes the widest spread of the Switches on, so two
   influences at once are not counted as calm as either alone.
+- **A spread per level for a Series**, above its median over the fit
+  and not. A sensor in the sun is rougher the more it shines, but a
+  spread per value would need more bins than a regime has; two halves
+  split at the median each have half the fit's bins. The median is
+  kept beside them, so a reading takes the half its value falls in.
+  The Series' spread joins the Switches' in the widest-spread rule: a
+  sunny bin with the radiators on is as rough as the rougher of the
+  two.
 - **A learning replaces what it learned again**, not whole regimes: the
   offsets of the sensors learned again, and of a location whose
   reference changed. A span that barely touches a regime, or a sensor
@@ -121,7 +141,8 @@
   drift; `track_q` bounds how fast the level may wander. The truth for
   a part is the others' fusion, the part left out, or it would pull its
   own truth; with fewer than two others a disagreement cannot be put on
-  either side, so the part is left as it was.
+  either side, so the part is left as it was, unless a witness stands
+  in (below).
 - **A slow filter, a CUSUM for jumps.** The gain is kept small so that
   noise does not move delta: a constant bias takes about a day to be
   learned at an hourly cadence. A step would then be absorbed over
@@ -140,6 +161,18 @@
   left in the others' fusion would pull them after it; within an
   update the references go first, and a part that has jumped is left
   out of every later part's others.
+- **A witness from the location's own dynamics** for a part left with
+  a single other, as in a room of three once one sensor has jumped. A
+  disagreement between two cannot be put on either side; the room's
+  last fused value, moved by its model to the moment, is a third that
+  depends on neither reading now, its σ grown by what the model
+  cannot tell over the time since. It comes from a Fused made with the
+  tracks, so the jumped part is already out of it. The previous value
+  holds both sensors' deltas, so a bias on one is in part put on the
+  other; that still beats standing still until a relearn. It is the
+  aged-reading rule of the fusion, the same inputs from the snapshot,
+  and stands aside where that rule does: no model, no outside the
+  model needs, a Mode holding, or a previous value past `max_age`.
 - **Updated from a Fused made without tracks**, so that each delta is
   taken out once, by the Tracker, and a drifting part, which a tracked
   Fused notes, is still updated and can clear. Until a part is flagged

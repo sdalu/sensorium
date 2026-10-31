@@ -113,3 +113,4 @@ module Sensorium
         def mean(values) = values.sum.fdiv(values.size)
     end
 end
+require_relative "stats/least_squares"

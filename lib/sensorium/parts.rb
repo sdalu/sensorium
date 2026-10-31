@@ -111,4 +111,5 @@ module Sensorium
 end
 
 require_relative "parts/inputs"
+require_relative "parts/driven"
 require_relative "parts/aging"

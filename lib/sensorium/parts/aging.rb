@@ -19,9 +19,9 @@ module Sensorium
             # nil.
             def initialize(location, model, snapshot, setup)
                 @location = location
-                @model    = model
                 @snapshot = snapshot
                 @setup    = setup
+                @driven   = Driven.new(location, model, snapshot, setup)
             end
 
             # The Estimate a reading gave, aged; one with σ nil (not
@@ -57,25 +57,9 @@ module Sensorium
 
             def floored(estimate) = [estimate.sigma, quantity.floor].max
 
-            # [change, variance] by the model; nil without one, without
-            # what it needs, or while a Mode holds (the model was fitted
-            # without those bins).
-            def modelled(value, hours)
-                return unless @model
-                return unless @snapshot.holding(@location.name).empty?
-                on = @snapshot.on(@location.name)
-                change = @model.change(value, outside, on, hours) or return
-                [change, @model.variance(hours)]
-            end
-
-            # The outside's latest value, in the transform's space; nil
-            # when older than the location's max_age.
-            def outside
-                name = @setup.outside or return
-                reading = @snapshot.latest[[nil, name]] or return
-                return if @snapshot.age(reading) > @location.max_age * 60
-                quantity.transform.forward(reading.value, reading.context)
-            end
+            # [change, variance] by the model (Driven); nil without one,
+            # without what it needs, or while a Mode holds.
+            def modelled(value, hours) = @driven.of(value, hours)
 
             def quantity = @setup.quantity
         end

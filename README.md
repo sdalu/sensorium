@@ -67,6 +67,18 @@ Each term is kept only if it narrows the spread of what is left
 covers. The constant alone is kept too (`plain`), the fallback when the
 neighbour, a series' value or dr/dt has no fresh value.
 
+The terms are chosen one after the other, each fitted on what the
+ones before it left, so a term fitted early takes in some of a later
+one's when their regressors move together (a Switch on while the gap
+to the neighbour is wider). Once chosen, two terms or more are
+refitted together, once: one least-squares regression of the gap on a
+constant and each kept term's regressor (a Switch's on-state, or its
+exposure at its τ; a series' value; r for the gain; r - neighbour;
+dr/dt), over the bins they all cover. The refit is kept only if what
+it leaves is no wider (p10..p90) than what the greedy model left over
+the same bins, and it passes the scale floor below; else the greedy
+model. A model with a single term is left as it is.
+
 A correction solves the model for r, so it divides by 1 + gain +
 coefficient: a gain or a neighbour (or the pair) that leaves that
 below `Setup#scale_floor` (0.5) in magnitude is refused, and the model
@@ -74,11 +86,15 @@ before it kept. A neighbour coefficient of −0.9 would multiply the
 sensor's noise by ten.
 
 What the model leaves is not as wide in every state: a sensor near a
-radiator is rougher while it runs. Besides the spread of every bin
-(p10..p90), an offset keeps the spread over the bins each Switch or
-Threshold kept as a term was on (`states`, `{ name => [p10, p90] }`),
-and over the bins all of them were off (`off_p10..off_p90`), each when
-it has `min_part` bins. A filtered Switch is on over its hard hold.
+radiator is rougher while it runs, one in the sun while it shines.
+Besides the spread of every bin (p10..p90), an offset keeps the spread
+over the bins each Switch or Threshold kept as a term was on
+(`states`, `{ name => [p10, p90] }`), and over the bins all of them
+were off (`off_p10..off_p90`), and, for each series kept as a term,
+over the bins its value was above its median over the fit and over the
+others (`states`, `{ "name:high" => [p10, p90, median], "name:low" =>
+[p10, p90, median] }`), each when it has `min_part` bins. A filtered
+Switch is on over its hard hold.
 
 The influences a `Setup` names:
 
@@ -157,10 +173,11 @@ within its hold, and dr/dt from the reference's two latest readings
 within `max_age` (`Snapshot#history`). Without a series' value or
 dr/dt, the plain offset. Each reading is weighted
 by 1/σ², σ the offset's spread / 2.563 / |1 + gain + coefficient|:
-while Switches kept as its terms are on, the widest of their spreads
-(the spread of every bin for one without its own), with none on the
-spread while all were off; an offset without them, the spread of every
-bin. σ is never below the quantity's `floor`, grows with the
+the widest of the spreads of what holds, those of the Switches kept as
+its terms that are on (the spread of every bin for one without its
+own), or with none on the spread while all were off, and each series'
+spread at its level now (above its median, or not); an offset without
+any of them, the spread of every bin. σ is never below the quantity's `floor`, grows with the
 reading's age (see Staleness), and a reading older than `max_age`
 does not count. A location without references set takes those it was
 learned against in the moment's regime. With two sensors or more, the
@@ -280,8 +297,9 @@ of the other parts that count (a value and a σ, no note but
 `outlier`), each with its own delta taken out, less those whose track
 has jumped, before or in this update. The references are updated
 first, then the other parts, each in the `Fused`'s order. A part with
-fewer than two others is left as it was. Each update is a scalar
-Kalman step over a random walk:
+fewer than two others is left as it was, unless a **witness** stands
+in for the second (below). Each update is a scalar Kalman step over a
+random walk:
 
     y         = value − delta − the others' fusion
     R         = σ² + the others' fusion's σ²
@@ -342,6 +360,28 @@ Sensorium::Fusion.new(setup, offsets:, shifts:, tracks:)
 them would have each delta taken out twice, and its drifting parts
 would not count. `tracker.reset(tracks, "green-room", "tado")` drops a
 track, which starts afresh at its next update.
+
+In a location of three, a jumped part leaves each other one with a
+single other. Given the location's dynamics (see Staleness), the
+previous `Fused` (made *with* the tracks, so its jumped parts were
+already out) and the snapshot the current one was made from, the
+Tracker makes a witness: the previous value moved by the model to the
+moment, as an aged reading is, with the moment's inputs (the outside,
+the Switches on), its σ² the previous one's plus q × the hours since.
+It counts as one more other for a part that has a single one. There is
+none without a model for the location and the moment's regime,
+without the outside its model needs, while a Mode holds there, or
+when the previous `Fused` has no value or σ, or is older than the
+location's `max_age`; the part is then left as it was.
+
+```ruby
+tracker  = Sensorium::Tracker.new(setup, offsets:,
+                                  dynamics: store.dynamics("temperature"),
+                                  locations: store.locations("temperature"))
+tracks   = tracker.update(tracks, fused, previous:, snapshot:)
+previous = Sensorium::Fusion.new(setup, offsets:, shifts:, tracks:)
+                            .location("green-room", snapshot)
+```
 
 The gain is small by design. In the tests' room (a sensor of
 σ 0.2 °C against two of 0.1 and 0.08), ten hourly updates take delta
@@ -433,15 +473,18 @@ it.
 
 ## Known shortfalls
 
-- The fit is greedy, one term after the other; only the gain and the
-  neighbour are ever fitted together.
+- A gain refitted with other terms is a least-squares one, biased
+  toward zero by about σ²/var(r), as the gain of a gain and neighbour
+  pair is; only a gain alone is a Deming line.
 - Only an offset's level is followed online (Tracking); its terms
   change only when learning runs again.
 - Until a sensor is flagged jumped, the others' deltas take in a
   little of its step (0.008 °C of 0.6 in the tests' room).
-- In a location of three, a jumped sensor leaves each other one with
-  a single other: their tracks stand still until a relearn or a
-  reset.
+- In a location of three with a jumped sensor, the witness is made
+  from the two others: a bias on one of them is shared between their
+  deltas. In the tests' room, 48 hourly updates take tado's delta to
+  60 % of a 0.2 bias while Airzone's moves by −0.075. Without
+  dynamics, their tracks stand still until a relearn or a reset.
 - The room preset's humidity σ and drift are first guesses, not
   measured: triple collocation needs three humidity series in a
   location.
@@ -450,8 +493,8 @@ it.
   it, and neither triple collocation nor a leave-one-out on the same
   data can see one (DESIGN.md, Fusion). The collocations are learned
   and kept but not used by the Fusion.
-- The per-state spreads cover the Switches and Thresholds, not the
-  Modes (a Shift has its own spread) nor the Series.
+- The per-state spreads cover the Switches, Thresholds and Series,
+  not the Modes (a Shift has its own spread).
 - A dynamics model's q is calibrated on the span it was fitted on:
   another season may move more, or less.
 - A blend takes its estimates' errors as independent.
