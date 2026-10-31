@@ -27,10 +27,12 @@ module Sensorium
 
         # What a model may be fitted with besides the reference's level,
         # each optional (described above).
+        # held: { name => bins it was on } of the filtered Switches, their
+        # hard hold, for the spreads per state.
         Terms = Data.define(:switches, :filtered, :series, :candidates,
-                            :rates) do
+                            :rates, :held) do
             def initialize(switches: {}, filtered: {}, series: {},
-                           candidates: {}, rates: nil)
+                           candidates: {}, rates: nil, held: {})
                 super
             end
         end
@@ -50,6 +52,14 @@ module Sensorium
                 better(kept, filtered(kept, name, by_tau))
             end
             rated(linear(series(best)))
+        end
+
+        # { states:, off_p10:, off_p90: } of a model (Offset): what it
+        # leaves while each of its Switches was on, and while all were
+        # off, each over setup.min_part bins at least.
+        def states(model)
+            States.of(model, @terms.held.merge(@terms.switches),
+                      @setup.min_part)
         end
 
         # The constant alone.
@@ -137,3 +147,4 @@ end
 
 require_relative "fit/linear"
 require_relative "fit/median"
+require_relative "fit/states"

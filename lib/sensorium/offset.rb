@@ -12,13 +12,22 @@ module Sensorium
     # a term nil (or absent from switches) when it did not narrow the
     # spread; p10..p90 is what the model leaves. plain is the constant
     # alone and plain_p10..plain_p90 its spread, the fallback when the
-    # neighbour, a Series' value or dr/dt is not known.
+    # neighbour, a Series' value or dr/dt is not known. states:
+    # { name => [p10, p90] } of what the model leaves over the bins each
+    # Switch (or Threshold) kept as a term was on, and off_p10..off_p90
+    # over the bins all of them were off; each absent when too few bins
+    # had it.
     Offset = Data.define(:location, :device, :quantity, :regime, :reference,
                          :constant, :switches, :taus, :series, :gain,
                          :neighbour,
                          :coefficient, :rate, :p10, :p90, :samples, :plain,
-                         :plain_p10, :plain_p90) do
-        def initialize(taus: {}, series: {}, rate: nil, **) = super
+                         :plain_p10, :plain_p90, :states, :off_p10,
+                         :off_p90) do
+        def initialize(**given)
+            given = Offset::OPTIONAL.merge(given)
+            super(**given, states: (given[:states] || {})
+                                   .transform_keys(&:to_s))
+        end
 
         # The reference's value, as this sensor's reading tells it: the
         # model solved for r. shifts: the Shifts of the Modes holding;
@@ -30,7 +39,8 @@ module Sensorium
             if shifts.any? || unknown?(now)
                 return plain_correct(reading, shifts)
             end
-            model_correct(reading - constant - known(now), now.neighbour.to_f)
+            model_correct(reading - constant - known(now), now.neighbour.to_f,
+                          now)
         end
 
         def sigma       = (p90 - p10) / P10_P90
@@ -56,9 +66,25 @@ module Sensorium
         def scale = 1 + (gain || 0.0) + k
 
         # gap: the reading less the terms that do not involve r.
-        def model_correct(gap, neighbour)
+        def model_correct(gap, neighbour, now)
             Estimate.new(value: (gap + (k * neighbour)) / scale,
-                         sigma: sigma / scale.abs)
+                         sigma: width(now) / P10_P90 / scale.abs)
+        end
+
+        # The spread of what holds: the widest of the Switches on now
+        # that were kept as terms, each its own when kept, else p10..p90;
+        # none on, the spread while all were off, when kept.
+        def width(now)
+            on = now.on.map(&:to_s) & (switches || {}).keys.map(&:to_s)
+            return on.map { state_width(it) }.max if on.any?
+            off_width || (p90 - p10)
+        end
+
+        def off_width = off_p10 && off_p90 && (off_p90 - off_p10)
+
+        def state_width(name)
+            low, high = states[name]
+            low && high ? high - low : p90 - p10
         end
 
         def plain_correct(reading, shifts)
@@ -82,6 +108,10 @@ module Sensorium
     end
 
     class Offset
+        # The members an Offset may be made without.
+        OPTIONAL = { taus: {}, series: {}, rate: nil, states: {},
+                     off_p10: nil, off_p90: nil }.freeze
+
         # What holds at the moment of a reading, besides the Modes: on,
         # the names of the Switches on; exposures, { name => exposure } of
         # the filtered ones; neighbour, its value; values,

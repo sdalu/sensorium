@@ -94,7 +94,9 @@ module Sensorium
         def fit(one, calm)
             fit = Fit.new(calm, @setup, levels: carried(one.location),
                                         **terms(one.location))
-            Offset.new(**one.to_h, **Learned.values(fit.model, fit.plain))
+            model = fit.model
+            Offset.new(**one.to_h, **Learned.values(model, fit.plain),
+                       **fit.states(model))
         end
 
         # What a location's sensors may be fitted with (Fit::Terms).
@@ -105,7 +107,8 @@ module Sensorium
               filtered: @timeline.exposures(location),
               series: @timeline.series(location),
               candidates: @neighbours.gaps(location, carried(location)),
-              rates: rates(location) }
+              rates: rates(location),
+              held: @timeline.switched(location) }
         end
 
         # { bin => sensor - reference } of the regime's bins.

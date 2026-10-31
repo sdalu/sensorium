@@ -32,13 +32,22 @@ module Sensorium
                     key(t)
                     t.String :reference, null: false
                     t.Float :constant, null: false
-                    %i[switches taus series].each { t.String it, text: true }
-                    %i[gain coefficient rate].each { t.Float it }
+                    maps(t)
                     t.String :neighbour
                     widths(t)
                     floats(t, %i[plain plain_p10 plain_p90])
                     learned(t)
                     t.primary_key %i[location device quantity regime]
+                end
+
+                # An Offset's maps, as JSON, and its optional numbers.
+                def maps(t)
+                    %i[switches taus series states].each do |name|
+                        t.String name, text: true
+                    end
+                    %i[gain coefficient rate off_p10 off_p90].each do |name|
+                        t.Float name
+                    end
                 end
 
                 def shifts(t)

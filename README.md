@@ -73,6 +73,13 @@ below `Setup#scale_floor` (0.5) in magnitude is refused, and the model
 before it kept. A neighbour coefficient of −0.9 would multiply the
 sensor's noise by ten.
 
+What the model leaves is not as wide in every state: a sensor near a
+radiator is rougher while it runs. Besides the spread of every bin
+(p10..p90), an offset keeps the spread over the bins each Switch or
+Threshold kept as a term was on (`states`, `{ name => [p10, p90] }`),
+and over the bins all of them were off (`off_p10..off_p90`), each when
+it has `min_part` bins. A filtered Switch is on over its hard hold.
+
 The influences a `Setup` names:
 
 | influence | told by | learned as |
@@ -121,7 +128,11 @@ switch's exposure over the 5 τ before, each series' latest value
 within its hold, and dr/dt from the reference's two latest readings
 within `max_age` (`Snapshot#history`). Without a series' value or
 dr/dt, the plain offset. Each reading is weighted
-by 1/σ². σ is never below the quantity's `floor`, grows with the
+by 1/σ², σ the offset's spread / 2.563 / |1 + gain + coefficient|:
+while Switches kept as its terms are on, the widest of their spreads
+(the spread of every bin for one without its own), with none on the
+spread while all were off; an offset without them, the spread of every
+bin. σ is never below the quantity's `floor`, grows with the
 reading's age (see Staleness), and a reading older than `max_age`
 does not count. A location without references set takes those it was
 learned against in the moment's regime. With two sensors or more, the
@@ -341,11 +352,12 @@ unless `migrate: false`. The Tracker's tracks and the dynamics models
 are kept in two more tables (`sensor_tracks`, `tables: { tracks: }`;
 `sensor_dynamics`, `tables: { dynamics: }`), which a caller with its
 own schema creates too, as `Store::Sequel::Schema` does. An offset's
-maps (switches, taus, series) are kept as JSON, as are a location's
-`deltas` and a dynamics model's `b`. Tables made before the survey
-rounds lack three columns of `sensor_offsets`: `taus` and `series`
-(text) and `rate` (float), and `sensor_locations` lacks `deltas`
-(text); a caller with its own schema adds them. Another store answers
+maps (switches, taus, series, states) are kept as JSON, as are a
+location's `deltas` and a dynamics model's `b`. Tables made before the
+survey rounds lack six columns of `sensor_offsets`: `taus`, `series`
+and `states` (text), `rate`, `off_p10` and `off_p90` (float), and
+`sensor_locations` lacks `deltas` (text); a caller with its own schema
+adds them. Another store answers
 the same ten methods (see `lib/sensorium/store/memory.rb`).
 
 Keeping dynamics (`keep_dynamics`) replaces the models of the same
