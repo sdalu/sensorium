@@ -67,6 +67,18 @@ Each term is kept only if it narrows the spread of what is left
 covers. The constant alone is kept too (`plain`), the fallback when the
 neighbour, a series' value or dr/dt has no fresh value.
 
+The terms are chosen one after the other, each fitted on what the
+ones before it left, so a term fitted early takes in some of a later
+one's when their regressors move together (a Switch on while the gap
+to the neighbour is wider). Once chosen, two terms or more are
+refitted together, once: one least-squares regression of the gap on a
+constant and each kept term's regressor (a Switch's on-state, or its
+exposure at its τ; a series' value; r for the gain; r - neighbour;
+dr/dt), over the bins they all cover. The refit is kept only if what
+it leaves is no wider (p10..p90) than what the greedy model left over
+the same bins, and it passes the scale floor below; else the greedy
+model. A model with a single term is left as it is.
+
 A correction solves the model for r, so it divides by 1 + gain +
 coefficient: a gain or a neighbour (or the pair) that leaves that
 below `Setup#scale_floor` (0.5) in magnitude is refused, and the model
@@ -74,11 +86,15 @@ before it kept. A neighbour coefficient of −0.9 would multiply the
 sensor's noise by ten.
 
 What the model leaves is not as wide in every state: a sensor near a
-radiator is rougher while it runs. Besides the spread of every bin
-(p10..p90), an offset keeps the spread over the bins each Switch or
-Threshold kept as a term was on (`states`, `{ name => [p10, p90] }`),
-and over the bins all of them were off (`off_p10..off_p90`), each when
-it has `min_part` bins. A filtered Switch is on over its hard hold.
+radiator is rougher while it runs, one in the sun while it shines.
+Besides the spread of every bin (p10..p90), an offset keeps the spread
+over the bins each Switch or Threshold kept as a term was on
+(`states`, `{ name => [p10, p90] }`), and over the bins all of them
+were off (`off_p10..off_p90`), and, for each series kept as a term,
+over the bins its value was above its median over the fit and over the
+others (`states`, `{ "name:high" => [p10, p90, median], "name:low" =>
+[p10, p90, median] }`), each when it has `min_part` bins. A filtered
+Switch is on over its hard hold.
 
 The influences a `Setup` names:
 
@@ -157,10 +173,11 @@ within its hold, and dr/dt from the reference's two latest readings
 within `max_age` (`Snapshot#history`). Without a series' value or
 dr/dt, the plain offset. Each reading is weighted
 by 1/σ², σ the offset's spread / 2.563 / |1 + gain + coefficient|:
-while Switches kept as its terms are on, the widest of their spreads
-(the spread of every bin for one without its own), with none on the
-spread while all were off; an offset without them, the spread of every
-bin. σ is never below the quantity's `floor`, grows with the
+the widest of the spreads of what holds, those of the Switches kept as
+its terms that are on (the spread of every bin for one without its
+own), or with none on the spread while all were off, and each series'
+spread at its level now (above its median, or not); an offset without
+any of them, the spread of every bin. σ is never below the quantity's `floor`, grows with the
 reading's age (see Staleness), and a reading older than `max_age`
 does not count. A location without references set takes those it was
 learned against in the moment's regime. With two sensors or more, the
@@ -428,8 +445,9 @@ learning kept in it.
 
 ## Known shortfalls
 
-- The fit is greedy, one term after the other; only the gain and the
-  neighbour are ever fitted together.
+- A gain refitted with other terms is a least-squares one, biased
+  toward zero by about σ²/var(r), as the gain of a gain and neighbour
+  pair is; only a gain alone is a Deming line.
 - Only an offset's level is followed online (Tracking); its terms
   change only when learning runs again.
 - Until a sensor is flagged jumped, the others' deltas take in a
@@ -445,8 +463,8 @@ learning kept in it.
   it, and neither triple collocation nor a leave-one-out on the same
   data can see one (DESIGN.md, Fusion). The collocations are learned
   and kept but not used by the Fusion.
-- The per-state spreads cover the Switches and Thresholds, not the
-  Modes (a Shift has its own spread) nor the Series.
+- The per-state spreads cover the Switches, Thresholds and Series,
+  not the Modes (a Shift has its own spread).
 - An offset of a sensor gone for good stays in the store until its
   location is learned against another reference.
 - A dynamics model is a straight line over the reading's age (fine

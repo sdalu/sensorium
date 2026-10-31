@@ -19,6 +19,18 @@
   errors-in-variables fit needs the error covariance of r − n too,
   which nothing measures. A pair's gain is therefore biased toward
   zero by about σ²/var(r).
+- **A greedy choice, then one joint refit.** Choosing terms one at a
+  time keeps the choice simple and each step's test (the 80 %) honest,
+  but a term fitted early takes in what a later one would explain
+  where their regressors move together. Refitting the chosen terms
+  together, by least squares, gives each its own share. The refit
+  must leave no wider a spread than the greedy model over the same
+  bins: the medians of the Switch terms shrug off rough bins that
+  least squares would follow, and then the greedy model is the better
+  one. It is done once, over the terms already chosen, not as a new
+  search: a term that only narrowed by taking another's share stays
+  in. A single term is not refitted: there is nothing to share, and a
+  gain alone keeps its Deming line, which least squares would bias.
 - **A gain alone is a Deming line.** Least squares of s − r on a noisy
   r biases the gain toward zero by about σ²/var(r), and within one
   regime var(r) is small. The gain is a Deming line of s on r, the
@@ -58,6 +70,14 @@
   spread over the bins all of them were off, each over `min_part`
   bins. A reading takes the widest spread of the Switches on, so two
   influences at once are not counted as calm as either alone.
+- **A spread per level for a Series**, above its median over the fit
+  and not. A sensor in the sun is rougher the more it shines, but a
+  spread per value would need more bins than a regime has; two halves
+  split at the median each have half the fit's bins. The median is
+  kept beside them, so a reading takes the half its value falls in.
+  The Series' spread joins the Switches' in the widest-spread rule: a
+  sunny bin with the radiators on is as rough as the rougher of the
+  two.
 - **A learning replaces what it learned again**, not whole regimes: the
   offsets of the sensors learned again, and of a location whose
   reference changed. A span that barely touches a regime, or a sensor
