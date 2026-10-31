@@ -521,9 +521,12 @@ Sensorium::Blend.new({ "downstairs" => 0.8, "green-room" => 0.2 })
 A `Tick` holds nothing between calls: the tracks it gives back are all
 those it was given, updated, and `keep_tracks` keeps them for the next
 `store.knowledge`; `previous` is the caller's to keep. A process
-restarted without it loses only the witness for one tick. A `Tick`
-fuses without a `context`: a humidity's `Fused` has its `inside`, but
-no `value` or `sigma` as the quantity reads.
+restarted without it loses only the witness for one tick. For a
+quantity with a transform, `call(snapshot, context:)` takes each
+location's context ({ location => context }, or anything answering
+`call(location)`): humidity is brought back at the location's
+temperature, the temperature tick's value; without one, a `Fused` has
+its `inside` but no `value` or `sigma` as the quantity reads.
 
 ## Any quantity
 

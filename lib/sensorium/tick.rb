@@ -22,16 +22,25 @@ module Sensorium
         end
 
         # The Result of the snapshot; previous: { location => Fused }, the
-        # last call's, for the Tracker's witness.
-        def call(snapshot, previous: {})
+        # last call's, for the Tracker's witness; context: { location =>
+        # context }, or anything answering call(location) with one, for
+        # the value brought back from the transform's space (a humidity
+        # at the location's temperature).
+        def call(snapshot, previous: {}, context: {})
             fused = @fusion.locations(snapshot).to_h do |name|
-                [name, @fusion.location(name, snapshot)]
+                [name, @fusion.location(name, snapshot,
+                                        context: context_of(context, name))]
             end
             Result.new(fused:, tracks: tracked(fused, snapshot, previous),
                        events: @detector.events(snapshot))
         end
 
         private
+
+        def context_of(context, name)
+            return context.call(name) || {} if context.respond_to?(:call)
+            context.fetch(name, {})
+        end
 
         def tracked(fused, snapshot, previous)
             fused.reduce(@tracks) do |tracks, (name, one)|
