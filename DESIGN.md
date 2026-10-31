@@ -92,6 +92,20 @@ Where sensorium departs from `Sensing`, on purpose:
   foreign keys) creates them alike and passes `migrate: false`.
 - **No column is named `group` or `condition`**: both are reserved in
   MySQL and MariaDB. Hence location, and influence.
+- **Student-t reweighting, not a single 3σ drop.** The old rule found
+  the one part furthest from the inverse-variance fusion of the others
+  and dropped it outright past 3σ; it only looked at one part at a
+  time, so two sensors wrong together (the same radiator plume, the
+  same stuck valve) could each pass the test while the pair still
+  pulled the fused value off. Reweighting every part by a Student-t
+  factor on its own residual, iterated to convergence, downweights
+  however many parts disagree, smoothly instead of as a hard cut, and
+  a part that only mildly disagrees (seen mostly with two parts
+  counted) is only mildly downweighted. It costs the `quantity.outlier`
+  σ threshold, replaced by `robust_nu` (how hard a disagreement is
+  punished) and `outlier_factor` (how little weight is left before the
+  note says so); when every part agrees, the result is exactly the old
+  inverse-variance fusion.
 
 ## Ruled out
 

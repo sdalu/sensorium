@@ -81,11 +81,15 @@ mode holds, with the plain offset and the mode's shift), and weighted
 by 1/σ². σ is never below the quantity's `floor`, grows with the
 reading's age (`drift` per hour), and a reading older than `max_age`
 does not count. A location without references set takes those it was
-learned against in the moment's regime. With three sensors
-or more, the one furthest from the others is dropped when it is more
-than 3 σ away. Notes say why a sensor does not count: `excluded`,
-`stale`, `not learned`, `no context`, `outlier`. A location with no
-reference gets the plain mean, `corrected` false and `sigma` nil.
+learned against in the moment's regime. With two sensors or more, the
+inverse-variance fusion is Student-t reweighted (ν `robust_nu`) until
+it settles: a part far from the rest counts for less, smoothly, rather
+than one furthest part being dropped outright. A part whose final
+weight falls below the quantity's `outlier_factor` share of 1/σ² is
+noted `outlier`, but still counts for that little. Notes say why a
+sensor does not count: `excluded`, `stale`, `not learned`,
+`no context`, `outlier`. A location with no reference gets the plain
+mean, `corrected` false and `sigma` nil.
 
 ## Any quantity
 

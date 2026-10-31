@@ -19,29 +19,46 @@ module Sensorium
             [parts.sum(&:value).fdiv(parts.size), nil]
         end
 
-        # The part furthest from what the others say, if it is more than
-        # `limit` σ away; nil with fewer than three.
-        def outlier(parts, limit)
-            return if parts.size < 3
-            worst = parts.max_by { distance(it, parts - [it]) }
-            worst if distance(worst, parts - [worst]) > limit
+        # [value, σ, { part => factor }] by Student-t reweighting (ν
+        # `nu`) of the inverse-variance fusion, each part's factor
+        # (nu + 1) / (nu + z²) on its standardised residual z, iterated
+        # at most 20 times or until the value moves less than 1e-6.
+        # Every factor is (nu + 1) / nu, and σ equals the plain
+        # inverse-variance one, when every part agrees.
+        def robust(parts, nu)
+            value, factors = iterated(parts, nu, weighted(parts).first)
+            [value, spread(parts, factors, nu), factors]
         end
 
-        # How many σ apart a part and the others' fusion are.
-        def distance(part, others)
-            value, sigma = weighted(others)
-            (part.value - value).abs / Math.hypot(part.sigma, sigma)
+        # One Student-t step from `value`, and another unless it
+        # settled or `left` runs out.
+        def iterated(parts, nu, value, left = 20)
+            factors = reweighted(parts, nu, value)
+            moved = averaged(parts, factors)
+            return [moved, factors] if left.zero? ||
+                                       (moved - value).abs < 1e-6
+            iterated(parts, nu, moved, left - 1)
         end
 
-        # { part => [its share of the value, why it is left out] }, 0 for
-        # those left out.
-        def shares(parts, kept, outlier)
-            weights = kept.to_h { [it, it.sigma ? 1 / (it.sigma**2) : 1.0] }
-            total = [weights.values.sum, Float::MIN].max
+        # { part => factor }, its Student-t weight against `value`.
+        def reweighted(parts, nu, value)
             parts.to_h do |part|
-                note = part == outlier ? "outlier" : part.note
-                [part, [weights.fetch(part, 0) / total, note]]
+                z = (part.value - value) / part.sigma
+                [part, (nu + 1) / (nu + (z**2))]
             end
+        end
+
+        # The weighted mean by factor / σ².
+        def averaged(parts, factors)
+            weights = parts.to_h { [it, factors[it] / (it.sigma**2)] }
+            total = weights.values.sum
+            parts.sum { |part| part.value * weights[part] } / total
+        end
+
+        # 1 / sqrt(Σ(factor / σ²) × ν / (ν + 1)).
+        def spread(parts, factors, nu)
+            total = parts.sum { |part| factors[part] / (part.sigma**2) }
+            1 / Math.sqrt(total * nu / (nu + 1))
         end
     end
 end
