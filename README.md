@@ -202,7 +202,8 @@ track, which starts afresh at its next update.
 
 The gain is small by design. In the tests' room (a sensor of
 σ 0.2 °C against two of 0.1 and 0.08), ten hourly updates take delta
-to 40 % of a constant bias and ten daily ones to 83 %, while a step of
+to 40 % of a constant bias, 48 hourly ones to 88 % and ten daily ones
+to 83 %, while a step of
 3 σ is flagged jumped at the third update.
 
 ## Any quantity

@@ -9,15 +9,16 @@ require "support/tracker_helpers"
 class TrackerTest < Minitest::Test
     include TrackerHelpers
 
-    # With the default track_q ((σ/2)² a day, σ the quantity's 0.1) the
-    # gain is small: ten daily steps take delta to 83 % of a 1 σ bias
-    # (0.2 °C), ten hourly steps to 40 %.
-    def test_a_constant_bias_is_learned_within_ten_steps
-        tracks = track(10, every: 86_400) { { "tado" => 19.2 } }
-        tado = tracks.fetch(%w[room tado])
-        assert_in_delta 0.2, tado.delta, 2 * Math.sqrt(tado.variance)
-        assert_operator tado.delta, :>, 0.75 * 0.2
-        assert_equal :ok, tado.state
+    # The default track_q ((σ/2)² a day, σ the quantity's 0.1) makes a
+    # slow learner: a bias of 2 σ (0.2 °C) on tado takes some two days
+    # of hourly updates.
+    def test_a_constant_bias_is_learned_within_48_hourly_updates
+        assert_learned(track(48) { { "tado" => 19.2 } })
+    end
+
+    # Ten daily updates take delta to 83 % of the same bias.
+    def test_a_constant_bias_is_learned_within_ten_daily_updates
+        assert_learned(track(10, every: 86_400) { { "tado" => 19.2 } })
     end
 
     def test_a_step_is_flagged_jumped_within_ten_updates
@@ -76,6 +77,13 @@ class TrackerTest < Minitest::Test
     end
 
     private
+
+    def assert_learned(tracks)
+        tado = tracks.fetch(%w[room tado])
+        assert_in_delta 0.2, tado.delta, 2 * Math.sqrt(tado.variance)
+        assert_operator tado.delta, :>, 0.75 * 0.2
+        assert_equal :ok, tado.state
+    end
 
     # tado's state after one update from a track at delta, its readings
     # bearing that delta out.

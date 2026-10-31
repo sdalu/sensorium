@@ -64,13 +64,7 @@ module Sensorium
                 [track.cusum_up, track.cusum_down].max > @quantity.cusum_h
             end
 
-            def limit(bound) = @quantity.public_send(bound) * sigma
-
-            # The Offset's σ, its plain σ when it has none.
-            def sigma
-                return @offset.plain_sigma unless @offset.p10 && @offset.p90
-                @offset.sigma
-            end
+            def limit(bound) = @quantity.public_send(bound) * @offset.sigma
         end
     end
 end

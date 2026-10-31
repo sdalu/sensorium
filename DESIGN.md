@@ -211,8 +211,18 @@ next batch learning, and nothing said so.
   hourly cadence (some 20 h for the tests' σ 0.2 °C sensor): a
   constant bias takes days to be learned, and one that comes at once
   is a jump. A
-  "learned within ten updates" test only holds a day apart (83 % of
-  the bias); hourly, ten updates take 40 %.
+  bias of 2 σ is learned (past 75 %, and within 2 √variance) after
+  48 hourly updates (88 %) or ten daily ones (83 %); ten hourly ones
+  take 40 %. A slow learner is intended: a jump is the CUSUM's to
+  catch.
+- **A jump leaks a little into the others' deltas.** The update runs
+  on an untracked Fused, so a jumped part is still one of the others
+  of each other part, and until its own delta has caught up with its
+  step the others' deltas take in a share of it: 0.03 °C of a 0.6 °C
+  step after ten hourly updates in the tests' room, 0.002 °C after
+  fifty. Accepted: it fades as the jumped part's delta catches up,
+  and keeping the update on what the Offsets alone say is what lets a
+  drifting part clear.
 
 ## Ruled out
 
