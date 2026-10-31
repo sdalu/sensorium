@@ -64,8 +64,10 @@ module Sensorium
         # (setup.min_samples steps), stable (a not negative) and
         # validated.
         # locations: { name => Location }, those set.
-        def learn(source, setup, from:, to:, locations: {})
-            History.new(source, setup, from, to, locations).models
+        # priors: { location => Prior }, or anything answering
+        # call(location, regime) with one or nil.
+        def learn(source, setup, from:, to:, **)
+            History.new(source, setup, [from, to], **).models
         end
     end
 end
@@ -74,3 +76,5 @@ require_relative "dynamics/history"
 require_relative "dynamics/regression"
 require_relative "dynamics/forecast"
 require_relative "dynamics/validation"
+require_relative "dynamics/prior"
+require_relative "dynamics/weighting"

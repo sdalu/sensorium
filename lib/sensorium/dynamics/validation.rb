@@ -18,21 +18,21 @@ module Sensorium
             LEAST = 7 * 86_400
 
             # The Model, nil when refused.
-            def model(key, steps, setup, forecast)
+            def model(key, steps, setup, forecast, prior = nil)
                 sorted = steps.sort_by(&:bin)
-                rms = held_out(key, sorted, setup, forecast) or return
+                rms = held_out(key, sorted, setup, forecast, prior) or return
                 return unless wins?(rms, setup)
-                Regression.model(key, sorted, setup, forecast)
+                Regression.model(key, sorted, setup, forecast, prior)
                           &.with(rms_model: rms.first, rms_hold: rms.last)
             end
 
             # [rms_model, rms_hold] on the steps held out, by the model
             # fitted on the others; nil when it cannot be told.
-            def held_out(key, sorted, setup, forecast)
+            def held_out(key, sorted, setup, forecast, prior)
                 held = held(sorted.size, setup.bin)
                 return if held >= sorted.size
                 fitted = Regression.model(key, sorted[0...-held], setup,
-                                          forecast) or return
+                                          forecast, prior) or return
                 forecast.rms(fitted, sorted.last(held).map(&:bin), HOURS)
             end
 

@@ -13,9 +13,9 @@ module Sensorium
             # setup.min_samples, the fit is singular, a is negative, or
             # no bin can be predicted an hour ahead. forecast: the
             # location's Forecast.
-            def model(key, steps, setup, forecast)
+            def model(key, steps, setup, forecast, prior = nil)
                 return if steps.size < setup.min_samples
-                terms = fit(steps) or return
+                terms = fit(steps, prior) or return
                 return if terms[:a].negative?
                 model = Model.new(**key, **terms, q: 0.0, bin: setup.bin,
                                                   steps: steps.size)
@@ -23,11 +23,16 @@ module Sensorium
                 model.with(q:) if q
             end
 
-            # a, b and c; nil when singular.
-            def fit(steps)
+            # a, b and c; nil when singular. With a Prior, the least
+            # squares are weighted by it, the noise taken from a fit
+            # without it (the changes' own variance when that one is
+            # singular).
+            def fit(steps, prior = nil)
                 names = varying(steps)
                 rows = steps.map { row(it, names) }
-                found = solve(rows, steps.map(&:change)) or return
+                ys = steps.map(&:change)
+                priors = prior&.columns(steps.first.gap, names)
+                found = solve(rows, ys, priors) or return
                 terms(found, names, steps.first.gap)
             end
 
@@ -54,13 +59,17 @@ module Sensorium
             # β of y on the rows, by the normal equations of the columns
             # each brought to a unit norm (a gap of tens of degrees and
             # a 0/1 Switch alike); nil when singular.
-            def solve(rows, ys)
+            def solve(rows, ys, priors = nil)
                 norms = rows.transpose.map { Math.sqrt(Stats.dot(it, it)) }
                 return if norms.any?(&:zero?)
                 scaled = rows.map { it.zip(norms).map { |x, n| x / n } }
-                found = Gauss.solve(normal(scaled, ys)) or return
-                found.zip(norms).map { |x, n| x / n }
+                matrix = Weighting.of(normal(scaled, ys), scaled, ys, priors,
+                                      norms)
+                found = Gauss.solve(matrix) or return
+                unscaled(found, norms)
             end
+
+            def unscaled(found, norms) = found.zip(norms).map { |x, n| x / n }
 
             # [XᵀX | Xᵀy].
             def normal(rows, ys)
