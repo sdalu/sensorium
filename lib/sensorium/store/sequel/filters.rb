@@ -11,9 +11,14 @@ module Sensorium
                                    .to_h { [it[:location], filter(it)] }
                 end
 
+                # Replaces those of the same location.
                 def keep_filters(quantity, states)
                     @db.transaction do
-                        table(:filters).where(quantity:).delete
+                        states.each do |state|
+                            table(:filters).where(
+                                quantity:, location: state.location
+                            ).delete
+                        end
                         table(:filters).multi_insert(
                             states.map { filter_row(it) }
                         )
@@ -24,12 +29,12 @@ module Sensorium
 
                 def filter(row)
                     Filter::State.new(**row.slice(*Filter::State.members),
-                                      at: row[:filtered_at])
+                                      at: wall_utc(row[:filtered_at]))
                 end
 
-                # The time in local time, as the tracks' (Tracks).
+                # The time as UTC, as the tracks' (Tracks).
                 def filter_row(state)
-                    state.to_h.except(:at).merge(filtered_at: state.at.getlocal)
+                    state.to_h.except(:at).merge(filtered_at: state.at.utc)
                 end
             end
         end

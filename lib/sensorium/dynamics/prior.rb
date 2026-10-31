@@ -11,14 +11,26 @@ module Sensorium
         # holds where data is thin. Where it comes from (a building's
         # walls, another room, a past year) is the caller's.
         Prior = Data.define(:a, :b, :c) do
-            def initialize(a: nil, b: {}, c: nil)
-                super(a:, b: b.transform_keys(&:to_s), c:)
+            def initialize(a: nil, b: nil, c: nil)
+                b = (b || {}).transform_keys(&:to_s)
+                [a, c, *b.values].each { check(it) }
+                super
             end
 
             # [mean, σ] or nil, for each column of a fit: the gap's (a),
             # each Switch's (b), the constant's (c).
             def columns(gap, names)
                 [*([a] if gap), *names.map { b[it] }, c]
+            end
+
+            private
+
+            def check(pair)
+                return unless pair
+                _, sigma = pair
+                return if sigma.is_a?(Numeric) && sigma.finite? &&
+                          sigma.positive?
+                raise ArgumentError, "a Prior's σ must be finite and positive"
             end
         end
     end
