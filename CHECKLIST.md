@@ -20,3 +20,8 @@
 - [ ] Does `Sensorium::VERSION` in `lib/sensorium/version.rb` move with
   this round? It is the one place the release number is written. Its
   users (MadHouse, ClimatControl) pin a tag.
+- [ ] Is the real-data fixture still to stay out of the public suite?
+  It lives in the gitignored `local/` (30 days of one room, raw
+  readings, device names anonymised), and its tests skip without it.
+  Publishing it shows a household's routines (heating, aircon, windows,
+  presence); ask the owner at each release before moving it to `test/`.
