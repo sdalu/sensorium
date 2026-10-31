@@ -21,7 +21,7 @@ module Sensorium
 
             def collocated(location, regime, offsets)
                 devices = @references[location] or return
-                name = devices.join("+")
+                name = Sensorium.reference_name(devices)
                 columns = columns(location, regime, name, offsets) or return
                 sigmas = Collocation.sigmas(columns)
                                     .transform_values { it&.round(4) }

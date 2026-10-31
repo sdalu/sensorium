@@ -27,7 +27,7 @@ module Sensorium
         # it has none.
         def initialize(location, references, learning, snapshot, setup)
             @location = location
-            @name     = references&.join("+")
+            @name     = references && Sensorium.reference_name(references)
             @sole     = references&.one? && references.first
             @offsets  = learning.offsets
                                 .select { |_, one| one.reference == @name }

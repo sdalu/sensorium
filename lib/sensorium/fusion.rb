@@ -53,7 +53,7 @@ module Sensorium
             learning = learning(key, references)
             parts = Parts.new(location, references, learning, snapshot,
                               @setup).all
-            fused(name, snapshot.at, references&.join("+"), parts, context)
+            fused(name, snapshot.at, named(references), parts, context)
         end
 
         private
@@ -69,7 +69,7 @@ module Sensorium
         def learned(key)
             found = @offsets[key] ||
                     @offsets.find { |(where, _), _| where == key.first }&.last
-            found && found.first.reference.split("+")
+            found && Sensorium.references_of(found.first.reference)
         end
 
         def settings(name)
@@ -95,13 +95,22 @@ module Sensorium
             name, regime = key
             @tracks.filter_map do |(where, device), track|
                 next unless where == name && references
-                print = if references.include?(device)
-                            Track.reference(regime, references.join("+"))
-                        else
-                            offsets[device]&.then { Track.fingerprint(it) }
-                        end
+                print = print(regime, references, offsets, device)
                 [device, track] if track.fingerprint == print
             end.to_h
+        end
+
+        # The fingerprint a device's track must have: a reference's, or
+        # its Offset's.
+        def print(regime, references, offsets, device)
+            if references.include?(device)
+                return Track.reference(regime, named(references))
+            end
+            offsets[device]&.then { Track.fingerprint(it) }
+        end
+
+        def named(references)
+            references && Sensorium.reference_name(references)
         end
     end
 end

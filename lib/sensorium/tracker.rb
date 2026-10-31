@@ -74,7 +74,8 @@ module Sensorium
                 [[offset.location, offset.regime, offset.device], offset]
             end
             @witness = Witness.new(setup, dynamics, locations)
-            @detector = Transient::Detector.new(setup, profiles: transients)
+            @detector = Transient::Detector.new(setup, profiles: transients,
+                                                       locations:)
         end
 
         # The tracks after a Fused, made by a Fusion without tracks: each
@@ -131,8 +132,13 @@ module Sensorium
         # The references first, then the other parts, each in the Fused's
         # order.
         def ordered(fused, parts)
-            references = fused.reference&.split("+") || []
+            references = references_of(fused)
             parts.partition { references.include?(it.device) }.flatten
+        end
+
+        def references_of(fused)
+            name = fused.reference or return []
+            Sensorium.references_of(name)
         end
 
         # The others, and the witness when they are one.
@@ -171,7 +177,7 @@ module Sensorium
         # Offset learned against the Fused's references, with its σ; nil
         # without.
         def basis(fused, device)
-            if fused.reference&.split("+")&.include?(device)
+            if references_of(fused).include?(device)
                 [reference(fused, device), nil]
             elsif (offset = offset(fused, device))
                 [Track.fresh(offset, variance), offset.sigma]

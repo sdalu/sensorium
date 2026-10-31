@@ -37,6 +37,14 @@ class DynamicsFusionTest < Minitest::Test
         assert_in_delta Math.sqrt((sigma**2) + 0.02), tado.sigma
     end
 
+    # Stamped half an hour after the moment (a replayed or hand-built
+    # snapshot): taken as fresh, not as a negative age.
+    def test_a_reading_newer_than_the_moment_is_taken_as_fresh
+        fused = aged({ "ceil" => [20.0, -1800] })
+        assert_in_delta 20.0, fused.value
+        assert_in_delta 0.1, part(fused, "ceil").part.sigma
+    end
+
     def test_a_fresh_reading_does_not_move
         fused = aged({ "ceil" => [20.0, 0] })
         assert_in_delta 20.0, fused.value

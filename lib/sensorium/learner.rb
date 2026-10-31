@@ -66,7 +66,7 @@ module Sensorium
         end
 
         def location_offsets(regime, location)
-            reference = @references[location].join("+")
+            reference = Sensorium.reference_name(@references[location])
             devices(location).filter_map do |device|
                 learn_device(Device.new(location:, device:, quantity:,
                                         regime:, reference:))

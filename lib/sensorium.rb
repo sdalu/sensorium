@@ -30,6 +30,18 @@ module Sensorium
     Estimate = Data.define(:value, :sigma)
 
     class Error < StandardError; end
+
+    # A location's references named as one, "a+b" for the mean of a and
+    # b, each device's "%" and "+" escaped (%25, %2B) so that a device
+    # named with a "+" stays one.
+    def self.reference_name(devices)
+        devices.map { it.to_s.gsub("%", "%25").gsub("+", "%2B") }.join("+")
+    end
+
+    # The devices a reference name was made of.
+    def self.references_of(name)
+        name.split("+").map { it.gsub("%2B", "+").gsub("%25", "%") }
+    end
 end
 
 require_relative "sensorium/version"

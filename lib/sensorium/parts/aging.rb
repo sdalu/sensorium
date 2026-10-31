@@ -28,7 +28,7 @@ module Sensorium
             # corrected) as it is.
             def of(device, reading, estimate)
                 return estimate unless estimate.sigma
-                hours = @snapshot.age(reading) / 3600.0
+                hours = hours(reading)
                 change, spread = modelled(estimate.value, hours) ||
                                  [0.0, (@location.drift * hours)**2]
                 spread = capped(spread, device, reading)
@@ -38,6 +38,10 @@ module Sensorium
             end
 
             private
+
+            # The reading's age, hours; one stamped after the moment (a
+            # replayed snapshot) is fresh, not of a negative age.
+            def hours(reading) = [@snapshot.age(reading), 0].max / 3600.0
 
             # The age's variance, at most delta² / 3 for a device with a
             # delta.

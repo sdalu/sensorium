@@ -63,6 +63,22 @@ class TransientDetectorTest < Minitest::Test
         assert_equal 1200 + SETUP.carry, Sensorium::Snapshot::Gather.reach(SETUP)
     end
 
+    # s steps, then falls silent; two hours later its last reading is
+    # past max_age, and so is its event.
+    def test_a_reading_past_max_age_is_no_event
+        silent = Silent.new(@house)
+        assert_empty detector.events(at(STEP + 12, silent))
+        refute_empty detector.events(at(STEP + 3, silent))
+    end
+
+    # The house with s's readings cut after its step.
+    class Silent < SimpleDelegator
+        def readings(quantity, from, to, devices = nil)
+            cut = __getobj__.time(STEP)
+            super.reject { it.device == "s" && it.time > cut }
+        end
+    end
+
     private
 
     def detector

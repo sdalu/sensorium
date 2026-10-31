@@ -7,12 +7,16 @@ module Sensorium
         # before the latest's time less each window (no older than the
         # carry before it, as the learned series were carried), in the
         # transform's space, against the sensor's own Threshold; an Event
-        # where it is beyond.
+        # where it is beyond. A latest reading older than its location's
+        # max_age says nothing of the moment (the Fusion counts it stale),
+        # so it makes no Event.
         class Detector
-            # profiles: [Profile] of the setup's quantity.
-            def initialize(setup, profiles:)
-                @setup    = setup
-                @profiles = profiles.to_h do |profile|
+            # profiles: [Profile] of the setup's quantity; locations: {
+            # name => Location }, those set, for their max_age.
+            def initialize(setup, profiles:, locations: {})
+                @setup     = setup
+                @locations = locations
+                @profiles  = profiles.to_h do |profile|
                     [[profile.location, profile.device, profile.regime],
                      profile]
                 end
@@ -23,11 +27,19 @@ module Sensorium
                 regime = @setup.regime.of(snapshot.at)
                 snapshot.latest.flat_map do |key, latest|
                     profile = @profiles[[*key, regime]] or next []
+                    next [] if stale?(key.first, snapshot.age(latest))
                     of(profile, latest, snapshot.history.fetch(key, []))
                 end
             end
 
             private
+
+            def stale?(location, age)
+                settings = @locations.fetch(location) do
+                    Location.default(location)
+                end
+                age > settings.resolve(@setup.quantity).max_age * 60
+            end
 
             def of(profile, latest, history)
                 profile.own.filter_map do |window, threshold|
