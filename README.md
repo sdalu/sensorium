@@ -692,3 +692,6 @@ it.
 ## Gate
 
 `bundle exec rake`: the tests, then RuboCop.
+`test/recorded_room_test.rb` runs on a real room's recording, thirty
+winter days kept out of the repository (`local/fixture/room.json.gz`):
+without it, its tests are skipped.
