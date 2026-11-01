@@ -4,7 +4,8 @@ module Sensorium
     # What the Tracker knows of one sensor's offset between two
     # learnings, for one quantity: delta, the sensor's corrected value
     # minus the truth, estimated, and its variance; the two sides of the
-    # CUSUM on its innovations; at, the time of its last update; state,
+    # CUSUM on its innovations; at, the time of the reading its last
+    # update took (none is taken twice); state,
     # :ok, :drifting or :jumped. regime, reference, constant and plain
     # are the fingerprint of the Offset it tracks: once the location's
     # Offset for the device has another (a relearn), the track starts
@@ -62,7 +63,7 @@ module Sensorium
         # "outlier".
         COUNTING = [nil, "outlier"].freeze
 
-        # The keywords a Tracker may be given instead of a Knowledge.
+        # The keywords a Tracker may take instead of a Knowledge.
         REQUIRED = %i[offsets].freeze
         OPTIONAL = %i[dynamics locations transients].freeze
 
@@ -91,8 +92,10 @@ module Sensorium
         # the witness: previous (a Fused of the location made with the
         # tracks) moved by the location's dynamics to the moment, with
         # the inputs of snapshot (the one fused was made from). A part
-        # with fewer than two others still is left as it was, as are
-        # the tracks of other parts. While the Detector finds an event in
+        # with fewer than two others still is left as it was, as is one
+        # whose reading is no newer than its track's last (a Fused made
+        # again before the sensor read again), and the tracks of other
+        # parts. While the Detector finds an event in
         # the location in snapshot, every part is left as it was.
         def update(tracks, fused, previous: nil, snapshot: nil)
             return tracks if transient?(fused, snapshot)
@@ -106,9 +109,7 @@ module Sensorium
         end
 
         # The tracks without that sensor's: its next update starts afresh.
-        def reset(tracks, location, device)
-            tracks.except([location, device])
-        end
+        def reset(tracks, location, device) = tracks.except([location, device])
 
         private
 
@@ -151,12 +152,15 @@ module Sensorium
             witness && others.one? ? others + [witness] : others
         end
 
-        # The part's track updated; nil without one, or with fewer than
-        # two others (their deltas taken out).
+        # The part's track updated; nil without one, with fewer than
+        # two others (their deltas taken out), or when its reading is no
+        # newer than the track's last.
         def step(fused, current, part, others)
             track, sigma = current[part.device]
             return unless track && others.size >= 2
-            Step.new(@quantity, sigma).call(track, part, others, fused.at)
+            read = fused.at - part.age
+            return if track.at && read <= track.at
+            Step.new(@quantity, sigma).call(track, part, others, read)
         end
 
         # Whether the part, untracked, counts: its note the Part's when a

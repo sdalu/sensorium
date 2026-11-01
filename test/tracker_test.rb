@@ -89,7 +89,7 @@ class TrackerTest < Minitest::Test
     # bearing that delta out.
     def after(delta, state)
         start = Sensorium::Track.fresh(offsets.first, 0.0025)
-                                .with(delta:, state:, at: AT)
+                                .with(delta:, state:, at: AT - 600)
         tracks = track(1, { %w[room tado] => start }) do
             { "tado" => 19.0 + delta }
         end

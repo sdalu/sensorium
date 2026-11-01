@@ -477,10 +477,14 @@ quantity must say the same one; `at` is the latest they say.
 
 Between two learnings an offset can move: a sensor moved, re-batteried
 or ageing reads wrong until the next learning. The `Tracker` follows,
-for each sensor with an `Offset` and for each reference, a `Track`: `delta`, its corrected
-value minus the truth, as estimated, with its `variance`; the two sides
-of a CUSUM; `at`, the time of its last update; and a `state`, `:ok`,
-`:drifting` or `:jumped`.
+for each sensor with an `Offset` and for each reference, a `Track`:
+`delta`, its corrected value minus the truth, as estimated, with its
+`variance`; the two sides of a CUSUM; `at`, the time of the reading
+its last update took; and a `state`, `:ok`, `:drifting` or `:jumped`.
+A part is updated only when its reading is newer than that: fused
+again before the sensor reads again, it is left as it was, so the
+tracks are the same whether a location is fused every minute or at
+each reading, and a reading never counts twice in a CUSUM.
 
 The truth, for one part of a `Fused`, is the `Combine.robust` fusion
 of the other parts that count (a value and a σ, no note but
@@ -489,7 +493,7 @@ has jumped, before or in this update. The references are updated
 first, then the other parts, each in the `Fused`'s order. A part with
 fewer than two others is left as it was, unless a **witness** stands
 in for the second (below). Each update is a scalar Kalman step over a
-random walk:
+random walk, the hours counted between the readings it took:
 
     y         = value − delta − the others' fusion
     R         = σ² + the others' fusion's σ²

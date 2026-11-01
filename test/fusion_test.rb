@@ -72,11 +72,9 @@ class FusionTest < Minitest::Test
     def test_an_older_unreferenced_reading_counts_less
         fused = fuse({ "tado" => [20.0, 1800], "airzone" => 21.0 },
                      location: "blue")
-        aged = Math.sqrt(0.01 + 0.25)
-        weight = (1 / (aged**2)) / ((1 / (aged**2)) + 100)
-        assert_in_delta 21.0 - weight, fused.value, 1e-9
-        assert_in_delta 1 / Math.sqrt(100 + (1 / (aged**2))), fused.sigma,
-                        1e-9
+        aged = 1 / (0.01 + 0.25) # 1/σ² half an hour old
+        assert_in_delta 21.0 - (aged / (aged + 100)), fused.value, 1e-9
+        assert_in_delta 1 / Math.sqrt(100 + aged), fused.sigma, 1e-9
     end
 
     def test_a_sole_unreferenced_sensor_keeps_the_quantitys_sigma
