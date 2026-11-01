@@ -4,12 +4,17 @@ module Sensorium
     module Store
         class Sequel
             # Times read back as UTC, whatever Sequel or the database
-            # makes of its own timezone: the write side always gives
-            # UTC wall-clock (Time#utc), so rebuilding from the
-            # column's wall-clock fields undoes exactly that, immune to
-            # the hour Europe/Paris repeats every autumn.
+            # makes of its own timezone. The write side gives Time#utc.
+            # With a database timezone (the Database's, else Sequel's),
+            # Sequel converts both ways and the Time read is the
+            # instant. Without one, Sequel writes the UTC wall clock as
+            # it is and reads it back in the application's zone, so
+            # rebuilding from its wall-clock fields undoes exactly
+            # that, immune to the hour Europe/Paris repeats every
+            # autumn.
             module Clock
                 def wall_utc(time)
+                    return time.getutc if @db.timezone
                     Time.utc(time.year, time.month, time.day, time.hour,
                              time.min, time.sec + time.subsec)
                 end

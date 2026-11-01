@@ -628,8 +628,11 @@ and `sensor_locations` lacks `deltas` (text); a caller with its own
 schema adds them. Another store answers the same fifteen methods (see
 `lib/sensorium/store/memory.rb`), and `knowledge(quantity)` from them
 by including `Store::Knowing`. A time `Store::Sequel` keeps
-(`learned_from`, `learned_to`, `learned_at`, `tracked_at`) is stored and read back as UTC, independently of the
-database's own timezone setting.
+(`learned_from`, `learned_to`, `learned_at`, `tracked_at`) is stored
+and read back as UTC, whether Sequel converts times (a
+`database_timezone` set, as an application in local time with a UTC
+session does) or not, and independently of the database's own
+timezone setting: the columns may be DATETIME or TIMESTAMP.
 
 Every `keep_*` method follows the one rule: it replaces what shares
 the kept rows' key, and leaves the rest. Keeping dynamics

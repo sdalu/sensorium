@@ -127,6 +127,20 @@ class SequelStoreTest < Minitest::Test
         with_tz("Europe/Paris") { assert_dst_round_trip(at) }
     end
 
+    # Sequel converting, as an application set up so does (the
+    # database in UTC, the application local): the Time read back is
+    # already the instant, in local time.
+    def test_times_round_trip_where_sequel_converts
+        with_tz("Europe/Paris") do
+            with_sequel_zones(database: :utc, application: :local) do
+                @store = Sensorium::Store::Sequel.new(Sequel.sqlite)
+                [Time.utc(2026, 1, 5), Time.utc(2026, 7, 1, 12),
+                 Time.utc(2026, 10, 25, 0, 30)]
+                    .each { assert_dst_round_trip(it) }
+            end
+        end
+    end
+
     private
 
     def assert_dst_round_trip(at)
@@ -150,5 +164,14 @@ class SequelStoreTest < Minitest::Test
         yield
     ensure
         ENV["TZ"] = before
+    end
+
+    def with_sequel_zones(database:, application:)
+        before = [Sequel.database_timezone, Sequel.application_timezone]
+        Sequel.database_timezone = database
+        Sequel.application_timezone = application
+        yield
+    ensure
+        Sequel.database_timezone, Sequel.application_timezone = before
     end
 end
