@@ -272,8 +272,9 @@ noted `outlier`, but still counts for that little. Notes say why a
 sensor does not count: `excluded`, `stale`, `not learned`,
 `no context`, `jumped` (its track says so, see Tracking), or that it
 counts with a caveat: `outlier`, `drifting` (its track says so). A
-location with no reference gets the plain mean, `corrected` false and
-`sigma` nil.
+location with no reference gets its readings as they read, weighted by
+1/σ², each σ the location's (the quantity's by default) grown with the
+reading's age: `corrected` false.
 
 ### Which readings a fusion takes
 
@@ -753,6 +754,9 @@ it.
   reference's own noise counted in: with a noisy reference it errs
   wide (a left-out part's var(z) 0.76 in the tests' room, the
   reference's σ 0.1).
+- A location without a reference is fused from its readings as they
+  read: its σ says how fresh they are, not how far its sensors differ
+  from one another.
 - The per-state spreads cover the Switches, Thresholds and Series,
   not the Modes (a Shift has its own spread).
 - A dynamics model's q is calibrated on the span it was fitted on:

@@ -76,9 +76,10 @@ module Sensorium
             @quantity.transform.forward(reading.value, reading.context)
         end
 
-        # What the reading says of the reference; σ nil without one.
+        # What the reading says of the reference; without one, the
+        # reading as it reads, with the location's σ.
         def estimate(device, value)
-            return Estimate.new(value:, sigma: nil) unless @name
+            return Estimate.new(value:, sigma: @location.sigma) unless @name
             if device == @sole
                 return Estimate.new(value:,
                                     sigma: @location.sigma)

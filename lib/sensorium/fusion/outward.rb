@@ -17,13 +17,14 @@ module Sensorium
         end
 
         # The reference's inverse-variance fusion, Student-t reweighted
-        # (Combine.robust) once two parts or more count; the plain mean
-        # without a reference. factors is flat (1.0, never "outlier")
-        # wherever Combine.robust did not run.
+        # (Combine.robust) once two parts or more count; without a
+        # reference, the readings' inverse-variance fusion, each with the
+        # location's σ grown with its age. factors is flat (1.0, never
+        # "outlier") wherever Combine.robust did not run.
         def combine(reference, counted)
-            return [*Combine.mean(counted), flat(counted)] unless reference
-            return [*Combine.weighted(counted), flat(counted)] if
-                counted.size < 2
+            if reference.nil? || counted.size < 2
+                return [*Combine.weighted(counted), flat(counted)]
+            end
             Combine.robust(counted, @setup.quantity.robust_nu)
         end
 

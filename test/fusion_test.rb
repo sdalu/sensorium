@@ -58,10 +58,30 @@ class FusionTest < Minitest::Test
         assert_equal "ceil", fused.reference
     end
 
-    def test_a_location_without_reference_is_the_plain_mean
+    # Uncorrected, its readings weighted alike when equally fresh: the
+    # mean, with the quantity's σ (0.1) over √2.
+    def test_a_location_without_reference_is_its_readings_as_they_read
         fused = fuse({ "tado" => 20.0, "airzone" => 21.0 }, location: "blue")
         assert_in_delta 20.5, fused.value
-        assert_nil fused.sigma
+        assert_in_delta 0.1 / Math.sqrt(2), fused.sigma, 1e-9
+        refute fused.corrected
+    end
+
+    # Half an hour old, its σ grown by the drift (1 °C/h): √(0.1² + 0.5²),
+    # and it counts for a twenty-sixth of the fresh one's weight.
+    def test_an_older_unreferenced_reading_counts_less
+        fused = fuse({ "tado" => [20.0, 1800], "airzone" => 21.0 },
+                     location: "blue")
+        aged = Math.sqrt(0.01 + 0.25)
+        weight = (1 / (aged**2)) / ((1 / (aged**2)) + 100)
+        assert_in_delta 21.0 - weight, fused.value, 1e-9
+        assert_in_delta 1 / Math.sqrt(100 + (1 / (aged**2))), fused.sigma,
+                        1e-9
+    end
+
+    def test_a_sole_unreferenced_sensor_keeps_the_quantitys_sigma
+        fused = fuse({ "tado" => 20.0 }, location: "blue")
+        assert_equal [20.0, 0.1], [fused.value, fused.sigma]
         refute fused.corrected
     end
 

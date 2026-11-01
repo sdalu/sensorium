@@ -41,8 +41,8 @@ class BlendTest < Minitest::Test
         assert_in_delta 0.0, blended.shares["a"].weight
     end
 
-    # An uncorrected location (no reference) has no σ: neither has the
-    # blend it counts in.
+    # An estimate without σ (one that cannot be brought back as the
+    # quantity reads): neither has the blend it counts in.
     def test_an_estimate_without_sigma_leaves_no_sigma
         blended = blend({ "a" => 1, "d" => 1 })
         assert_in_delta 21.5, blended.value

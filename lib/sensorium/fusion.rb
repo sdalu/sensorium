@@ -6,8 +6,10 @@ module Sensorium
     # the reading's age, then Student-t reweighted (Combine.robust): a
     # sensor far from what the others say (sun on it, a window open by
     # it) keeps only a little weight, and is noted "outlier".
-    # A location without a reference gets the plain mean, corrected
-    # false and sigma nil. The offsets are those of the moment's regime.
+    # A location without a reference gets its readings as they read,
+    # weighted by 1/σ², σ the location's grown with each reading's age:
+    # corrected false, its σ blind to how its sensors differ. The
+    # offsets are those of the moment's regime.
     # The value is brought back from the transform's space with the
     # context given (a humidity at the location's fused temperature).
     class Fusion
