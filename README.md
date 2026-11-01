@@ -275,6 +275,72 @@ counts with a caveat: `outlier`, `drifting` (its track says so). A
 location with no reference gets the plain mean, `corrected` false and
 `sigma` nil.
 
+### Which readings a fusion takes
+
+A fusion at a moment T takes, for each sensor, the reading with the
+latest time at or before T: the time the source gives it, the time it
+was measured, not when it reached the source. `Snapshot.from` asks the
+source for the readings of the three hours before T, and the Fusion
+leaves out those older than `max_age` (60 minutes by default). In a
+room of three sensors (illustrative numbers):
+
+```
+time      10:00   10:02   10:05   10:07   10:10
+            |       |       |       |       |
+ceiling     ●───────────────────────●              every ~7 min
+           21.3                    21.4
+wall        ●───────────────●───────────────●      every 5 min
+           20.6            20.7            20.8
+valve       ●                                      every ~12 min
+           20.1
+                                            ▲
+                                    fusion at 10:10
+
+            read   offset   corrected   age      weight
+ceiling     21.4    0.0      21.40      3 min    high (reference)
+wall        20.8   −0.6      21.40      0 min    medium
+valve       20.1   −1.1      21.20     10 min    low (older, noisier)
+                             fused 21.35 ± 0.08 at 10:10
+```
+
+An older reading is not dropped but brought to the moment: moved by
+the location's dynamics where there are some, else its σ widened with
+its age (see Staleness), so it counts for less. A fused value is the
+estimate at its moment, not over the interval before it:
+
+```
+age of the reading     in the fusion
+0 min                  its full weight
+12 min                 brought to the moment, or its σ widened
+over max_age           left out (stale)
+```
+
+How often to fuse is the caller's: once a bin, or each time a reading
+arrives. Neither is behind; the second gives a value more often.
+
+```
+readings   ●   ●   ●   ●     ●   ●    ●     ●   ●
+timer      ■            ■            ■            ■     every 10 min
+on arrival ■   ■   ■   ■     ■   ■    ■     ■   ■     after each reading
+```
+
+A reading that reaches the source late, at its own (earlier) time, is
+taken by the next fusion if it is still its sensor's latest and within
+`max_age`; a fusion already made is not revised, and the learning,
+which reads the history by time, has it in its place:
+
+```
+valve measures  10:08 ●
+source has it   10:13 ■  at 10:08
+
+fusion 10:10    not there yet: valve @10:00
+fusion 10:20    valve @10:08, 12 min old
+```
+
+The order readings arrive in does not matter, only their times: a late
+reading older than one already there is not its sensor's latest, and
+the newer one is fused.
+
 ### Staleness
 
 A reading is an estimate of the reference when it was taken; by the
