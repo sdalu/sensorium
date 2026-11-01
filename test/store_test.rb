@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "support/renamed_store"
 require "sensorium/store/sequel"
 require "support/winter"
 
@@ -173,5 +174,51 @@ class SequelStoreTest < Minitest::Test
         yield
     ensure
         Sequel.database_timezone, Sequel.application_timezone = before
+    end
+end
+
+class RenamedStoreTest < Minitest::Test
+    include StoreBehaviour
+
+    def setup = @store = RenamedStore.new
+end
+
+# A caller's own tables, their columns named its way.
+class StoreColumnsTest < Minitest::Test
+    def test_the_tables_take_the_names_given
+        db = Sequel.sqlite
+        RenamedStore.new(db)
+        columns = db.schema(:sensor_offsets).map(&:first)
+        assert_includes columns, :zone
+        assert_includes columns, :made_at
+        refute_includes columns, :location
+    end
+
+    # Made by the caller (here a first store), opened without
+    # migrating: what one kept, the other reads.
+    def test_a_callers_tables_are_read_as_they_are
+        db = Sequel.sqlite
+        RenamedStore.new(db).keep(Winter.learned, from: Time.utc(2026, 1, 5),
+                                                  to: Time.utc(2026, 1, 15))
+        store = Sensorium::Store::Sequel.new(
+            db, columns: RenamedStore::COLUMNS, migrate: false
+        )
+        assert_equal Winter.learned.offsets.size,
+                     store.offsets("temperature").size
+    end
+
+    def test_an_unknown_column_is_refused
+        error = assert_raises(ArgumentError) do
+            Sensorium::Store::Sequel.new(Sequel.sqlite,
+                                         columns: { locaton: :zone })
+        end
+        assert_match(/locaton/, error.message)
+    end
+
+    def test_a_name_another_column_has_is_refused
+        assert_raises(ArgumentError) do
+            Sensorium::Store::Sequel.new(Sequel.sqlite,
+                                         columns: { location: :device })
+        end
     end
 end

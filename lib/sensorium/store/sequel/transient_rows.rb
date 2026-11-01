@@ -18,12 +18,11 @@ module Sensorium
                 def keep_transients(quantity, profiles)
                     @db.transaction do
                         profiles.each do |one|
-                            table(:transients).where(
-                                quantity:, **one.to_h.slice(*KEY)
-                            ).delete
+                            scope(:transients,
+                                  { quantity:, **one.to_h.slice(*KEY) })
+                                .delete
                         end
-                        table(:transients)
-                            .multi_insert(profiles.map { transient_row(it) })
+                        put(:transients, profiles.map { transient_row(it) })
                     end
                 end
 

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "support/renamed_store"
 require "sensorium/store/sequel"
 
 # Transient profiles come back from each store as kept; a later keep
@@ -70,4 +71,10 @@ class SequelStoreTransientsTest < Minitest::Test
         assert db.table_exists?(:room_tr)
         refute db.table_exists?(:sensor_transients)
     end
+end
+
+class RenamedStoreTransientsTest < Minitest::Test
+    include StoreTransientsBehaviour
+
+    def setup = @store = RenamedStore.new
 end

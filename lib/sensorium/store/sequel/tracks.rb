@@ -15,12 +15,10 @@ module Sensorium
                 def keep_tracks(quantity, tracks)
                     @db.transaction do
                         tracks.each_key do |location, device|
-                            table(:tracks).where(quantity:, location:,
-                                                 device:).delete
+                            scope(:tracks, { quantity:, location:,
+                                             device: }).delete
                         end
-                        table(:tracks).multi_insert(
-                            tracks.values.map { track_row(it) }
-                        )
+                        put(:tracks, tracks.values.map { track_row(it) })
                     end
                 end
 

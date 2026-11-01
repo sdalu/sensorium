@@ -8,6 +8,7 @@ require "sensorium"
 
 require_relative "knowing"
 require_relative "sequel/clock"
+require_relative "sequel/column_names"
 require_relative "sequel/location_rows"
 require_relative "sequel/tracks"
 require_relative "sequel/dynamics_rows"
@@ -20,10 +21,13 @@ module Sensorium
         # In an SQL database, through Sequel: SQLite, MariaDB, PostgreSQL…
         # Seven tables, named by `tables`; with migrate: true they are
         # created when missing (Store::Sequel::Schema), else they must be
-        # there already, as the caller made them. Lists are kept as A,B,
-        # an Offset's maps (switches, taus, series, states) as JSON.
+        # there already, as the caller made them, their columns named
+        # as `columns` renames them ({ location: :zone }). Lists are kept
+        # as A,B, an Offset's maps (switches, taus, series, states) as
+        # JSON.
         class Sequel
             include Clock
+            include ColumnNames
             include LocationRows
             include DynamicsRows
             include CollocationRows
@@ -42,10 +46,11 @@ module Sensorium
             include Forget
             include Knowing
 
-            def initialize(db, tables: {}, migrate: true)
-                @db     = db
-                @tables = TABLES.merge(tables)
-                Schema.create(db, @tables) if migrate
+            def initialize(db, tables: {}, columns: {}, migrate: true)
+                @db      = db
+                @tables  = TABLES.merge(tables)
+                @columns = checked(columns)
+                Schema.create(db, @tables, @columns) if migrate
             end
 
             def offsets(quantity)
@@ -59,12 +64,11 @@ module Sensorium
             end
 
             def learned(quantity)
-                table(:offsets).where(quantity:).distinct
-                               .select_map(%i[regime learned_from learned_to
-                                              learned_at])
-                               .map { utc_row(it) }
-                               .group_by(&:first)
-                               .transform_values { latest(it) }
+                names = %i[regime learned_from learned_to learned_at]
+                scope(:offsets, { quantity: })
+                    .distinct.select_map(names.map { name_of(it) })
+                    .map { utc_row(it) }.group_by(&:first)
+                    .transform_values { latest(it) }
             end
 
             def keep(learned, from:, to:, at: Time.now)
@@ -78,23 +82,21 @@ module Sensorium
             end
 
             def locations(quantity)
-                table(:locations).where(quantity:).order(:location).all
-                                 .to_h { [it[:location], location(it)] }
+                rows(:locations, quantity, %i[location])
+                    .to_h { [it[:location], location(it)] }
             end
 
             def set_location(quantity, name, settings)
                 key = { location: name, quantity: }
-                row = table(:locations).where(key).first || key
+                row = scope(:locations, key).first || key
                 row = row.merge(columns(settings))
                 @db.transaction do
-                    table(:locations).where(key).delete
-                    table(:locations).insert(row)
+                    scope(:locations, key).delete
+                    put(:locations, [row])
                 end
             end
 
             private
-
-            def table(name) = @db[@tables.fetch(name)]
 
             # The span of the latest learning of a regime's rows.
             def latest(rows) = rows.map { it.drop(1) }.max_by(&:last)
@@ -103,19 +105,13 @@ module Sensorium
             def drop(quantity, keys)
                 keys.each do |location, device, regime|
                     key = { quantity:, location:, device:, regime: }
-                    %i[offsets shifts].each { table(it).where(key).delete }
+                    %i[offsets shifts].each { scope(it, key).delete }
                 end
             end
 
             def insert(learned, span)
-                table(:offsets).multi_insert(
-                    learned.offsets.map { row(it).merge(span) }
-                )
-                table(:shifts).multi_insert(learned.shifts.map(&:to_h))
-            end
-
-            def rows(name, quantity, order)
-                table(name).where(quantity:).order(*order).all
+                put(:offsets, learned.offsets.map { row(it).merge(span) })
+                put(:shifts, learned.shifts.map(&:to_h))
             end
 
             def offset(row)

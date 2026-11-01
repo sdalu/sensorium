@@ -18,7 +18,7 @@ module Sensorium
                 def keep_dynamics(quantity, models)
                     @db.transaction do
                         models.each { drop_dynamics(quantity, it) }
-                        table(:dynamics).multi_insert(models.map do |model|
+                        put(:dynamics, models.map do |model|
                             model.to_h.merge(b: JSON.generate(model.b))
                         end)
                     end
@@ -27,8 +27,8 @@ module Sensorium
                 private
 
                 def drop_dynamics(quantity, model)
-                    table(:dynamics).where(quantity:, location: model.location,
-                                           regime: model.regime).delete
+                    scope(:dynamics, { quantity:, location: model.location,
+                                       regime: model.regime }).delete
                 end
             end
         end

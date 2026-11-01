@@ -19,11 +19,11 @@ module Sensorium
                 def keep_collocations(quantity, list)
                     @db.transaction do
                         list.each do |one|
-                            table(:collocations)
-                                .where(quantity:, location: one.location,
-                                       regime: one.regime).delete
+                            scope(:collocations,
+                                  { quantity:, location: one.location,
+                                    regime: one.regime }).delete
                         end
-                        table(:collocations).multi_insert(list.map do |one|
+                        put(:collocations, list.map do |one|
                             one.to_h.merge(sigmas: JSON.generate(one.sigmas))
                         end)
                     end

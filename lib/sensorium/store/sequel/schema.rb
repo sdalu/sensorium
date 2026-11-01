@@ -3,17 +3,21 @@
 module Sensorium
     module Store
         class Sequel
-            # The seven tables, created when missing. A caller that keeps
-            # its own schema (types, foreign keys) makes them alike and
-            # opens the store with migrate: false.
+            # The seven tables, created when missing, their columns
+            # renamed by columns. A caller that keeps its own schema
+            # (types, foreign keys) makes them alike and opens the store
+            # with migrate: false.
             module Schema
                 module_function
 
-                def create(db, tables)
-                    %i[offsets shifts locations tracks dynamics
-                       collocations transients].each do |name|
+                TABLES = %i[offsets shifts locations tracks dynamics
+                            collocations transients].freeze
+
+                def create(db, tables, columns = {})
+                    TABLES.each do |name|
                         db.create_table?(tables.fetch(name)) do
-                            Schema.public_send(name, self)
+                            Schema.public_send(name,
+                                               Renamed.new(self, columns))
                         end
                     end
                 end
@@ -121,3 +125,5 @@ module Sensorium
         end
     end
 end
+
+require_relative "schema_renamed"

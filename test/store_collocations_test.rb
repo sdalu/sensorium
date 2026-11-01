@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "support/renamed_store"
 require "sensorium/store/sequel"
 
 # A location's Collocations come back from each store as kept; a later
@@ -56,4 +57,10 @@ class SequelStoreCollocationsTest < Minitest::Test
         assert db.table_exists?(:room_tc)
         refute db.table_exists?(:sensor_collocations)
     end
+end
+
+class RenamedStoreCollocationsTest < Minitest::Test
+    include StoreCollocationsBehaviour
+
+    def setup = @store = RenamedStore.new
 end

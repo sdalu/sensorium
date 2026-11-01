@@ -625,7 +625,11 @@ and `relative` thresholds (`{ "600": [fall, rise] }`). Tables made before
 the survey rounds lack six columns of `sensor_offsets`: `taus`,
 `series` and `states` (text), `rate`, `off_p10` and `off_p90` (float),
 and `sensor_locations` lacks `deltas` (text); a caller with its own
-schema adds them. Another store answers the same fifteen methods (see
+schema adds them. A caller whose tables name their columns its own
+way says so with `columns:`, sensorium's name to its own, the same in
+every table (`columns: { location: :zone, device: :sensor }`); a name
+that is no column of the store's, or two columns given one name, is
+refused. Another store answers the same fifteen methods (see
 `lib/sensorium/store/memory.rb`), and `knowledge(quantity)` from them
 by including `Store::Knowing`. A time `Store::Sequel` keeps
 (`learned_from`, `learned_to`, `learned_at`, `tracked_at`) is stored

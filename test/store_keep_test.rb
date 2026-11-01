@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "support/renamed_store"
 require "sensorium/store/sequel"
 require "support/winter"
 
@@ -90,4 +91,10 @@ class SequelStoreKeepTest < Minitest::Test
     include StoreKeepBehaviour
 
     def setup = @store = Sensorium::Store::Sequel.new(Sequel.sqlite)
+end
+
+class RenamedStoreKeepTest < Minitest::Test
+    include StoreKeepBehaviour
+
+    def setup = @store = RenamedStore.new
 end

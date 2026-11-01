@@ -9,7 +9,7 @@ module Sensorium
                     key = { quantity:, location:, device: }
                     @db.transaction do
                         %i[offsets shifts tracks transients].each do |name|
-                            table(name).where(key).delete
+                            scope(name, key).delete
                         end
                     end
                 end

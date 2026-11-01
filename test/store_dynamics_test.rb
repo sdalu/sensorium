@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "support/renamed_store"
 require "sensorium/store/sequel"
 
 # A location's Dynamics::Models come back from each store as kept; a
@@ -55,4 +56,10 @@ class SequelStoreDynamicsTest < Minitest::Test
         assert db.table_exists?(:room_dynamics)
         refute db.table_exists?(:sensor_dynamics)
     end
+end
+
+class RenamedStoreDynamicsTest < Minitest::Test
+    include StoreDynamicsBehaviour
+
+    def setup = @store = RenamedStore.new
 end

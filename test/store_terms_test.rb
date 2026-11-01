@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "support/renamed_store"
 require "sensorium/store/sequel"
 
 # The terms added to an Offset come back from each store as kept.
@@ -58,4 +59,10 @@ class SequelStoreTermsTest < Minitest::Test
     include StoreTermsBehaviour
 
     def setup = @store = Sensorium::Store::Sequel.new(Sequel.sqlite)
+end
+
+class RenamedStoreTermsTest < Minitest::Test
+    include StoreTermsBehaviour
+
+    def setup = @store = RenamedStore.new
 end
