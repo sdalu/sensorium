@@ -206,7 +206,14 @@
   for a shift of one innovation σ). A slow ramp the filter keeps up
   with is said by the drift alarm instead (|delta| past 3 Offset σ,
   cleared under 2). A jumped track stays jumped until a relearn or a
-  reset: the Tracker flags, a person or a relearn decides.
+  reset: the Tracker flags, a person or a relearn decides. A jump
+  flagged wrongly costs precision, not accuracy: the part is out, the
+  others still corrected to the reference, the σ wider (losing a
+  room's best sensor in winter, about ×3.7 on one house). A jump
+  missed costs a bias the σ does not show. So the CUSUM is quick to
+  flag and nothing clears it but a relearn, which a regular relearn
+  bounds to a few days; the Tracker does not watch a jumped part to
+  let it back in, nor take a battery swap as an event.
 - **References tracked, but pinned.** A reference's reading is the
   location's definition of truth. Untracked, a reference that jumps
   makes every sensor beside it look jumped; tracked like the others,
