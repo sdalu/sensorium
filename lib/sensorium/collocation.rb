@@ -27,9 +27,11 @@ module Sensorium
         # its sensors corrected with `offsets` ([Offset], those against
         # the location's reference count). span: from:, to: and
         # locations: ({ name => Location }, those set), as the
-        # Learner's.
-        def self.learn(source, setup, offsets:, **span)
-            Gather.new(source, setup, **span).collocations(offsets)
+        # Learner's, the History loaded from the source when none is
+        # given.
+        def self.learn(source, setup, offsets:, history: nil, **span)
+            history ||= History.load(source, setup, **span)
+            Gather.new(history).collocations(offsets)
         end
 
         # { name => σ, nil when not measurable } of aligned columns

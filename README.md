@@ -202,8 +202,9 @@ as far). `Snapshot.from` reads the history far enough back for the
 longest window and the carry (`Snapshot::Gather.reach`).
 
 An `Influence::Transient` (name "transient", `hold` 1800 s) makes the
-Learner leave transients out of the offsets. It learns the profiles
-from the same span, before the offsets, and, for each sensor but the
+Learner leave transients out of the offsets. It takes the profiles
+given (`transients:`), else learns them from the same span, before the
+offsets, and, for each sensor but the
 references, puts the influence on in the bins where its relative
 change over a window is beyond its relative threshold, and `hold`
 after. Those bins are left out of the sensor's offset and of its
@@ -341,6 +342,30 @@ may be dead.
 
 ```ruby
 store.set_location("temperature", "green-room", { deltas: { "hue-1" => 0.2 } })
+```
+
+## Relearning
+
+The four learners read the same span: the `Learner` (offsets and
+shifts), `Dynamics.learn`, `Collocation.learn` and `Transient.learn`.
+A `History` reads it from the source once, the readings in one call
+and each influence's events in one, and each learner takes it as
+`history:`; without it, each loads its own, as above. It holds the
+sensors, the references, the binned series in the transform's space
+(the sensors, the references set, the externals) and the influences'
+timeline, and finds each location's carried reference series and its
+rate once, for all four. Given the profiles (`transients:`), the
+Learner does not learn them again for an `Influence::Transient`.
+
+```ruby
+history  = Sensorium::History.load(source, setup, from:, to:,
+                                   locations: store.locations("temperature"))
+profiles = Sensorium::Transient.learn(source, setup, history:)
+learned  = Sensorium::Learner.new(source, setup, history:,
+                                  transients: profiles).learn
+models   = Sensorium::Dynamics.learn(source, setup, history:)
+collocations = Sensorium::Collocation.learn(source, setup, history:,
+                                            offsets: learned.offsets)
 ```
 
 ## Blending

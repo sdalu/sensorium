@@ -74,6 +74,14 @@
   The Series' spread joins the Switches' in the widest-spread rule: a
   sunny bin with the radiators on is as rough as the rougher of the
   two.
+- **One History for the four learners.** The Learner, Dynamics,
+  Collocation and Transient read the same span, and a year of readings
+  is most of a relearn's time: read once, and the carried reference
+  series found once, the four learners cannot disagree on what the
+  reference was. Collocation reads the History rather than subclassing
+  the Learner: it needs the Learner's series, not its fit, and a
+  subclass reaching into another class's private state breaks with
+  every change to it.
 - **A learning replaces what it learned again**, not whole regimes: the
   offsets of the sensors learned again, and of a location whose
   reference changed. A span that barely touches a regime, or a sensor

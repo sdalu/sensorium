@@ -9,7 +9,7 @@ module Sensorium
     # on[name] 1 while that Switch is on (its hard hold), else 0. Fitted
     # by least squares over the bins where every term is known and no
     # Mode held (nor within its hold), on the reference's carried
-    # series, as the Learner builds it. q is the mean square of the
+    # series, as the History finds it. q is the mean square of the
     # error of predicting an hour ahead (as the Fusion does) over the
     # bins fitted, per hour. The Fusion moves an aged reading by the
     # change the model predicts over its age, and grows its σ² by
@@ -63,11 +63,13 @@ module Sensorium
         # it), in each regime of the span seen often enough
         # (setup.min_samples steps), stable (a not negative) and
         # validated.
-        # locations: { name => Location }, those set.
+        # span: from:, to: and locations: ({ name => Location }, those
+        # set), the History loaded from the source when none is given.
         # priors: { location => Prior }, or anything answering
         # call(location, regime) with one or nil.
-        def learn(source, setup, from:, to:, **)
-            History.new(source, setup, [from, to], **).models
+        def learn(source, setup, history: nil, priors: {}, **span)
+            history ||= Sensorium::History.load(source, setup, **span)
+            History.new(history, priors:).models
         end
     end
 end

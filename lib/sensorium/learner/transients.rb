@@ -4,15 +4,23 @@ module Sensorium
     class Learner
         # The bins each sensor's Influence::Transient is on: where its
         # change against its reference goes beyond its relative
-        # Threshold, the Profiles learned from the same span, and each
-        # influence's hold after. None when the Setup names no
-        # Influence::Transient.
+        # Threshold, the Profiles given or else learned from the same
+        # History, and each influence's hold after. None when the Setup
+        # names no Influence::Transient.
         class Transients
-            # data, references, timeline: the Learner's.
-            def initialize(setup, data, references, timeline)
-                @setup   = setup
-                @changes = Transient::Changes.new(setup, data, references,
-                                                  timeline)
+            # profiles: [Transient::Profile]; nil, learned from history.
+            def initialize(history, profiles = nil)
+                @setup   = history.setup
+                @changes = Transient::Changes.new(history)
+                @given   = profiles && Transients.indexed(profiles)
+            end
+
+            # { [location, device] => { regime => Profile } }.
+            def self.indexed(profiles)
+                profiles.group_by { [it.location, it.device] }
+                        .transform_values do |list|
+                            list.to_h { |profile| [profile.regime, profile] }
+                        end
             end
 
             # The Set of bins left out of a sensor's offset.
@@ -30,6 +38,7 @@ module Sensorium
             private
 
             def profiles(location, device)
+                return @given.fetch([location, device], {}) if @given
                 @changes.of(location, device).to_h { [it.regime, it] }
             end
         end
