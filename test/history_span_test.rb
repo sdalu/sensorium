@@ -37,5 +37,4 @@ class HistorySpanTest < Minitest::Test
                                          **WINDOW)
         end
     end
-    end
 end

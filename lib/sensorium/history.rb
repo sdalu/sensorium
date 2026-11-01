@@ -25,6 +25,15 @@ module Sensorium
                                    timeline:)
         end
 
+        # The History given, else one loaded over the span; a span given
+        # beside a History would be ignored, so it is refused.
+        def self.given(history, source, setup, span)
+            return load(source, setup, **span) unless history
+            return history if span.empty?
+            raise ArgumentError, "a History is its span: drop " \
+                                 "#{span.keys.join(", ")}"
+        end
+
         # readings: [Reading], as the source told them; externals:
         # { [nil, device] => { bin => value } }.
         def initialize(setup, span, sensors:, readings:, **given)
