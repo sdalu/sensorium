@@ -17,8 +17,8 @@ module Sensorium
     # it was; a linear term, or pair, only when it leaves |1 + gain +
     # coefficient| at setup.scale_floor at least, else the model before
     # it is kept. Given the bins held out (HeldOut), a term is kept
-    # only when it also leaves them no wider than the model before it;
-    # Fit.validated holds them out (see Validated).
+    # only when it also leaves them no wider than the model before it,
+    # within HeldOut::TOLERANCE; Validated holds them out.
     class Fit
         # residuals: { bin => what the model leaves }.
         Model = Data.define(:constant, :switches, :taus, :series, :gain,

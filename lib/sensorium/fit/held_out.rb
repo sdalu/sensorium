@@ -6,6 +6,10 @@ module Sensorium
         # diff less the model's terms there, its regressors read from
         # the same Terms; a bin some regressor lacks is left out.
         class HeldOut
+            # How much wider than kept tried may leave them: a spread over
+            # a few hundred correlated bins moves by a few percent.
+            TOLERANCE = 1.05
+
             # diffs: { bin => sensor - reference } of the bins held out.
             def initialize(diffs, levels, terms)
                 @diffs  = diffs
@@ -13,14 +17,14 @@ module Sensorium
                 @terms  = terms
             end
 
-            # Whether tried leaves the bins held out no wider than kept,
-            # over the bins both cover.
+            # Whether tried leaves the bins held out no wider than kept
+            # (within TOLERANCE), over the bins both cover.
             def keeps?(kept, tried)
                 before, after = [kept, tried].map { residuals(it) }
                 bins = before.keys & after.keys
                 return true if bins.empty?
                 Stats.spread(after.values_at(*bins)) <=
-                    Stats.spread(before.values_at(*bins))
+                    TOLERANCE * Stats.spread(before.values_at(*bins))
             end
 
             # { bin => what the model leaves }, once per model.

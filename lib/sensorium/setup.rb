@@ -14,7 +14,8 @@ module Sensorium
     #   carry       seconds a reading stands for the bins after it
     #   min_samples calm bins a sensor needs in a regime
     #   min_shift   bins a Mode value needs to be learned as a Shift
-    #   min_part    bins each side of a Switch needs
+    #   min_part    bins each side of a Switch needs, and the fewest an
+    #               offset's terms are held out on (Fit::Validated)
     #   narrows     a term is kept when it narrows the spread to this
     #   covers      share of the bins a neighbour must cover
     #   gain        whether a gain term is tried

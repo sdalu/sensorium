@@ -10,6 +10,16 @@
   not a variance, for the same reason as the medians; the same bins,
   or a neighbour covering fewer of them could win by leaving the rough
   ones out.
+- **And when the bins held out do not deny it.** Terms are chosen on
+  all but the last tenth of the bins and kept only if they leave that
+  tenth no wider, then refitted on everything, as Dynamics are
+  validated. The test is "no more than 5 % wider", not "narrower by a
+  margin": a Switch never on in the last tenth leaves it as it was, and
+  absence of evidence should not undo what the rest of the season
+  showed; the 5 % because a spread over a few hundred correlated bins
+  moves by that much. The
+  last tenth, not a random one: neighbouring bins are correlated, so
+  bins drawn at random would confirm whatever was fitted beside them.
 - **The gain and the neighbour fitted together** when both are kept.
   Both regress on the reference's level (r, and r − n), so fitted one
   after the other the second would be biased by the first. The one that

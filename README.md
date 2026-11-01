@@ -64,8 +64,13 @@ models the gap to the location's reference r:
 
 Each term is kept only if it narrows the spread of what is left
 (p10..p90) to 80 % of what it was, both measured over the bins the term
-covers. The constant alone is kept too (`plain`), the fallback when the
-neighbour, a series' value or dr/dt has no fresh value.
+covers. The terms are chosen without the last tenth of a sensor's bins
+(100 at least, `min_part`), and a term is kept only if it also leaves
+those no more than 5 % wider than the model before it; the terms kept
+are then fitted again on all the bins. A sensor with too few bins to
+hold any out keeps the constant alone. The constant alone is kept too
+(`plain`), the fallback when the neighbour, a series' value or dr/dt
+has no fresh value.
 
 The terms are chosen one after the other, each fitted on what the
 ones before it left. The room preset tries neither a gain nor a rate
@@ -663,6 +668,10 @@ it.
   it, and neither triple collocation nor a leave-one-out on the same
   data can see one (DESIGN.md, Fusion). The collocations are learned
   and kept but not used by the Fusion.
+- A sensor's σ is the spread of its difference to the reference, the
+  reference's own noise counted in: with a noisy reference it errs
+  wide (a left-out part's var(z) 0.76 in the tests' room, the
+  reference's σ 0.1).
 - The per-state spreads cover the Switches, Thresholds and Series,
   not the Modes (a Shift has its own spread).
 - A dynamics model's q is calibrated on the span it was fitted on:

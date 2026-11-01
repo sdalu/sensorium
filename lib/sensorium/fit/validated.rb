@@ -4,9 +4,9 @@ module Sensorium
     class Fit
         # A Fit whose terms are chosen without the last tenth of the bins
         # (setup.min_part of them at least), each kept only when it also
-        # leaves those no wider (HeldOut); the terms kept are then fitted
-        # again on all the bins. With too few bins to hold any out, the
-        # constant alone.
+        # leaves those no wider, within 5 % (HeldOut); the terms kept are
+        # then fitted again on all the bins. With too few bins to hold
+        # any out, the constant alone.
         module Validated
             module_function
 
