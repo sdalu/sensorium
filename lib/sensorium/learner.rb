@@ -26,6 +26,7 @@ module Sensorium
         def initialize(source, setup, history: nil, transients: nil, **span)
             @source  = source
             @setup   = setup
+            Sensorium::History.given(history, nil, nil, span) if history
             @history = history
             @span    = span
             @given   = transients

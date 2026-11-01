@@ -68,7 +68,7 @@ module Sensorium
         # priors: { location => Prior }, or anything answering
         # call(location, regime) with one or nil.
         def learn(source, setup, history: nil, priors: {}, **span)
-            history ||= Sensorium::History.load(source, setup, **span)
+            history = Sensorium::History.given(history, source, setup, span)
             History.new(history, priors:).models
         end
     end

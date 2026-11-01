@@ -30,7 +30,7 @@ module Sensorium
         # Learner's, the History loaded from the source when none is
         # given.
         def self.learn(source, setup, offsets:, history: nil, **span)
-            history ||= History.load(source, setup, **span)
+            history = Sensorium::History.given(history, source, setup, span)
             Gather.new(history).collocations(offsets)
         end
 

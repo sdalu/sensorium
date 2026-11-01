@@ -46,7 +46,7 @@ module Sensorium
         # ({ name => Location }, those set, for the references), the
         # History loaded from the source when none is given.
         def learn(source, setup, history: nil, **span)
-            history ||= History.load(source, setup, **span)
+            history = Sensorium::History.given(history, source, setup, span)
             Changes.new(history).profiles
         end
 
