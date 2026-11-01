@@ -10,51 +10,30 @@ module Sensorium
             # r(t + bin) - r(t).
             Step = Data.define(:bin, :gap, :on, :change)
 
-            # priors: { location => Prior }, or anything answering
-            # call(location, regime) with one (nil: none).
-            def initialize(source, setup, span, locations: {}, priors: {})
-                @source    = source
-                @setup     = setup
-                @span      = span
-                @locations = locations
-                @priors    = priors || {}
-                @series    = setup.series
+            # history: the span's Sensorium::History; priors: { location
+            # => Prior }, or anything answering call(location, regime)
+            # with one (nil: none).
+            def initialize(history, priors: {})
+                @history  = history
+                @setup    = history.setup
+                @priors   = priors || {}
+                @series   = @setup.series
+                @outside  = history.outside
+                @timeline = history.timeline
             end
 
             def models
-                sensors = @source.sensors(quantity)
-                references = Learner::References.new(sensors, @locations,
-                                                     @setup).all
-                load(references.values.flatten.uniq)
-                references.flat_map { |where, devices| fitted(where, devices) }
+                @history.references.keys.flat_map { fitted(it) }
             end
 
             private
 
             def quantity = @setup.quantity.name
 
-            def load(devices)
-                readings = @source.readings(quantity, *@span, devices)
-                @data     = @series.of(@setup.quantity.inward(readings))
-                @outside  = outside
-                @timeline = Timeline.new(@setup, @source, *@span)
-            end
-
-            # { bin => value } of the outside, carried; nil without one.
-            def outside
-                name = @setup.outside or return
-                return {} unless @source.respond_to?(:externals)
-                readings = @source.externals(quantity, *@span)
-                                  .select { it.device == name }
-                @series.carried(@series.means(@setup.quantity
-                                                    .inward(readings)),
-                                @setup.carry)
-            end
-
-            def fitted(location, devices)
+            def fitted(location)
                 key = { location:, quantity: }
                 on = @timeline.switched(location)
-                reference = reference(location, devices)
+                reference = @history.carried(location)
                 forecast = Forecast.new(reference, @outside, on)
                 steps(location, reference, on).filter_map do |regime, list|
                     Validation.model(key.merge(regime:), list, @setup,
@@ -83,17 +62,7 @@ module Sensorium
                          end)
             end
 
-            # The references' mean, each carried, as the Learner's.
-            def reference(location, devices)
-                @series.mean(devices.map do |device|
-                    @series.carried(@data.fetch([location, device], {}),
-                                    @setup.carry)
-                end)
-            end
-
-            def regime_of(bin)
-                (@regimes ||= {})[bin] ||= @setup.regime.of(Time.at(bin))
-            end
+            def regime_of(bin) = @history.regime_of(bin)
 
             def prior(location, regime)
                 return @priors.call(location, regime) if

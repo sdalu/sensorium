@@ -42,22 +42,12 @@ module Sensorium
         module_function
 
         # [Profile] of every sensor of the source over a span, from a
-        # source as the Learner's; locations: { name => Location }, those
-        # set, for the references.
-        def learn(source, setup, from:, to:, locations: {})
-            sensors = source.sensors(setup.quantity.name)
-            references = Learner::References.new(sensors, locations, setup)
-            Changes.new(setup, data(source, setup, from, to,
-                                    names(sensors, locations)),
-                        references.all, Timeline.new(setup, source, from, to))
-                   .profiles
-        end
-
-        # { [location, device] => { bin => value } }, in the transform's
-        # space.
-        def data(source, setup, from, to, names)
-            readings = source.readings(setup.quantity.name, from, to, names)
-            setup.series.of(setup.quantity.inward(readings))
+        # source as the Learner's; span: from:, to: and locations:
+        # ({ name => Location }, those set, for the references), the
+        # History loaded from the source when none is given.
+        def learn(source, setup, history: nil, **span)
+            history = Sensorium::History.given(history, source, setup, span)
+            Changes.new(history).profiles
         end
 
         # The devices read: the sensors, and the references set.

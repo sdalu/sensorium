@@ -2,22 +2,27 @@
 
 module Sensorium
     class Collocation
-        # The series a Collocation is found over, read as the Learner
-        # reads them: per location and regime, the reference's carried
-        # series over the calm bins (no Mode held, nor within its hold)
-        # and each sensor's binned values there, corrected by its Offset
-        # with what held at each bin (Collocation::Moments).
-        class Gather < Learner
+        # The series a Collocation is found over, read from a History as
+        # the Learner reads it: per location and regime, the reference's
+        # carried series over the calm bins (no Mode held, nor within
+        # its hold) and each sensor's binned values there, corrected by
+        # its Offset with what held at each bin (Collocation::Moments).
+        class Gather
+            def initialize(history)
+                @history    = history
+                @setup      = history.setup
+                @timeline   = history.timeline
+                @references = history.references
+            end
+
             def collocations(offsets)
-                sensors = @source.sensors(quantity)
-                load(sensors)
-                @references = References.new(sensors, @locations,
-                                             @setup).all
                 offsets.group_by { [it.location, it.regime] }
                        .filter_map { |key, list| collocated(*key, list) }
             end
 
             private
+
+            def quantity = @setup.quantity.name
 
             def collocated(location, regime, offsets)
                 devices = @references[location] or return
@@ -55,8 +60,8 @@ module Sensorium
 
             # The reference's carried series over the regime's calm bins.
             def calm(location, regime)
-                carried(location).select do |bin, _|
-                    regime_of(bin) == regime &&
+                @history.carried(location).select do |bin, _|
+                    @history.regime_of(bin) == regime &&
                         !@timeline.near?(location, bin)
                 end
             end
@@ -64,21 +69,22 @@ module Sensorium
             # { bin => the reading corrected } where the reference is.
             def corrected(offset, reference)
                 moments = moments(offset.location)
-                @data.fetch([offset.location, offset.device], {})
-                     .filter_map do |bin, value|
-                         next unless reference.key?(bin)
-                         [bin, offset.correct(value,
-                                              **moments.at(offset, bin))
-                                     .value]
-                     end.to_h
+                data = @history.data.fetch([offset.location, offset.device],
+                                           {})
+                data.filter_map do |bin, value|
+                    next unless reference.key?(bin)
+                    [bin, offset.correct(value, **moments.at(offset, bin))
+                                .value]
+                end.to_h
             end
 
             def moments(location)
+                reference = @history.carried(location)
                 (@moments ||= {})[location] ||= Moments.new(
                     location, @timeline,
-                    reference: carried(location), rates: rates(location),
+                    reference:, rates: @history.rates(location),
                     switched: switched(location),
-                    gaps: @neighbours.gaps(location, carried(location))
+                    gaps: @history.neighbours.gaps(location, reference)
                 )
             end
 
@@ -86,8 +92,8 @@ module Sensorium
             # the Thresholds.
             def switched(location)
                 @timeline.switched(location)
-                         .merge(@thresholds.of(location,
-                                               @references[location]))
+                         .merge(@history.thresholds
+                                        .of(location, @references[location]))
             end
         end
     end

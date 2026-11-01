@@ -8,18 +8,19 @@ module Sensorium
         # its hold left out. A change over a window w is that from the
         # bin w before to the bin, counted in the bin's regime.
         class Changes
-            # data: { [location, device] => { bin => value } };
-            # references: { location => [device] }; timeline: the span's.
-            def initialize(setup, data, references, timeline)
-                @setup      = setup
-                @series     = setup.series
-                @data       = data.reject { |(location, _), _| location.nil? }
-                @references = references
-                @timeline   = timeline
+            # history: the span's History.
+            def initialize(history)
+                @history    = history
+                @setup      = history.setup
+                @references = history.references
+                @timeline   = history.timeline
             end
 
             # [Profile] of every sensor.
-            def profiles = @data.keys.flat_map { of(*it) }
+            def profiles
+                @history.data.keys.reject { it.first.nil? }
+                        .flat_map { of(*it) }
+            end
 
             # [Profile] of a sensor, one per regime it has a Threshold in.
             def of(location, device)
@@ -78,29 +79,30 @@ module Sensorium
             # { bin => value } of a sensor, carried, a Mode's bins out.
             def own(location, device)
                 (@own ||= {})[[location, device]] ||=
-                    @series.carried(@data.fetch([location, device], {}),
-                                    @setup.carry)
-                           .reject { |bin, _| @timeline.near?(location, bin) }
+                    calm(location, @history.carried_of(location, device))
             end
 
             # { bin => sensor - reference }; none for a reference.
             def relative(location, device)
                 devices = @references.fetch(location, [device])
                 return {} if devices.include?(device)
-                reference = reference(location, devices)
+                reference = reference(location)
                 own(location, device).filter_map do |bin, value|
                     [bin, value - reference[bin]] if reference[bin]
                 end.to_h
             end
 
-            def reference(location, devices)
+            # The reference's carried series, a Mode's bins out.
+            def reference(location)
                 (@reference ||= {})[location] ||=
-                    @series.mean(devices.map { own(location, it) })
+                    calm(location, @history.carried(location))
             end
 
-            def regime_of(bin)
-                (@regimes ||= {})[bin] ||= @setup.regime.of(Time.at(bin))
+            def calm(location, series)
+                series.reject { |bin, _| @timeline.near?(location, bin) }
             end
+
+            def regime_of(bin) = @history.regime_of(bin)
         end
     end
 end
