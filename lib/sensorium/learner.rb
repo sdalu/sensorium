@@ -84,8 +84,9 @@ module Sensorium
         end
 
         def fit(one, calm)
-            fit = Fit.new(calm, @setup, levels: carried(one.location),
-                                        **terms(one.location))
+            fit = Fit::Validated.fit(calm, @setup,
+                                     levels: carried(one.location),
+                                     **terms(one.location))
             model = fit.model
             Offset.new(**one.to_h, **Learned.values(model, fit.plain),
                        **fit.states(model))

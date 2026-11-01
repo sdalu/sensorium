@@ -16,7 +16,9 @@ module Sensorium
     # only when it narrows the spread (p10..p90) to setup.narrows of what
     # it was; a linear term, or pair, only when it leaves |1 + gain +
     # coefficient| at setup.scale_floor at least, else the model before
-    # it is kept.
+    # it is kept. Given the bins held out (HeldOut), a term is kept
+    # only when it also leaves them no wider than the model before it;
+    # Fit.validated holds them out (see Validated).
     class Fit
         # residuals: { bin => what the model leaves }.
         Model = Data.define(:constant, :switches, :taus, :series, :gain,
@@ -37,12 +39,15 @@ module Sensorium
             end
         end
 
-        def initialize(diffs, setup, levels:, **terms)
+        def initialize(diffs, setup, levels:, held_out: nil, **terms)
             @diffs  = diffs
             @setup  = setup
             @levels = levels
             @terms  = Terms.new(**terms)
+            @held_out = held_out&.then { HeldOut.new(it, levels, @terms) }
         end
+
+        attr_reader :terms
 
         def model
             best = @terms.switches.reduce(plain) do |kept, (name, on)|
@@ -81,7 +86,9 @@ module Sensorium
 
         def better(kept, tried)
             return kept unless tried
-            ratio(kept, tried) <= @setup.narrows ? tried : kept
+            return kept if ratio(kept, tried) > @setup.narrows
+            return kept if @held_out && !@held_out.keeps?(kept, tried)
+            tried
         end
 
         # The spread tried leaves over what kept left, both over the bins
@@ -149,7 +156,9 @@ module Sensorium
     end
 end
 
+require_relative "fit/held_out"
 require_relative "fit/levels"
 require_relative "fit/linear"
 require_relative "fit/median"
 require_relative "fit/states"
+require_relative "fit/validated"
