@@ -12,10 +12,13 @@ module Sensorium
     #               none is set ("ceiling", then "floor")
     #   bin         seconds a bin spans
     #   carry       seconds a reading stands for the bins after it
-    #   min_samples calm bins a sensor needs in a regime
-    #   min_shift   bins a Mode value needs to be learned as a Shift
-    #   min_part    bins each side of a Switch needs, and the fewest an
-    #               offset's terms are held out on (Fit::Validated)
+    #   min_samples calm bins a sensor needs in a regime (500 of ten
+    #               minutes; by default the same time with another bin)
+    #   min_shift   bins a Mode value needs to be learned as a Shift (100,
+    #               likewise)
+    #   min_part    bins each side of a Switch needs (100, likewise), and
+    #               the fewest an offset's terms are held out on
+    #               (Fit::Validated)
     #   narrows     a term is kept when it narrows the spread to this
     #   covers      share of the bins a neighbour must cover
     #   gain        whether a gain term is tried
@@ -28,7 +31,8 @@ module Sensorium
     #   scale_floor a linear term is refused when it leaves |1 + gain +
     #               coefficient| below this: a correction divides by it
     #   transient_windows  seconds over which a sensor's change is
-    #               measured against its Transient::Profile
+    #               measured against its Transient::Profile, whole bins
+    #               (one bin and two by default)
     #   transient_rate  false alarms a day a sensor's thresholds allow,
     #               per window and direction: each is the quantile of its
     #               calm changes at 1 - rate / bins a day
@@ -47,8 +51,36 @@ module Sensorium
                      scale_floor: 0.5, transient_windows: [600, 1200],
                      transient_rate: 0.2 }.freeze
 
+        # The bin DEFAULTS' counts (min_samples, min_shift, min_part) are
+        # for; with another bin they cover the same time, and the
+        # transient windows are one bin and two unless given.
+        BIN    = 600
+        COUNTS = %i[min_samples min_shift min_part].freeze
+
         def initialize(quantity:, **settings)
-            super(quantity:, **DEFAULTS.merge(settings))
+            bin = settings.fetch(:bin, BIN)
+            unless bin.is_a?(Integer) && bin.positive?
+                raise ArgumentError, "bin: #{bin.inspect}, not whole seconds"
+            end
+            given = Setup.defaults(bin).merge(settings)
+            Setup.check_windows(given[:transient_windows], bin)
+            super(quantity:, **given)
+        end
+
+        def self.defaults(bin)
+            DEFAULTS.merge(
+                COUNTS.to_h { [it, (DEFAULTS[it] * BIN / bin.to_f).round] },
+                transient_windows: [bin, 2 * bin]
+            )
+        end
+
+        # A window not a whole number of bins would find no bin to start
+        # its change from.
+        def self.check_windows(windows, bin)
+            wrong = windows.reject { it.positive? && (it % bin).zero? }
+            return if wrong.empty?
+            raise ArgumentError, "transient_windows #{wrong.inspect}: " \
+                                 "not whole bins of #{bin} s"
         end
 
         def switches   = influences.grep(Influence::Switch)

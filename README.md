@@ -31,7 +31,8 @@ learned.offsets   # [Sensorium::Offset], one per sensor and regime
 learned.shifts    # [Sensorium::Shift], one per sensor, regime and mode
 ```
 
-For every sensor of a location, bin by bin (10 minutes), the learner
+For every sensor of a location, bin by bin (`Setup#bin`, 10 minutes by
+default), the learner
 models the gap to the location's reference r:
 
     sensor - r = constant
@@ -112,6 +113,13 @@ setup   = Sensorium::Presets.room.with(
     influences: [heating, Sensorium::Presets::AIRCON, solar]
 )
 ```
+
+The bin is a setting (`Presets.room(bin: 300)`): the counts given in
+bins (`min_samples`, `min_shift`, `min_part`) then cover the same time
+as their defaults do at ten minutes, and the transient windows are one
+bin and two, unless given; a window not a whole number of bins is
+refused. A `Tick` need not run once a bin: it fuses the latest reading
+of each sensor at the moment it is called.
 
 A **mode** (the aircon heating or cooling) is not a term: the bins
 under it, and its hold after, are left out of the fit, and each value it
