@@ -17,7 +17,7 @@ module Sensorium
         end
 
         # The reference's inverse-variance fusion, Student-t reweighted
-        # (Combine.robust) once two parts or more count; without a
+        # (Combine.robust) once three parts or more count; without a
         # reference, the readings' inverse-variance fusion, each with the
         # location's σ grown with its age. factors is flat (1.0, never
         # "outlier") wherever Combine.robust did not run.

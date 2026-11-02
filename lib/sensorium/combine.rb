@@ -24,10 +24,32 @@ module Sensorium
         # (nu + 1) / (nu + z²) on its standardised residual z, iterated
         # at most 20 times or until the value moves less than 1e-6.
         # Every factor is (nu + 1) / nu, and σ equals the plain
-        # inverse-variance one, when every part agrees.
+        # inverse-variance one, when every part agrees. Below three
+        # parts, few(parts).
         def robust(parts, nu)
+            return few(parts) if parts.size < 3
             value, factors = iterated(parts, nu, weighted(parts).first)
             [value, spread(parts, factors, nu), factors]
+        end
+
+        # [value, σ, { part => 1.0 }] of fewer than three parts: two
+        # that disagree cannot tell which is off, and a Student-t fit
+        # would settle on either, the one with the smaller σ. The
+        # inverse-variance fusion, its σ widened by disagreement.
+        def few(parts)
+            value, sigma = weighted(parts)
+            [value, sigma && (sigma * disagreement(parts)),
+             parts.to_h { [it, 1.0] }]
+        end
+
+        # How far two parts are apart in their joint σ,
+        # |a - b| / √(σa² + σb²), never below 1; 1 of one part.
+        def disagreement(parts)
+            return 1.0 unless parts.size == 2
+            a, b = parts
+            gap = (a.value - b.value).abs /
+                  Math.sqrt((a.sigma**2) + (b.sigma**2))
+            [gap, 1.0].max
         end
 
         # One Student-t step from `value`, and another unless it

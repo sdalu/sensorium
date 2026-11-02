@@ -3,9 +3,10 @@
 module Sensorium
     # A location's value, fused from all its sensors: each corrected to
     # the location's reference (Parts), weighted by 1/σ², σ grown with
-    # the reading's age, then Student-t reweighted (Combine.robust): a
-    # sensor far from what the others say (sun on it, a window open by
-    # it) keeps only a little weight, and is noted "outlier".
+    # the reading's age, then, of three parts or more, Student-t
+    # reweighted (Combine.robust): a sensor far from what the others
+    # say (sun on it, a window open by it) keeps only a little weight,
+    # and is noted "outlier".
     # A location without a reference gets its readings as they read,
     # weighted by 1/σ², σ the location's grown with each reading's age:
     # corrected false, its σ blind to how its sensors differ. The

@@ -6,7 +6,7 @@ require "support/recorded_room"
 # A real room, recorded (RecordedRoom): learned on its first twenty
 # days, fused on the last ten. Bounds around what it gave when
 # recorded: two offsets beside the ceiling's, every part left out
-# hourly with var(z) 0.43..0.83 and an RMS gap of 0.28 °C, no part
+# hourly with var(z) 0.41..0.82 and an RMS gap of 0.29 °C, no part
 # flagged by the Tracker hourly, three transient profiles. Skipped
 # without the recording.
 class RecordedRoomTest < Minitest::Test
