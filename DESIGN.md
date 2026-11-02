@@ -265,9 +265,27 @@
   a fresh track or after a relearn). A random walk assumes no shape of
   drift; `track_q` bounds how fast the level may wander. The truth for
   a part is the others' fusion, the part left out, or it would pull its
-  own truth; with fewer than two others a disagreement cannot be put on
-  either side, so the part is left as it was, unless a witness stands
-  in (below).
+  own truth. A sensor whose single other is the reference is judged
+  against it alone (below); any other part with fewer than two others
+  is left as it was, unless a witness stands in (below).
+- **A sensor against its reference alone.** The sensor's Offset was
+  learned on exactly that pair, with that pair's spread as its σ, and
+  the reference's delta is pinned at 0 by convention, so their
+  disagreement is the sensor's. Two sensors without their reference,
+  or two references, cannot attribute their disagreement: they stay as
+  they are, and the Fusion's widening carries it into σ. On MadHouse's
+  year (0.3.0 to this), a sensor's frozen part-hours in rooms of three
+  fell from 11 406 to 5 430; green-room's October lock from 706 h to
+  31 h (a jumped tado's false jump clearing in 28 h instead of 730 h);
+  a left-out part's var(z) and RMS equal or better for every part; and
+  the rooms of two (bathroom, shower-room, garage) are tracked for the
+  first time. The cost: a reference's excursion of hours can be put on
+  the sensor judged against it alone (once on the year,
+  downstairs/tado, 81 h), and in a room of two which part moved cannot
+  be told. Limiting it to rooms that normally have three was rejected:
+  the same pair knows the same thing, and "normally three" is
+  arbitrary (green-room and red-room are pairs all summer by
+  learning).
 - **A slow filter, a CUSUM for jumps.** The gain is kept small so that
   noise does not move delta: a constant bias takes about two days to
   be learned. A step would then be absorbed over days, the value off
@@ -319,8 +337,9 @@
   update the references go first, and a part that has jumped is left
   out of every later part's others.
 - **A witness from the location's own dynamics** for a part left with
-  a single other, as in a room of three once one sensor has jumped. A
-  disagreement between two cannot be put on either side; the room's
+  a single other, as in a room of three once one part has jumped.
+  Unless a sensor has its reference, a disagreement between two cannot
+  be put on either side; the room's
   last fused value, moved by its model to the moment, is a third that
   depends on neither reading now, its σ grown by what the model
   cannot tell over the time since. It comes from a Fused made with the
@@ -330,6 +349,14 @@
   aged-reading rule of the fusion, the same inputs from the snapshot,
   and stands aside where that rule does: no model, no outside the
   model needs, a Mode holding, or a previous value past `max_age`.
+  With the room preset it stays unused: green-room's model loses to
+  holding by a hair (on MadHouse's year, a held-out ratio of 0.987 to
+  0.996 in winter against the 0.98 margin; a 0.001 per bin, q 0.18 to
+  0.26 °C²/h). With the outside set and Dynamics learned monthly, once
+  a sensor is judged against its reference alone and no lone reading
+  is a jump against a single other, the witness brought no var(z) gain
+  and an RMS 0.0025 °C lower, and let a reference be judged against a
+  sensor plus a copy of the room's last value.
 - **A Fused carries both estimates, and a Tick holds no state.** The
   value needs each part with its track applied; the Tracker needs it
   without, so that each delta is taken out once, by the Tracker, and a
@@ -380,6 +407,19 @@
   and a reading alone beyond h + k is a jump: a step far beyond the
   noise is flagged at once, a reference's 1 °C at its first reading
   where its room's offsets are no wider than the quantity's σ.
+- **Against a single other, no lone reading is a jump.** The
+  lone-reading rule is the Fusion's robustness lent to the Tracker:
+  against two others or more, the truth's σ carries their disagreement
+  (widened for two, Student-t for more), so a reading that far is the
+  part's own; one other's reading cannot tell its own spike from the
+  part's. Against a single other only a block's evidence counts, the
+  CUSUM with the block under way for its share. No new constant. On
+  MadHouse's year it removed 7 lone-reading jumps against the
+  reference alone (among them the reference's 1-h spike put on
+  downstairs/tado for 12 days); detection of 1 to 3 σ steps is
+  unchanged; against a single other, 5 σ steps are flagged up to 2.1 h
+  later and 10 σ steps 1.3 to 2.8 h later, never a block. On the
+  recorded room no part is flagged at ten-minute ticks.
 - **The block under way for the share of a block it spans.** It is
   correlated about 0.9 with the block just closed, so counting it as a
   full block right after a close counted the same evidence twice: on
@@ -399,7 +439,12 @@
   leaving all of them out of one another left none with two others,
   nothing updated, nothing flagged. And the suspect still learns:
   holding its delta turned a real bias into a jump, the CUSUM climbing
-  on what the delta was not allowed to take in.
+  on what the delta was not allowed to take in. No suspect is chosen
+  below three tracks not jumped: with two parts there is no majority,
+  and a suspect left out of a pair leaves the other nothing to learn
+  from, so a stale suspect level locked the room. Letting the suspect
+  count where leaving it out leaves one other was rejected: that is
+  the leak the suspect rule exists against.
 
 ## Staleness
 
@@ -521,8 +566,9 @@
   green-room's suspect time. **One Student-t step at every size**
   instead of three parts or more: it changed fusions of three parts
   or more by up to 0.42 °C.
-- **The witness's dynamics with the outside series set.** It unfroze
-  only part of the three-sensor rooms, never green-room, and started
+- **The witness's dynamics with the outside series set.** At 0.3.0,
+  when a part with a single other stood still, it unfroze only part of
+  the three-sensor rooms, never green-room, and started
   tracking the noisy two-sensor rooms: jumps 14 to 21 on MadHouse's
   year.
 - **A fresh track's prior from the Offset's width**: it absorbed both

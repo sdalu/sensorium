@@ -586,8 +586,14 @@ part whose CUSUM is the highest once past half of h, the block under
 way counted in full (a suspect is left out, not flagged, and is back
 once its CUSUM falls), left out of every
 other part's truth (not its own), so that a step not yet flagged leaks
-into no other delta. The references are updated first, then the other
-parts, each in the `Fused`'s order. A part with fewer than two others
+into no other delta. There is a suspect only among three tracks or
+more that have not jumped: with two, no majority tells which is off.
+The references are updated first, then the other parts, each in the
+`Fused`'s order. A sensor whose single other is a reference is
+updated against it alone: its `Offset` was learned on that pair, and
+the reference's delta is pinned at 0, so their disagreement is the
+sensor's. Any other part with fewer than two others (a reference with
+a sensor alone, two sensors without their reference, two references)
 is left as it was, unless a **witness** stands in for the second
 (below).
 
@@ -663,10 +669,12 @@ The alarms:
   counts too, as if it closed now, its mean taken to vary as one
   reading, for the share of a block it spans (`Track#level`): its
   readings are correlated with the block just closed, so a block of
-  minutes adds little the CUSUM has not seen. One reading alone whose
-  z = y / √(variance + R) is beyond h + k counts whole: a large step is
-  flagged before its block closes. The CUSUM then restarts as the
-  return test below.
+  minutes adds little the CUSUM has not seen. Against two others or
+  more, one reading alone whose z = y / √(variance + R) is beyond
+  h + k counts whole: a large step is flagged before its block closes.
+  Against a single other it does not: one other's reading cannot tell
+  its own spike from the part's, and only the CUSUM counts. The CUSUM
+  then restarts as the return test below.
 - **back to ok**: while jumped, the track's delta and variance are
   held as they were at the jump, and each closed block goes to a
   return CUSUM, the jump's mirrored: `cusum_up` = max(0, `cusum_up` +
@@ -692,6 +700,7 @@ under way 3 h  █████████████████████�
                                            h (cusum_h)
 
 a reading      |z| above h + k                  jumped at once
+               (against two others or more)
 ```
 
 ```text
@@ -761,7 +770,9 @@ It counts as one more other for a part that has a single one. There is
 none without a model for the location and the moment's regime,
 without the outside its model needs, while a Mode holds there, or
 when the previous `Fused` has no value or σ, or is older than the
-location's `max_age`; the part is then left as it was.
+location's `max_age`; the part is then taken as above: a sensor whose
+single other is a reference against it alone, any other left as it
+was.
 
 Given transient profiles (`transients:`, see Transients) and the
 snapshot the `Fused` was made from, the Tracker leaves every part of a
@@ -952,12 +963,16 @@ it.
   about a day; meanwhile its delta takes some of it in, and a step
   slow enough to be taken in whole is never flagged, only seen as
   drifting.
-- In a location of three with a jumped sensor, the witness is made
+- In a location of three with a jumped reference, the witness is made
   from the two others: a bias on one of them is shared between their
   deltas. In the tests' room, 48 hourly updates take tado's delta to
   57 % of a 0.2 bias while Airzone's moves by −0.077. Without
-  dynamics, their tracks stand still until a relearn, a reset or the
-  jumped one clearing.
+  dynamics, two sensors left without their reference stand still
+  until a relearn, a reset or the jumped one clearing.
+- A sensor judged against its reference alone takes the reference's
+  excursions as its own: one of hours can be put on the sensor (once on
+  one house's year, 81 h). In a location of two, which part moved
+  cannot be told.
 - A jumped track is measured against the delta it held at the jump,
   which has taken in part of a step during the hours the CUSUM took to
   flag it: a sensor whose step was real, then undone, may come back
