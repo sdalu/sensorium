@@ -3,3 +3,4 @@ Gemfile.lock
 pkg/
 CLAUDE.local.md
 /local/
+/.claude/
