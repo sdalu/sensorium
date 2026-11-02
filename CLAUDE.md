@@ -1,7 +1,7 @@
 # sensorium
 
 How it works: README.md. Why it is shaped so: DESIGN.md. What closes a
-round: CHECKLIST.md.
+round: CHECKLIST.md. What is open: EXPLORE.md.
 
 Gate: `bundle exec rake`
 
