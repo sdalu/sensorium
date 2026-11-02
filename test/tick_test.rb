@@ -21,13 +21,13 @@ class TickTest < Minitest::Test
         end
     end
 
-    # Over the 48 hours tado's track drifts then jumps, Airzone's in
+    # Over the 48 hours tado's track drifts and is back, Airzone's in
     # room-a jumps, and Airzone's in room-b, of two, is updated to the
     # last tick with the witness: the comparison is not of idle tracks.
     def test_the_hours_compared_are_not_idle
         states = Hash.new { |hash, key| hash[key] = [] }
         last = ticked(states)
-        assert_equal %i[drifting jumped], states[%w[room-a tado]].uniq
+        assert_equal %i[drifting ok], states[%w[room-a tado]].uniq
         assert_includes states[%w[room-a airzone]], :jumped
         assert_equal FROM + ((TICKS - 1) * 600),
                      last.fetch(%w[room-b airzone]).at

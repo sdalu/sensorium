@@ -631,8 +631,8 @@ previous = fused                                # made with the tracks
 
 The gain is small by design. In the tests' room (a sensor of
 σ 0.2 °C against two of 0.1 and 0.08), ten hourly updates take delta
-to 21 % of a constant bias, 48 hourly ones to 76 % and ten daily ones
-to 94 %, while a step of 3 σ is flagged jumped at the seventh hourly
+to 21 % of a constant bias, 48 hourly ones to 75 % and ten daily ones
+to 87 %, while a step of 3 σ is flagged jumped at the seventh hourly
 update, and the reference stepping by 5 σ at the fourth. In a real
 room recorded over a winter (its last ten days, tracked against what
 its first twenty learned), no part is flagged, where taking each
@@ -804,7 +804,7 @@ it.
 - In a location of three with a jumped sensor, the witness is made
   from the two others: a bias on one of them is shared between their
   deltas. In the tests' room, 48 hourly updates take tado's delta to
-  53 % of a 0.2 bias while Airzone's moves by −0.071. Without
+  57 % of a 0.2 bias while Airzone's moves by −0.076. Without
   dynamics, their tracks stand still until a relearn or a reset.
 - The terms are kept by tests on spreads (80 % on the bins fitted,
   narrower, or within 5 %, on those held out) whose own noise, a sensor's error

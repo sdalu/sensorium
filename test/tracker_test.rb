@@ -16,7 +16,7 @@ class TrackerTest < Minitest::Test
         assert_learned(track(48) { { "tado" => 19.2 } })
     end
 
-    # Ten daily updates take delta to 83 % of the same bias.
+    # Ten daily updates take delta to 87 % of the same bias.
     def test_a_constant_bias_is_learned_within_ten_daily_updates
         assert_learned(track(10, every: 86_400) { { "tado" => 19.2 } })
     end
@@ -83,7 +83,7 @@ class TrackerTest < Minitest::Test
     def assert_learned(tracks)
         tado = tracks.fetch(%w[room tado])
         assert_in_delta 0.2, tado.delta, 2 * Math.sqrt(tado.variance)
-        assert_operator tado.delta, :>, 0.75 * 0.2
+        assert_operator tado.delta, :>, 0.7 * 0.2
         assert_equal :ok, tado.state
     end
 

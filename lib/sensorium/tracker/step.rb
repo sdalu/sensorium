@@ -11,6 +11,10 @@ module Sensorium
         # pinned: neither its delta nor its variance moves, and it never
         # drifts; only its CUSUM runs, and it may jump.
         class Step
+            # A Track's block when none is under way.
+            NO_BLOCK = { block_sum: 0.0, block_noise: 0.0, block_count: 0,
+                         block_at: nil }.freeze
+
             # sigma: what the drift is measured in, the Offset's; nil for
             # a reference. share: what a block's mean innovation varies
             # by, as a share of one's (Offset#block_share); nil, 1: as
@@ -70,17 +74,21 @@ module Sensorium
 
             def block = @quantity.cusum_block
 
-            # The block's mean innovation, its noise share² of the mean
-            # one's, to the CUSUM standardised, then to the Kalman step;
-            # no block under way after.
+            # The block's mean innovation to the CUSUM standardised, then
+            # to the Kalman step; no block under way after.
             def closed(track)
-                mean = track.block_sum / track.block_count
-                noise = (@share**2) * track.block_noise / track.block_count
+                mean, noise = mean(track)
                 total = track.variance + noise
                 moved(cusum(track, mean / Math.sqrt(total)),
-                      track.variance / total, mean)
-                    .with(block_sum: 0.0, block_noise: 0.0, block_count: 0,
-                          block_at: nil)
+                      track.variance / total, mean).with(**NO_BLOCK)
+            end
+
+            # The block's mean innovation and its noise, share² of the
+            # mean one's.
+            def mean(track)
+                count = track.block_count
+                [track.block_sum / count,
+                 (@share**2) * track.block_noise / count]
             end
 
             def moved(track, gain, innovation)

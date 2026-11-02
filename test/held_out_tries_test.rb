@@ -37,6 +37,18 @@ class HeldOutTriesTest < Minitest::Test
         assert held_out.keeps?(PLAIN, tried)
     end
 
+    # Never on there, with constants and diffs as a fit leaves them:
+    # what it adds varies by the rounding only, and is not tried.
+    def test_a_term_varying_by_rounding_only_is_not_tried
+        diffs = BINS.to_h { [it, 0.3137 * Math.sin(it)] }
+        plain = PLAIN.with(constant: 0.2137)
+        tried = plain.with(constant: 0.1981, switches: { "a" => -0.0173 })
+        terms = Sensorium::Fit::Terms.new(switches: { "a" => Set.new })
+        held_out = Sensorium::Fit::HeldOut.new(diffs, {}, terms)
+        refute held_out.tries?(plain, tried)
+        assert held_out.keeps?(plain, tried)
+    end
+
     private
 
     def with_switch(term) = PLAIN.with(switches: { "a" => term })
