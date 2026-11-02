@@ -38,7 +38,7 @@ module Sensorium
                 if references_of(fused).include?(device)
                     learned = offsets_of(fused)
                     [reference(fused, device), nil,
-                     learned.map(&:block_share).max,
+                     learned.filter_map(&:block_share).max,
                      learned.map(&:sigma).min]
                 elsif (offset = offset(fused, device))
                     [Track.fresh(offset, variance), offset.sigma,
