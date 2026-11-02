@@ -30,7 +30,8 @@ module Sensorium
             end
 
             # The track after the part's reading at `at`; others: the
-            # other counted parts, their own deltas taken out. A block
+            # other counted parts, their own deltas taken out (one alone:
+            # no reading by itself is a jump, see settled). A block
             # that spans cusum_block by then is closed first: the reading
             # is measured against the delta it taught. A jumped track's
             # delta and variance are held as they were at the jump: its
@@ -44,7 +45,7 @@ module Sensorium
                 innovation, noise = innovation(walked, part, others)
                 z = innovation / Math.sqrt(walked.variance + noise)
                 after = joined(walked, innovation, noise, at)
-                settled(track, after, z, at).with(at:)
+                settled(track, after, z, at, others.one?).with(at:)
             end
 
             private
@@ -136,19 +137,24 @@ module Sensorium
             # The track with its state: jumped once a CUSUM, the open
             # block counted for the share of a block it spans at `at`
             # (Track#level), is above cusum_h, or one innovation z beyond
-            # cusum_h + cusum_k (a step a block would dilute), its CUSUM
-            # then restarted as the return one (returning); back to ok
-            # once both sides of that are above cusum_h (the error is
-            # back at the delta held, for as long as the jump took to
-            # tell), the CUSUM restarted; drifting past drift_alarm
-            # Offset σ, until back under drift_clear (a reference,
-            # never).
-            def settled(before, after, z, at)
+            # cusum_h + cusum_k (a step a block would dilute) unless the
+            # truth was a single other (lone): a truth of two others or
+            # more doubts itself where they disagree (its σ widened, or
+            # Student-t reweighted), so a reading that far from it is the
+            # part's own; one other's reading has nothing to tell its
+            # spike from the part's, and against it only a block's
+            # evidence counts. The CUSUM is then restarted as the return
+            # one (returning); back to ok once both sides of that are
+            # above cusum_h (the error is back at the delta held, for as
+            # long as the jump took to tell), the CUSUM restarted;
+            # drifting past drift_alarm Offset σ, until back under
+            # drift_clear (a reference, never).
+            def settled(before, after, z, at, lone)
                 if before.state == :jumped
                     return after.with(state: :jumped) unless back?(after)
                     return restarted(after, :ok)
                 end
-                return restarted(after, :jumped) if jumped?(after, z, at)
+                return restarted(after, :jumped) if jumped?(after, z, at, lone)
                 after.with(state: drift(before, after))
             end
 
@@ -162,10 +168,10 @@ module Sensorium
                 after.delta.abs > limit(bound) ? :drifting : :ok
             end
 
-            def jumped?(track, z, at)
+            def jumped?(track, z, at, lone)
                 k, h = @quantity.to_h.values_at(:cusum_k, :cusum_h)
                 track.level(k, track.spanned(block, at)) > h ||
-                    z.abs > h + k
+                    (!lone && z.abs > h + k)
             end
 
             def back?(track)

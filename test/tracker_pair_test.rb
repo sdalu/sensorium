@@ -15,15 +15,26 @@ class TrackerPairTest < Minitest::Test
     include TrackerHelpers
 
     def test_a_sensor_keeps_learning_against_the_reference_alone
-        tracks = paired(suspected, 48, "ceil" => 20.0, "tado" => 19.2)
+        tracks = paired(suspected, 48, { "ceil" => 20.0, "tado" => 19.2 })
         assert_operator tracks.fetch(%w[room tado]).delta, :>, 0.5 * 0.2
         assert_equal :ok, tracks.fetch(%w[room tado]).state
     end
 
     def test_the_reference_stands_still_with_a_sensor_alone
         before = suspected
-        tracks = paired(before, 48, "ceil" => 20.0, "tado" => 19.2)
+        tracks = paired(before, 48, { "ceil" => 20.0, "tado" => 19.2 })
         assert_equal before.fetch(%w[room ceil]), tracks.fetch(%w[room ceil])
+    end
+
+    # Against ceil alone, one reading 4 °C off (twenty of tado's σ) is
+    # no jump by itself: one other's reading cannot tell its own spike
+    # from tado's; the block under way, an hour on, can.
+    def test_against_the_reference_alone_a_lone_reading_is_no_jump
+        tracks = paired(suspected, 12, { "ceil" => 20.0, "tado" => 19.0 })
+        tracks = paired(tracks, 1, { "ceil" => 20.0, "tado" => 23.0 }, from: 67)
+        assert_equal :ok, tracks.fetch(%w[room tado]).state
+        tracks = paired(tracks, 1, { "ceil" => 20.0, "tado" => 23.0 }, from: 68)
+        assert_equal :jumped, tracks.fetch(%w[room tado]).state
     end
 
     # While the three count, ceil is the suspect: tado, left with
@@ -47,10 +58,10 @@ class TrackerPairTest < Minitest::Test
     end
 
     # The tracks after `count` hourly updates of the room reduced to
-    # the readings given, from step 55 on.
-    def paired(tracks, count, readings)
+    # the readings given, from step `from` on.
+    def paired(tracks, count, readings, from: 55)
         count.times.reduce(tracks) do |done, i|
-            at = AT + ((55 + i) * 3600)
+            at = AT + ((from + i) * 3600)
             latest = readings.to_h do |device, value|
                 [["room", device],
                  Sensorium::Reading.new(time: at, location: "room", device:,
