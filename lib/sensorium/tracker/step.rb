@@ -36,7 +36,7 @@ module Sensorium
                 innovation, noise = innovation(walked, part, others)
                 z = innovation / Math.sqrt(walked.variance + noise)
                 after = joined(walked, innovation, noise, at)
-                after.with(at:, state: state(track, after, z))
+                after.with(at:, state: state(track, after, z, at))
             end
 
             private
@@ -103,23 +103,25 @@ module Sensorium
                            cusum_down: [0.0, track.cusum_down - z - k].max)
             end
 
-            # Jumped once a CUSUM, the open block counted (Track#level),
-            # is above cusum_h, or one innovation z beyond cusum_h +
-            # cusum_k (a step a block would dilute), until a relearn or
-            # a reset; drifting past drift_alarm Offset σ, until back
-            # under drift_clear (a reference, never).
-            def state(before, after, z)
+            # Jumped once a CUSUM, the open block counted for the share
+            # of a block it spans at `at` (Track#level), is above
+            # cusum_h, or one innovation z beyond cusum_h + cusum_k (a
+            # step a block would dilute), until a relearn or a reset;
+            # drifting past drift_alarm Offset σ, until back under
+            # drift_clear (a reference, never).
+            def state(before, after, z, at)
                 return :jumped if before.state == :jumped ||
-                                  jumped?(after, z)
+                                  jumped?(after, z, at)
                 return :ok unless @sigma
                 bound = before.state == :drifting ? :drift_clear : :drift_alarm
                 return :drifting if after.delta.abs > limit(bound)
                 :ok
             end
 
-            def jumped?(track, z)
+            def jumped?(track, z, at)
                 k, h = @quantity.to_h.values_at(:cusum_k, :cusum_h)
-                track.level(k) > h || z.abs > h + k
+                track.level(k, track.spanned(block, at)) > h ||
+                    z.abs > h + k
             end
 
             def limit(bound) = @quantity.public_send(bound) * @sigma

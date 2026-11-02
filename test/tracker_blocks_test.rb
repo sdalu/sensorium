@@ -34,6 +34,21 @@ class TrackerBlocksTest < Minitest::Test
         assert_equal :jumped, tracks.fetch(%w[room tado]).state
     end
 
+    # The block under way counts for the share of a block it spans:
+    # after a block of tado 2.5 σ high (its CUSUM at 1.8), one reading
+    # 4.5 σ high, short of cusum_h + cusum_k, is no jump as the first of
+    # its block (counted as a block, it was: 1.8 + 3.9 - 0.5 past 5),
+    # nor two hours in; the block of such readings closing is.
+    def test_a_block_of_minutes_counts_for_its_share
+        tracks = track(48)
+        tracks = track(3, tracks, from: 48) { { "tado" => 19.5 } }
+        tracks = track(3, tracks, from: 51) { { "tado" => 19.9 } }
+        assert_equal %i[ok ok ok], @states
+        assert_operator tracks.fetch(%w[room tado]).level(0.5), :>, 5.0
+        tracks = track(1, tracks, from: 54) { { "tado" => 19.9 } }
+        assert_equal :jumped, tracks.fetch(%w[room tado]).state
+    end
+
     # ceil, the reference, steps by 5 of its σ: while its CUSUM climbs it
     # is the suspect, left out of tado's and Airzone's truth, so neither
     # takes in the step before ceil is flagged.

@@ -26,7 +26,8 @@ class TrackerCadenceTest < Minitest::Test
 
     # The CUSUM takes the innovations by blocks of time, not by
     # updates: the step is flagged at the same reading at any cadence,
-    # within six hours of it.
+    # within three blocks (nine hours) of it: the block under way
+    # counts for the share of a block it spans.
     def test_a_step_is_flagged_at_the_same_reading_at_any_cadence
         firsts = [60, READ].map do |every|
             states = states_every(every)
@@ -34,7 +35,7 @@ class TrackerCadenceTest < Minitest::Test
         end
         refute_nil firsts.first
         assert_equal firsts.first, firsts.last
-        assert_operator firsts.first, :<=, 3600 + (6 * 3600)
+        assert_operator firsts.first, :<=, 3600 + (9 * 3600)
     end
 
     private

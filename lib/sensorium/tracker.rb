@@ -27,12 +27,22 @@ module Sensorium
 
         # The higher side of the CUSUM, with the block under way counted
         # as if it closed now, its mean taken to vary as one innovation
-        # (a mean of positively correlated innovations varies no more):
-        # a step far beyond the noise is seen before its block closes.
-        def level(slack)
+        # (a mean of positively correlated innovations varies no more),
+        # for the share of a block it spans (spanned, 0..1): its
+        # readings are correlated with the block just closed, so a block
+        # of minutes adds little the CUSUM has not seen, and a step far
+        # beyond the noise is still seen before its block closes.
+        def level(slack, spanned = 1.0)
             open = opened
-            [cusum_up, cusum_down, cusum_up + open - slack,
-             cusum_down - open - slack].max
+            [cusum_up, cusum_down, cusum_up + (spanned * (open - slack)),
+             cusum_down + (spanned * (-open - slack))].max
+        end
+
+        # The share of a block of `block` seconds the block under way
+        # spans at `at`, 0..1; 0 without one.
+        def spanned(block, at)
+            return 0.0 unless block_at
+            [(at - block_at) / block.to_f, 1.0].min
         end
 
         # The block under way's mean innovation, standardised as one
@@ -149,8 +159,10 @@ module Sensorium
 
         private
 
-        # The device whose CUSUM (Track#level) is the highest, once past
-        # SUSPECT of cusum_h, of those not jumped; nil without.
+        # The device whose CUSUM (Track#level, the block under way
+        # counted in full: a suspect is left out, not flagged, and is
+        # back once its CUSUM falls) is the highest, once past SUSPECT
+        # of cusum_h, of those not jumped; nil without.
         def suspect(current)
             k, h = @quantity.to_h.values_at(:cusum_k, :cusum_h)
             levels = current.filter_map do |device, (track, _)|
