@@ -224,11 +224,12 @@ module Sensorium
         # two others (their deltas taken out), or when its reading is no
         # newer than the track's last.
         def step(fused, current, part, others)
-            track, sigma, share = current[part.device]
+            track, sigma, share, width = current[part.device]
             return unless track && others.size >= 2
             read = fused.at - part.age
             return if track.at && read <= track.at
-            Step.new(@quantity, sigma, share).call(track, part, others, read)
+            Step.new(@quantity, sigma, share, width)
+                .call(track, part, others, read)
         end
 
         # Whether the part, untracked, counts: its note the Part's when a

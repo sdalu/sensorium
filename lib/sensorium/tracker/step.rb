@@ -18,11 +18,15 @@ module Sensorium
             # sigma: what the drift is measured in, the Offset's; nil for
             # a reference. share: what a block's mean innovation varies
             # by, as a share of one's (Offset#block_share); nil, 1: as
-            # much as one innovation.
-            def initialize(quantity, sigma, share = nil)
+            # much as one innovation. width: the σ the part's innovations
+            # are judged with at least, in place of the part's own when
+            # that is narrower (a reference's, the location's tightest
+            # Offset σ); nil: the part's own.
+            def initialize(quantity, sigma, share = nil, width = nil)
                 @quantity = quantity
                 @sigma    = sigma
                 @share    = share || 1.0
+                @width    = width
             end
 
             # The track after the part's reading at `at`; others: the
@@ -46,12 +50,14 @@ module Sensorium
             private
 
             # The innovation y against the others' fusion, and its noise:
-            # the part's σ² and the fusion's.
+            # the part's σ² (the width at least) and the fusion's.
             def innovation(track, part, others)
                 truth, spread, = Combine.robust(others, @quantity.robust_nu)
                 [part.value - track.delta - truth,
-                 (part.sigma**2) + (spread**2)]
+                 (judged(part)**2) + (spread**2)]
             end
+
+            def judged(part) = [part.sigma, @width || 0.0].max
 
             # The variance grown by the random walk since the last reading.
             def walked(track, at)
