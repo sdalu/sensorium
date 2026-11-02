@@ -86,9 +86,20 @@ class TrackerTest < Minitest::Test
                      tracker.update(tracks, fused)[%w[room tado]]
     end
 
-    def test_a_part_with_fewer_than_two_others_is_not_tracked
+    # The reference alone is the anchor tado's Offset was learned
+    # against: tado is tracked against it; the reference is not tracked
+    # against a sensor alone.
+    def test_a_sensor_with_the_reference_alone_is_tracked
         fused = fusion.location("room", snapshot("room", { "ceil" => 20.0,
                                                            "tado" => 19.0 }))
+        assert_equal [%w[room tado]], tracker.update({}, fused).keys
+    end
+
+    # Two sensors without the reference: a disagreement cannot be put
+    # on either side, so neither is tracked.
+    def test_two_sensors_without_the_reference_are_not_tracked
+        fused = fusion.location("room", snapshot("room", { "tado" => 19.0,
+                                                           "airzone" => 21.0 }))
         assert_empty tracker.update({}, fused)
     end
 

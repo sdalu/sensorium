@@ -132,17 +132,19 @@ module Sensorium
         # against the others, the references first. A part is left out
         # of the others while its track has jumped, or once it jumped in
         # this update. The suspect (suspect), the part whose CUSUM is the
-        # highest once past SUSPECT of cusum_h, is left out of the others
-        # of every other part: a step not yet flagged leaks into no
-        # other's delta. A part with a single other takes, as a second,
-        # the witness: previous (a Fused of the location made with the
-        # tracks) moved by the location's dynamics to the moment, with
-        # the inputs of snapshot (the one fused was made from). A part
-        # with fewer than two others still is left as it was, as is one
-        # whose reading is no newer than its track's last (a Fused made
-        # again before the sensor read again), and the tracks of other
-        # parts. While the Detector finds an event in
-        # the location in snapshot, every part is left as it was.
+        # highest once past SUSPECT of cusum_h, of three that count or
+        # more, is left out of the others of every other part: a step
+        # not yet flagged leaks into no other's delta. A part with a
+        # single other takes, as a second, the witness: previous (a
+        # Fused of the location made with the tracks) moved by the
+        # location's dynamics to the moment, with the inputs of snapshot
+        # (the one fused was made from). A sensor whose single other is
+        # a reference is updated against it alone (told?). A part with
+        # fewer others still is left as it was, as is one whose reading
+        # is no newer than its track's last (a Fused made again before
+        # the sensor read again), and the tracks of other parts. While
+        # the Detector finds an event in the location in snapshot, every
+        # part is left as it was.
         def update(tracks, fused, previous: nil, snapshot: nil)
             return tracks if transient?(fused, snapshot)
             counted = fused.parts.select { counts?(it) }.map(&:untracked)
@@ -163,12 +165,15 @@ module Sensorium
         # The device whose CUSUM (Track#level, the block under way
         # counted in full: a suspect is left out, not flagged, and is
         # back once its CUSUM falls) is the highest, once past SUSPECT
-        # of cusum_h, of those not jumped; nil without.
+        # of cusum_h, of those not jumped, when they are three or more:
+        # with two, no majority tells which is off, and neither is
+        # suspect; nil without.
         def suspect(current)
             k, h = @quantity.to_h.values_at(:cusum_k, :cusum_h)
             levels = current.filter_map do |device, (track, _)|
                 [device, track.level(k)] unless track.state == :jumped
             end
+            return if levels.size < 3
             device, level = levels.max_by(&:last)
             device if level && level > SUSPECT * h
         end
@@ -220,16 +225,28 @@ module Sensorium
             witness && others.one? ? others + [witness] : others
         end
 
-        # The part's track updated; nil without one, with fewer than
-        # two others (their deltas taken out), or when its reading is no
-        # newer than the track's last.
+        # The part's track updated; nil without one, when the others
+        # (their deltas taken out) tell it no truth (told?), or when its
+        # reading is no newer than the track's last.
         def step(fused, current, part, others)
             track, sigma, share, width = current[part.device]
-            return unless track && others.size >= 2
+            return unless track && told?(fused, part, others)
             read = fused.at - part.age
             return if track.at && read <= track.at
             Step.new(@quantity, sigma, share, width)
                 .call(track, part, others, read)
+        end
+
+        # Whether the others tell the part's truth: two or more, whose
+        # fusion it is; or, for a sensor, a reference alone, the anchor
+        # its Offset was learned against. A disagreement between two
+        # sensors, or two references, cannot be put on either side.
+        def told?(fused, part, others)
+            return true if others.size >= 2
+            return false unless others.one?
+            references = references_of(fused)
+            references.include?(others.first.device) &&
+                !references.include?(part.device)
         end
 
         # Whether the part, untracked, counts: its note the Part's when a
