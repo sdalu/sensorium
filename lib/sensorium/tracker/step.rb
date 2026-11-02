@@ -28,15 +28,19 @@ module Sensorium
             # The track after the part's reading at `at`; others: the
             # other counted parts, their own deltas taken out. A block
             # that spans cusum_block by then is closed first: the reading
-            # is measured against the delta it taught.
+            # is measured against the delta it taught. A jumped track's
+            # delta and variance are held as they were at the jump: its
+            # innovations say whether the error is still away from them.
             def call(track, part, others, at)
                 walked = track
-                walked = track.with(variance: walked(track, at)) if @sigma
+                if walks?(track)
+                    walked = track.with(variance: walked(track, at))
+                end
                 walked = closed(walked) if spans?(walked, at)
                 innovation, noise = innovation(walked, part, others)
                 z = innovation / Math.sqrt(walked.variance + noise)
                 after = joined(walked, innovation, noise, at)
-                after.with(at:, state: state(track, after, z, at))
+                settled(track, after, z, at).with(at:)
             end
 
             private
@@ -74,13 +78,21 @@ module Sensorium
 
             def block = @quantity.cusum_block
 
+            # Whether the random walk moves the variance: not a
+            # reference's, nor a jumped track's.
+            def walks?(track) = @sigma && track.state != :jumped
+
             # The block's mean innovation to the CUSUM standardised, then
-            # to the Kalman step; no block under way after.
+            # to the Kalman step; no block under way after. Jumped, to
+            # the return CUSUM alone.
             def closed(track)
                 mean, noise = mean(track)
                 total = track.variance + noise
-                moved(cusum(track, mean / Math.sqrt(total)),
-                      track.variance / total, mean).with(**NO_BLOCK)
+                z = mean / Math.sqrt(total)
+                return returning(track, z).with(**NO_BLOCK) if
+                    track.state == :jumped
+                moved(cusum(track, z), track.variance / total, mean)
+                    .with(**NO_BLOCK)
             end
 
             # The block's mean innovation and its noise, share² of the
@@ -103,25 +115,56 @@ module Sensorium
                            cusum_down: [0.0, track.cusum_down - z - k].max)
             end
 
-            # Jumped once a CUSUM, the open block counted for the share
-            # of a block it spans at `at` (Track#level), is above
-            # cusum_h, or one innovation z beyond cusum_h + cusum_k (a
-            # step a block would dilute), until a relearn or a reset;
-            # drifting past drift_alarm Offset σ, until back under
-            # drift_clear (a reference, never).
-            def state(before, after, z, at)
-                return :jumped if before.state == :jumped ||
-                                  jumped?(after, z, at)
+            # The return CUSUM of a jumped track, the jump's mirrored:
+            # each side climbs by k less the block mean on its side, so
+            # a side climbs while the error is back on that side of the
+            # delta held, and stays down while it is still away. Both
+            # past h, the error is within k of the delta held, with the
+            # evidence a jump takes.
+            def returning(track, z)
+                k = @quantity.cusum_k
+                track.with(cusum_up: [0.0, track.cusum_up + k - z].max,
+                           cusum_down: [0.0, track.cusum_down + k + z].max)
+            end
+
+            # The track with its state: jumped once a CUSUM, the open
+            # block counted for the share of a block it spans at `at`
+            # (Track#level), is above cusum_h, or one innovation z beyond
+            # cusum_h + cusum_k (a step a block would dilute), its CUSUM
+            # then restarted as the return one (returning); back to ok
+            # once both sides of that are above cusum_h (the error is
+            # back at the delta held, for as long as the jump took to
+            # tell), the CUSUM restarted; drifting past drift_alarm
+            # Offset σ, until back under drift_clear (a reference,
+            # never).
+            def settled(before, after, z, at)
+                if before.state == :jumped
+                    return after.with(state: :jumped) unless back?(after)
+                    return restarted(after, :ok)
+                end
+                return restarted(after, :jumped) if jumped?(after, z, at)
+                after.with(state: drift(before, after))
+            end
+
+            def restarted(track, state)
+                track.with(state:, cusum_up: 0.0, cusum_down: 0.0)
+            end
+
+            def drift(before, after)
                 return :ok unless @sigma
                 bound = before.state == :drifting ? :drift_clear : :drift_alarm
-                return :drifting if after.delta.abs > limit(bound)
-                :ok
+                after.delta.abs > limit(bound) ? :drifting : :ok
             end
 
             def jumped?(track, z, at)
                 k, h = @quantity.to_h.values_at(:cusum_k, :cusum_h)
                 track.level(k, track.spanned(block, at)) > h ||
                     z.abs > h + k
+            end
+
+            def back?(track)
+                h = @quantity.cusum_h
+                track.cusum_up > h && track.cusum_down > h
             end
 
             def limit(bound) = @quantity.public_send(bound) * @sigma

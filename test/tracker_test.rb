@@ -47,6 +47,35 @@ class TrackerTest < Minitest::Test
         assert_equal :jumped, after(0.0, :jumped)
     end
 
+    # A jump clears the way it came: tado 4 °C off for two readings,
+    # flagged at once, then back; its delta held at the jump, the
+    # return CUSUM climbs by k a block on both sides while the
+    # innovations stay within k of it, past h after h / k blocks (ten:
+    # thirty hours) and the open one: ok at the 33rd hourly update,
+    # its CUSUM afresh.
+    def test_a_jump_clears_once_the_error_is_back
+        tracks = track(10)
+        tracks = track(2, tracks, from: 10) { { "tado" => 23.0 } }
+        assert_equal :jumped, tracks.fetch(%w[room tado]).state
+        tracks = track(40, tracks, from: 12) { { "tado" => 19.0 } }
+        assert_equal 33, @states.index(:ok)
+        tado = tracks.fetch(%w[room tado])
+        assert_equal [0.0, 0.0], [tado.cusum_up, tado.cusum_down]
+    end
+
+    # The same jump with tado staying 4 °C off: one side of the return
+    # CUSUM never climbs, and the delta it is measured against does not
+    # take the step in.
+    def test_a_jump_stays_while_the_error_stands
+        tracks = track(10)
+        tracks = track(2, tracks, from: 10) { { "tado" => 23.0 } }
+        tracks = track(60, tracks, from: 12) { { "tado" => 23.0 } }
+        tado = tracks.fetch(%w[room tado])
+        assert_equal :jumped, tado.state
+        assert_in_delta 0.0, tado.delta, 1e-9
+        assert_equal 0.0, tado.cusum_up
+    end
+
     def test_a_relearned_offset_restarts_its_track
         tracks = track(10) { { "tado" => 19.1 } }
         relearned = [offset("tado", -0.9, 0.25), offset("airzone", 1.0, 0.1)]

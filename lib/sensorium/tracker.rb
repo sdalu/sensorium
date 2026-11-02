@@ -4,7 +4,8 @@ module Sensorium
     # What the Tracker knows of one sensor's offset between two
     # learnings, for one quantity: delta, the sensor's corrected value
     # minus the truth, estimated, and its variance; the two sides of the
-    # CUSUM on its innovations' block means; the block under way, the
+    # CUSUM on its innovations' block means (jumped, of the return CUSUM,
+    # Tracker::Step#returning); the block under way, the
     # sum of its innovations, of their noise (the part's σ² and the
     # fusion's), their count, and the time of its first reading
     # (block_at, nil before any); at, the time of the
