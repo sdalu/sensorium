@@ -13,18 +13,25 @@ module Sensorium
     # (candidates: { name => { bin => reference - neighbour } }), the one
     # that narrows most first, then both together, then a term on the
     # reference's rate (rates: { bin => dr/dt per hour }). A term is kept
-    # only when it narrows the spread (p10..p90) to setup.narrows of what
-    # it was; a linear term, or pair, only when it leaves |1 + gain +
-    # coefficient| at setup.scale_floor at least, else the model before
-    # it is kept. Given the bins held out (HeldOut), a term is kept
-    # only when it also leaves them no wider than the model before it,
-    # within HeldOut::TOLERANCE; Validated holds them out.
+    # only when it narrows the spread (p10..p90) of the correction's
+    # residual, what the model leaves over its scale (Model#scale: a
+    # correction divides by it, Offset#correct), to setup.narrows of
+    # what it was; a linear term, or pair, only when it leaves the scale
+    # at setup.scale_floor at least, else the model before it is kept.
+    # Given the bins held out (HeldOut), a term is kept only when it
+    # also leaves them, as the correction's, no wider than the model
+    # before it, within HeldOut::TOLERANCE; Validated holds them out.
     class Fit
         # residuals: { bin => what the model leaves }.
         Model = Data.define(:constant, :switches, :taus, :series, :gain,
                             :neighbour, :coefficient, :rate,
                             :residuals) do
             def spread = Stats.spread(residuals.values)
+
+            # |1 + gain + coefficient|: what a reading's gap to the
+            # reference is divided by, solved for the reference, and
+            # with it what the model leaves (Offset#correct).
+            def scale = (1 + (gain || 0.0) + (coefficient || 0.0)).abs
         end
 
         # What a model may be fitted with besides the reference's level,
@@ -92,13 +99,14 @@ module Sensorium
         end
 
         # The spread tried leaves over what kept left, both over the bins
-        # tried covers (a neighbour may cover fewer): infinite when kept
-        # left nothing to narrow there.
+        # tried covers (a neighbour may cover fewer) and each as the
+        # correction's, over its model's scale: infinite when kept left
+        # nothing to narrow there.
         def ratio(kept, tried)
             bins = tried.residuals.keys
             before = Stats.spread(kept.residuals.values_at(*bins))
             return Float::INFINITY unless before.positive?
-            tried.spread / before
+            (tried.spread / before) * kept.scale / tried.scale
         end
 
         def linear(model)
@@ -111,9 +119,7 @@ module Sensorium
         # The model tried, nil when what r is multiplied by, solved for,
         # falls below the scale floor.
         def scaled(tried)
-            return unless tried
-            scale = 1 + (tried.gain || 0.0) + (tried.coefficient || 0.0)
-            tried if scale.abs >= @setup.scale_floor
+            tried if tried && tried.scale >= @setup.scale_floor
         end
 
         # The filtered Switch with the time constant that narrows most.
