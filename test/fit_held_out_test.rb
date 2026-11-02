@@ -35,6 +35,42 @@ class FitHeldOutTest < Minitest::Test
         assert_equal BINS.size, model.residuals.size
     end
 
+    # Worth 1 °C while fitted, 0.7 on the bins held out: kept, but its
+    # narrowing is what the bins held out confirm, and the model's
+    # widths are to be widened by as much.
+    def test_a_term_the_bins_held_out_confirm_less_is_widened
+        learned = learned(switches: { "a" => A }) do |bin|
+            worth = bin < LATE ? 1.0 : 0.7
+            A.include?(bin) ? worth : 0.0
+        end
+        refute_empty learned.fit.model.switches
+        assert_operator learned.inflation, :>, 2.0
+    end
+
+    # The widening is set against the refit on all the bins, whose
+    # widths it widens: a term the bins held out narrow at all ends no
+    # wider than the plain constant.
+    def test_a_widened_term_stays_narrower_than_the_constant
+        learned = learned(switches: { "a" => A }) do |bin|
+            worth = bin < LATE ? 1.0 : 0.7
+            A.include?(bin) ? worth : 0.0
+        end
+        plain = learned.fit.plain.residuals.values
+        assert_operator learned.model.spread * learned.inflation, :<,
+                        Sensorium::Stats.spread(plain)
+    end
+
+    def test_a_term_the_bins_held_out_confirm_is_not_widened
+        learned = learned(switches: { "a" => A }) do |bin|
+            A.include?(bin) ? 0.5 : 0.0
+        end
+        assert_in_delta 1.0, learned.inflation, 0.1
+    end
+
+    def test_the_constant_alone_is_not_widened
+        assert_in_delta 1.0, learned { 0.3 }.inflation
+    end
+
     # 150 bins: holding 100 out leaves 50, short of min_part; the gain
     # the sensor follows, which needs no min_part, is not tried.
     def test_too_few_bins_leave_the_constant_alone
@@ -89,5 +125,10 @@ class FitHeldOutTest < Minitest::Test
     def validated(bins: BINS, switches: {}, &)
         Sensorium::Fit::Validated.fit(diffs(bins, &), setup_of,
                                       levels: @reference, switches:).model
+    end
+
+    def learned(switches: {}, &)
+        Sensorium::Fit::Validated.learn(diffs(&), setup_of,
+                                        levels: @reference, switches:)
     end
 end

@@ -1,0 +1,48 @@
+# frozen_string_literal: true
+
+require "test_helper"
+
+# Fit::HeldOut#keeps?: on the bins held out, a term they try (what it
+# adds varies over them) is kept only when it narrows them; one they
+# cannot try (it adds a constant there) is kept within TOLERANCE.
+class HeldOutTriesTest < Minitest::Test
+    BINS  = (0...100).to_a
+    EVEN  = BINS.select(&:even?).to_set
+    DIFFS = BINS.to_h { [it, it.even? ? 1.0 : -1.0] }.freeze
+    PLAIN = Sensorium::Fit::Model.new(
+        constant: 0.0, switches: {}, taus: {}, series: {}, gain: nil,
+        neighbour: nil, coefficient: nil, rate: nil, residuals: {}
+    )
+
+    # On the even bins only, worth -0.02 there: the bins held out try
+    # it, and it leaves them 1 % wider.
+    def test_a_term_the_bins_try_and_widen_is_refused
+        held_out = held_out(EVEN)
+        tried = with_switch(-0.02)
+        assert held_out.tries?(PLAIN, tried)
+        assert_in_delta 1.01, held_out.narrowing(PLAIN, tried), 1e-9
+        refute held_out.keeps?(PLAIN, tried)
+    end
+
+    def test_a_term_the_bins_try_and_narrow_is_kept
+        held_out = held_out(EVEN)
+        assert held_out.keeps?(PLAIN, with_switch(0.5))
+    end
+
+    # On throughout the bins held out: a constant there, no evidence.
+    def test_a_term_on_throughout_is_not_tried_and_is_kept
+        held_out = held_out(BINS.to_set)
+        tried = with_switch(-0.02)
+        refute held_out.tries?(PLAIN, tried)
+        assert held_out.keeps?(PLAIN, tried)
+    end
+
+    private
+
+    def with_switch(term) = PLAIN.with(switches: { "a" => term })
+
+    def held_out(on)
+        terms = Sensorium::Fit::Terms.new(switches: { "a" => on })
+        Sensorium::Fit::HeldOut.new(DIFFS, {}, terms)
+    end
+end

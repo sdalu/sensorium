@@ -60,6 +60,50 @@ module Sensorium
               rate: model.rate&.round(3) }
         end
 
+        # Offset#block_share of a model's residuals ({ bin => value }):
+        # the spread of their means over blocks of the quantity's
+        # cusum_block, as a share of their own spread; nil with fewer
+        # than MIN_BLOCKS blocks or no spread. At most 1.
+        def self.block_share(residuals, setup)
+            means = block_means(residuals, setup)
+            spread = Stats.spread(residuals.values)
+            return if means.size < Learned::MIN_BLOCKS || !spread.positive?
+            [Stats.spread(means) / spread, 1.0].min.round(3)
+        end
+
+        # The residuals' means over blocks of cusum_block, those with
+        # half their bins at least.
+        def self.block_means(residuals, setup)
+            seconds = setup.quantity.cusum_block
+            least = seconds / setup.bin / 2.0
+            residuals.group_by { |bin, _| bin / seconds }
+                     .each_value.filter_map do |list|
+                list.sum(&:last) / list.size if list.size >= least
+            end
+        end
+
+        # An Offset's values with the model's widths (p10..p90, those of
+        # states, off_p10..off_p90) widened by factor about their
+        # middles; the plain constant's left as they are.
+        def self.widened(values, factor)
+            return values if factor <= 1.0
+            wide = ->(low, high) { Learned.wider(low, high, factor) }
+            p10, p90 = wide.call(*values.values_at(:p10, :p90))
+            off_p10, off_p90 = (wide.call(values[:off_p10], values[:off_p90]) if
+                                values[:off_p10])
+            states = values[:states].transform_values do |low, high, *rest|
+                [*wide.call(low, high), *rest]
+            end
+            values.merge(p10:, p90:, off_p10:, off_p90:, states:)
+        end
+
+        # [low, high] widened by factor about their middle, rounded as an
+        # Offset's.
+        def self.wider(low, high, factor)
+            middle = (low + high) / 2.0
+            [low, high].map { (middle + ((it - middle) * factor)).round(3) }
+        end
+
         # Four significant digits: a coefficient on watts is small.
         def self.significant(value) = Float(format("%.4g", value))
 
@@ -68,6 +112,11 @@ module Sensorium
                 [:"#{prefix}#{key}", Stats.quantile(values, fraction).round(3)]
             end
         end
+    end
+
+    class Learned
+        # The blocks Learned.block_share needs.
+        MIN_BLOCKS = 10
     end
 
     class Learner

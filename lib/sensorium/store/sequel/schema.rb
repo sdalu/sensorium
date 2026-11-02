@@ -20,6 +20,7 @@ module Sensorium
                                                Renamed.new(self, columns))
                         end
                     end
+                    upgrade(db, tables, columns)
                 end
 
                 def dynamics(t)
@@ -69,9 +70,8 @@ module Sensorium
                     %i[switches taus series states].each do |name|
                         t.String name, text: true
                     end
-                    %i[gain coefficient rate off_p10 off_p90].each do |name|
-                        t.Float name
-                    end
+                    %i[gain coefficient rate off_p10 off_p90
+                       block_share].each { t.Float it }
                 end
 
                 def shifts(t)
@@ -97,6 +97,10 @@ module Sensorium
                     %i[reference state].each { t.String it, null: false }
                     %i[constant plain].each { t.Float it }
                     floats(t, %i[delta variance cusum_up cusum_down])
+                    t.Float :block_sum
+                    t.Float :block_noise
+                    t.Integer :block_count
+                    t.Time :block_at
                     t.Time :tracked_at, null: false
                     t.primary_key %i[location device quantity]
                 end
@@ -126,4 +130,5 @@ module Sensorium
     end
 end
 
+require_relative "schema_added"
 require_relative "schema_renamed"

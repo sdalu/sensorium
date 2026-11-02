@@ -4,8 +4,11 @@ module Sensorium
     # What the Tracker knows of one sensor's offset between two
     # learnings, for one quantity: delta, the sensor's corrected value
     # minus the truth, estimated, and its variance; the two sides of the
-    # CUSUM on its innovations; at, the time of the reading its last
-    # update took (none is taken twice); state,
+    # CUSUM on its innovations' block means; the block under way, the
+    # sum of its innovations, of their noise (the part's σ² and the
+    # fusion's), their count, and the time of its first reading
+    # (block_at, nil before any); at, the time of the
+    # reading its last update took (none is taken twice); state,
     # :ok, :drifting or :jumped. regime, reference, constant and plain
     # are the fingerprint of the Offset it tracks: once the location's
     # Offset for the device has another (a relearn), the track starts
@@ -13,8 +16,32 @@ module Sensorium
     # reference the location's references ("a+b").
     Track = Data.define(:location, :device, :quantity, :regime, :reference,
                         :constant, :plain, :delta, :variance, :cusum_up,
-                        :cusum_down, :at, :state) do
+                        :cusum_down, :block_sum, :block_noise,
+                        :block_count, :block_at, :at, :state) do
+        def initialize(block_sum: 0.0, block_noise: 0.0, block_count: 0,
+                       block_at: nil, **)
+            super
+        end
+
         def fingerprint = [regime, reference, constant, plain]
+
+        # The higher side of the CUSUM, with the block under way counted
+        # as if it closed now, its mean taken to vary as one innovation
+        # (a mean of positively correlated innovations varies no more):
+        # a step far beyond the noise is seen before its block closes.
+        def level(slack)
+            open = opened
+            [cusum_up, cusum_down, cusum_up + open - slack,
+             cusum_down - open - slack].max
+        end
+
+        # The block under way's mean innovation, standardised as one
+        # innovation; 0 before any.
+        def opened
+            return 0.0 unless block_count.positive?
+            mean = block_sum / block_count
+            mean / Math.sqrt(variance + (block_noise / block_count))
+        end
 
         # A Parts::Part that counts, as the Fusion takes it: delta taken
         # out, variance added to its σ²; when jumped, it does not count,
@@ -63,6 +90,11 @@ module Sensorium
         # "outlier".
         COUNTING = [nil, "outlier"].freeze
 
+        # The share of cusum_h past which the part with the highest
+        # CUSUM is the suspect, left out of the others' truth until its
+        # CUSUM falls back or it jumps.
+        SUSPECT = 0.5
+
         # The keywords a Tracker may take instead of a Knowledge.
         REQUIRED = %i[offsets].freeze
         OPTIONAL = %i[dynamics locations transients].freeze
@@ -88,7 +120,10 @@ module Sensorium
         # each part that counts, a reference or with an Offset, updated
         # against the others, the references first. A part is left out
         # of the others while its track has jumped, or once it jumped in
-        # this update. A part with a single other takes, as a second,
+        # this update. The suspect (suspect), the part whose CUSUM is the
+        # highest once past SUSPECT of cusum_h, is left out of the others
+        # of every other part: a step not yet flagged leaks into no
+        # other's delta. A part with a single other takes, as a second,
         # the witness: previous (a Fused of the location made with the
         # tracks) moved by the location's dynamics to the moment, with
         # the inputs of snapshot (the one fused was made from). A part
@@ -104,14 +139,26 @@ module Sensorium
             out = current.filter_map do |device, (track, _)|
                 device if track.state == :jumped
             end
+            flagged = [out, suspect(current)]
             witness = @witness.of(fused, previous, snapshot)
-            tracks.merge(updated(fused, counted, current, out, witness))
+            tracks.merge(updated(fused, counted, current, flagged, witness))
         end
 
         # The tracks without that sensor's: its next update starts afresh.
         def reset(tracks, location, device) = tracks.except([location, device])
 
         private
+
+        # The device whose CUSUM (Track#level) is the highest, once past
+        # SUSPECT of cusum_h, of those not jumped; nil without.
+        def suspect(current)
+            k, h = @quantity.to_h.values_at(:cusum_k, :cusum_h)
+            levels = current.filter_map do |device, (track, _)|
+                [device, track.level(k)] unless track.state == :jumped
+            end
+            device, level = levels.max_by(&:last)
+            device if level && level > SUSPECT * h
+        end
 
         # Whether a transient is under way in the Fused's location.
         def transient?(fused, snapshot)
@@ -122,17 +169,25 @@ module Sensorium
         end
 
         # { [location, device] => Track } updated, the references first,
-        # in the Fused's order; out: the devices left out of the others,
-        # those that jump added; witness: an Estimate or nil.
-        def updated(fused, counted, current, out, witness)
+        # in the Fused's order; flagged: [the devices jumped, those that
+        # jump added; the suspect]; witness: an Estimate or nil.
+        def updated(fused, counted, current, flagged, witness)
+            out, suspect = flagged
             ordered(fused, counted).each_with_object({}) do |part, done|
-                others = others(counted.reject { out.include?(it.device) } -
-                                [part], current)
+                left = part.device == suspect ? out : out + [suspect]
+                others = others_of(part, counted, current, left)
                 track = step(fused, current, part,
                              witnessed(others, witness)) or next
                 out << part.device if track.state == :jumped
                 done[[fused.location, part.device]] = track
             end
+        end
+
+        # The counted parts but the part and those left, their own
+        # deltas taken out.
+        def others_of(part, counted, current, left)
+            others(counted.reject { left.include?(it.device) } - [part],
+                   current)
         end
 
         # The references first, then the other parts, each in the Fused's
@@ -156,11 +211,11 @@ module Sensorium
         # two others (their deltas taken out), or when its reading is no
         # newer than the track's last.
         def step(fused, current, part, others)
-            track, sigma = current[part.device]
+            track, sigma, share = current[part.device]
             return unless track && others.size >= 2
             read = fused.at - part.age
             return if track.at && read <= track.at
-            Step.new(@quantity, sigma).call(track, part, others, read)
+            Step.new(@quantity, sigma, share).call(track, part, others, read)
         end
 
         # Whether the part, untracked, counts: its note the Part's when a
@@ -170,47 +225,6 @@ module Sensorium
             note = weighted.tracked? ? part.note : weighted.note
             part.value && part.sigma && COUNTING.include?(note)
         end
-
-        # { device => [Track, σ] } of the parts tracked: theirs while it
-        # has the fingerprint of the moment, else a fresh one; σ, what
-        # their drift is measured in, nil for a reference.
-        def current(tracks, fused, parts)
-            parts.filter_map do |part|
-                found = basis(fused, part.device) or next
-                fresh, sigma = found
-                track = tracks[[fused.location, part.device]]
-                track = fresh unless track&.fingerprint == fresh.fingerprint
-                [part.device, [track, sigma]]
-            end.to_h
-        end
-
-        # A fresh Track of the device and the σ its drift is measured in:
-        # a reference's, without (it never drifts); another's, of its
-        # Offset learned against the Fused's references, with its σ; nil
-        # without.
-        def basis(fused, device)
-            if references_of(fused).include?(device)
-                [reference(fused, device), nil]
-            elsif (offset = offset(fused, device))
-                [Track.fresh(offset, variance), offset.sigma]
-            end
-        end
-
-        def reference(fused, device)
-            Track.start(location: fused.location, device:,
-                        quantity: fused.quantity, regime: regime(fused),
-                        reference: fused.reference, variance:)
-        end
-
-        def offset(fused, device)
-            offset = @offsets[[fused.location, regime(fused), device]]
-            offset if offset&.reference == fused.reference
-        end
-
-        def regime(fused) = @setup.regime.of(fused.at)
-
-        # A fresh track's: (σ/2)², σ the quantity's.
-        def variance = (@quantity.sigma / 2.0)**2
 
         # The others, each with its own delta taken out.
         def others(parts, current)
@@ -222,5 +236,6 @@ module Sensorium
     end
 end
 
+require_relative "tracker/basis"
 require_relative "tracker/step"
 require_relative "tracker/witness"

@@ -16,28 +16,31 @@ module Sensorium
     #   transform Transform::Identity, Transform::AbsoluteHumidity…
     # and how the Tracker follows each sensor's offset:
     #   track_q   how far it may wander, a variance per hour ((sigma/2)²
-    #             a day unless set)
-    #   cusum_k   the slack of the CUSUM on standardised innovations (0.5)
+    #             in half a day unless set)
+    #   cusum_block seconds of innovations the CUSUM takes as one: it
+    #             runs on each block's mean, standardised by the
+    #             Offset's block_share (3 h)
+    #   cusum_k   the slack of the CUSUM on standardised blocks (0.5)
     #   cusum_h   the CUSUM above which the track has jumped (5)
     #   drift_alarm, drift_clear  |delta| in Offset σ above which it
     #             drifts (3), below which it is back (2)
     Quantity = Data.define(:name, :unit, :sigma, :drift, :max_age,
                            :robust_nu, :outlier_factor, :floor, :transform,
-                           :track_q, :cusum_k, :cusum_h, :drift_alarm,
-                           :drift_clear)
+                           :track_q, :cusum_block, :cusum_k, :cusum_h,
+                           :drift_alarm, :drift_clear)
 
     class Quantity
         DEFAULTS = { unit: nil, max_age: 60, robust_nu: 4.0,
                      outlier_factor: 0.2, floor: nil,
                      transform: Transform::Identity, track_q: nil,
-                     cusum_k: 0.5, cusum_h: 5.0, drift_alarm: 3.0,
-                     drift_clear: 2.0 }.freeze
+                     cusum_block: 10_800, cusum_k: 0.5, cusum_h: 5.0,
+                     drift_alarm: 3.0, drift_clear: 2.0 }.freeze
 
         def initialize(name:, sigma:, **settings)
             given = DEFAULTS.merge(settings)
             super(**given, name: name.to_s, sigma:,
                            floor: given[:floor] || (sigma / 4.0),
-                           track_q: given[:track_q] || ((sigma**2) / 96.0))
+                           track_q: given[:track_q] || ((sigma**2) / 48.0))
         end
 
         # The readings taken into the transform's space, those it cannot

@@ -13,12 +13,12 @@ class TrackedFusionTest < Minitest::Test
     TADO_SIGMA = Math.hypot(0.5 / Sensorium::P10_P90, 0.03)
 
     # Until tado's own delta has caught up with its step, Airzone's
-    # takes in a little of it (-0.03 °C after ten updates).
+    # takes in a little of it (-0.03 °C after twelve updates).
     def test_a_step_jumped_then_does_not_count
         tracks = track(10)
-        tracks = track(10, tracks, from: 10) { { "tado" => 19.6 } }
+        tracks = track(12, tracks, from: 10) { { "tado" => 19.6 } }
         fused = tracked(tracks).location("room",
-                                         moment(20, { "tado" => 19.6 }))
+                                         moment(22, { "tado" => 19.6 }))
         assert_equal "jumped", note(fused, "tado")
         assert_nil part(fused, "tado").part.value
         assert_in_delta 0.0, weight(fused, "tado")

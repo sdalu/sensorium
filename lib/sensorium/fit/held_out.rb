@@ -6,9 +6,14 @@ module Sensorium
         # diff less the model's terms there, its regressors read from
         # the same Terms; a bin some regressor lacks is left out.
         class HeldOut
-            # How much wider than kept tried may leave them: a spread over
-            # a few hundred correlated bins moves by a few percent.
+            # How much wider than kept tried may leave them when they
+            # cannot try it (tries?): absence of evidence does not undo
+            # what the rest of the season showed.
             TOLERANCE = 1.05
+
+            # The spread below which what a term adds is a constant, its
+            # variation that of the rounding.
+            ROUNDING = 1e-9
 
             # diffs: { bin => sensor - reference } of the bins held out.
             def initialize(diffs, levels, terms)
@@ -17,14 +22,34 @@ module Sensorium
                 @terms  = terms
             end
 
-            # Whether tried leaves the bins held out no wider than kept
-            # (within TOLERANCE), over the bins both cover.
+            # Whether tried leaves the bins held out no wider than kept,
+            # over the bins both cover: narrower, when they try the term
+            # (tries?); within TOLERANCE when they cannot.
             def keeps?(kept, tried)
+                bound = tries?(kept, tried) ? 1.0 : TOLERANCE
+                narrowing(kept, tried) <= bound
+            end
+
+            # Whether the bins held out try the term: what it adds to
+            # kept varies over them. A Switch never on there, or on
+            # throughout, adds a constant: no evidence either way.
+            def tries?(kept, tried)
                 before, after = [kept, tried].map { residuals(it) }
                 bins = before.keys & after.keys
-                return true if bins.empty?
-                Stats.spread(after.values_at(*bins)) <=
-                    TOLERANCE * Stats.spread(before.values_at(*bins))
+                return false if bins.empty?
+                Stats.spread(bins.map { before[it] - after[it] }) > ROUNDING
+            end
+
+            # The spread tried leaves on the bins held out over the one
+            # kept leaves, over the bins both cover: 1 without any.
+            def narrowing(kept, tried)
+                before, after = [kept, tried].map { residuals(it) }
+                bins = before.keys & after.keys
+                return 1.0 if bins.empty?
+                wide = Stats.spread(before.values_at(*bins))
+                narrow = Stats.spread(after.values_at(*bins))
+                return narrow / wide if wide.positive?
+                narrow.zero? ? 1.0 : Float::INFINITY
             end
 
             # { bin => what the model leaves }, once per model.

@@ -6,8 +6,9 @@ require "support/recorded_room"
 # A real room, recorded (RecordedRoom): learned on its first twenty
 # days, fused on the last ten. Bounds around what it gave when
 # recorded: two offsets beside the ceiling's, every part left out
-# hourly with var(z) 0.43..0.83 and an RMS gap of 0.28 °C, three
-# transient profiles. Skipped without the recording.
+# hourly with var(z) 0.43..0.83 and an RMS gap of 0.28 °C, no part
+# flagged by the Tracker hourly, three transient profiles. Skipped
+# without the recording.
 class RecordedRoomTest < Minitest::Test
     SETUP = Sensorium::Presets.room
     DAYS  = 20
@@ -35,6 +36,19 @@ class RecordedRoomTest < Minitest::Test
         assert_operator Math.sqrt(ds.sum { it**2 } / ds.size), :<, 0.35
     end
 
+    # Each sensor's error persists for hours (an afternoon's swing):
+    # tracked hourly over the last ten days, no part is flagged, where
+    # a CUSUM taking each hour alone flagged wall-1 within eleven hours.
+    def test_no_part_jumps_over_the_last_ten_days
+        tracks = instants.reduce({}) do |kept, at|
+            snapshot = Sensorium::Snapshot.from(@room, SETUP, at:)
+            fused = fusion.location(RecordedRoom::ROOM, snapshot)
+            tracker.update(kept, fused, snapshot:)
+        end
+        assert_equal 3, tracks.size
+        assert_equal [:ok], tracks.values.map(&:state).uniq
+    end
+
     def test_each_sensor_has_a_transient_profile
         profiles = Sensorium::Transient.learn(@room, SETUP, from: @room.from,
                                                             to: @split)
@@ -52,9 +66,15 @@ class RecordedRoomTest < Minitest::Test
     # { device => [[z], [d]] } of every part left out, hourly.
     def scores = self.class.memo[:scores] ||= scored
 
+    def fusion
+        Sensorium::Fusion.new(SETUP, offsets: learned.offsets,
+                                     shifts: learned.shifts)
+    end
+
+    def tracker = Sensorium::Tracker.new(SETUP, offsets: learned.offsets)
+
     def scored
-        fusion = Sensorium::Fusion.new(SETUP, offsets: learned.offsets,
-                                              shifts: learned.shifts)
+        fusion = self.fusion
         instants.each_with_object({}) do |at, scores|
             parts(fusion, at).then { score(it, scores) }
         end

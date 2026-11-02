@@ -21,9 +21,11 @@ class TrackerTest < Minitest::Test
         assert_learned(track(10, every: 86_400) { { "tado" => 19.2 } })
     end
 
-    def test_a_step_is_flagged_jumped_within_ten_updates
+    # The CUSUM takes the innovations three hours at a time
+    # (cusum_block): a step of 3 σ is flagged within twelve hours.
+    def test_a_step_is_flagged_jumped_within_twelve_hours
         tracks = track(10)
-        tracks = track(10, tracks, from: 10) { { "tado" => 19.6 } }
+        tracks = track(12, tracks, from: 10) { { "tado" => 19.6 } }
         assert_equal :jumped, tracks.fetch(%w[room tado]).state
         assert_equal :ok, tracks.fetch(%w[room airzone]).state
     end
@@ -70,9 +72,9 @@ class TrackerTest < Minitest::Test
 
     def test_the_quantity_settings
         quantity = Sensorium::Presets::TEMPERATURE
-        assert_in_delta 0.01 / 96, quantity.track_q
-        assert_equal [0.5, 5.0, 3.0, 2.0],
-                     quantity.to_h.values_at(:cusum_k, :cusum_h,
+        assert_in_delta 0.01 / 48, quantity.track_q
+        assert_equal [10_800, 0.5, 5.0, 3.0, 2.0],
+                     quantity.to_h.values_at(:cusum_block, :cusum_k, :cusum_h,
                                              :drift_alarm, :drift_clear)
     end
 

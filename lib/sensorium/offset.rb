@@ -18,13 +18,18 @@ module Sensorium
     # over the bins all of them were off; { "NAME:high" => [p10, p90,
     # median], "NAME:low" => [p10, p90, median] } over the bins each
     # Series kept as a term was above its median over the fit, and
-    # not; each absent when too few bins had it.
+    # not; each absent when too few bins had it. block_share: the spread
+    # of what the model leaves, averaged over blocks of the quantity's
+    # cusum_block, as a share of its spread bin by bin (1/√n if the bins
+    # were independent, near 1 for a sensor whose error persists for
+    # hours); nil when too few blocks were seen. The Tracker's CUSUM
+    # takes a block's mean innovation in it.
     Offset = Data.define(:location, :device, :quantity, :regime, :reference,
                          :constant, :switches, :taus, :series, :gain,
                          :neighbour,
                          :coefficient, :rate, :p10, :p90, :samples, :plain,
                          :plain_p10, :plain_p90, :states, :off_p10,
-                         :off_p90) do
+                         :off_p90, :block_share) do
         def initialize(**given)
             given = Offset::OPTIONAL.merge(given)
             super(**given, states: (given[:states] || {})
@@ -131,7 +136,7 @@ module Sensorium
     class Offset
         # The members an Offset may be made without.
         OPTIONAL = { taus: {}, series: {}, rate: nil, states: {},
-                     off_p10: nil, off_p90: nil }.freeze
+                     off_p10: nil, off_p90: nil, block_share: nil }.freeze
 
         # What holds at the moment of a reading, besides the Modes: on,
         # the names of the Switches on; exposures, { name => exposure } of

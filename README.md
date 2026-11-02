@@ -66,12 +66,31 @@ models the gap to the location's reference r:
 Each term is kept only if it narrows the spread of what is left
 (p10..p90) to 80 % of what it was, both measured over the bins the term
 covers. The terms are chosen without the last tenth of a sensor's bins
-(100 at least, `min_part`), and a term is kept only if it also leaves
-those no more than 5 % wider than the model before it; the terms kept
-are then fitted again on all the bins. A sensor with too few bins to
-hold any out keeps the constant alone. The constant alone is kept too
-(`plain`), the fallback when the neighbour, a series' value or dr/dt
-has no fresh value.
+(100 at least, `min_part`), and a term is kept only if those bins
+confirm it: when what it adds varies over them (a neighbour, a series,
+a Switch that switches there), it must leave them narrower than the
+model before it; when it adds a constant there (a Switch never on in
+them, or on throughout), they cannot tell, and it must leave them no
+more than 5 % wider. The terms kept are then fitted again on all the
+bins. What the terms narrow is measured on the bins they were chosen
+on, and those overstate it: a sensor's error persists for hours, so a
+season holds far fewer independent bins than it has. The narrowing of
+the plain constant's spread the refit on all the bins claims is set
+against the one the bins held out confirm, and when those confirm
+less, every width of the model (p10..p90, those of `states`,
+`off_p10..off_p90`) is widened about its middle by the ratio: its σ is
+the plain constant's narrowed by what the bins it never saw bear out.
+A sensor with too few bins to hold any out keeps the constant alone.
+The constant alone is kept too (`plain`, its widths as fitted), the
+fallback when the neighbour, a series' value or dr/dt has no fresh
+value.
+
+An Offset also keeps its `block_share`: the spread of what its model
+leaves, averaged over blocks of the quantity's `cusum_block` (3 h),
+as a share of its spread bin by bin; about 1/√18 if the bins were
+independent, near 1 for a sensor whose error persists for hours
+(0.82 and 0.85 for the two of a room recorded over a winter). The
+Tracker standardises a block's mean innovation by it (see Tracking).
 
 The terms are chosen one after the other, each fitted on what the
 ones before it left. The room preset tries neither a gain nor a rate
@@ -479,8 +498,10 @@ Between two learnings an offset can move: a sensor moved, re-batteried
 or ageing reads wrong until the next learning. The `Tracker` follows,
 for each sensor with an `Offset` and for each reference, a `Track`:
 `delta`, its corrected value minus the truth, as estimated, with its
-`variance`; the two sides of a CUSUM; `at`, the time of the reading
-its last update took; and a `state`, `:ok`, `:drifting` or `:jumped`.
+`variance`; the two sides of a CUSUM; the block of readings under way
+(the sum of their innovations and of their noise, their count, and
+`block_at`, the time of its first); `at`, the time of the reading its
+last update took; and a `state`, `:ok`, `:drifting` or `:jumped`.
 A part is updated only when its reading is newer than that: fused
 again before the sensor reads again, it is left as it was, so the
 tracks are the same whether a location is fused every minute or at
@@ -489,17 +510,35 @@ each reading, and a reading never counts twice in a CUSUM.
 The truth, for one part of a `Fused`, is the `Combine.robust` fusion
 of the other parts that count (a value and a σ, no note but
 `outlier`), each with its own delta taken out, less those whose track
-has jumped, before or in this update. The references are updated
-first, then the other parts, each in the `Fused`'s order. A part with
-fewer than two others is left as it was, unless a **witness** stands
-in for the second (below). Each update is a scalar Kalman step over a
-random walk, the hours counted between the readings it took:
+has jumped, before or in this update, and less the **suspect**: the
+part whose CUSUM is the highest once past half of h, left out of every
+other part's truth (not its own), so that a step not yet flagged leaks
+into no other delta. The references are updated first, then the other
+parts, each in the `Fused`'s order. A part with fewer than two others
+is left as it was, unless a **witness** stands in for the second
+(below).
 
-    y         = value − delta − the others' fusion
+A sensor's error persists for hours (the sun on a wall, a radiator's
+cycle), so its successive innovations are not independent: counted one
+by one, they would teach delta, and push a CUSUM, as if each were news.
+The Tracker takes them by blocks of `cusum_block` (3 h): each reading
+walks the variance and joins the block under way; once the block
+spans 3 h, its mean is one measurement, its noise the mean one's times
+the Offset's `block_share` squared (see Learning: what the model's
+error keeps when averaged over a block, near 1 for a sensor whose error
+persists, 1/√n for independent bins; 1 when unknown), and delta takes
+one scalar Kalman step over a random walk:
+
+    y         = value − delta − the others' fusion       (each reading)
     R         = σ² + the others' fusion's σ²
     variance += track_q × hours since at
-    K         = variance / (variance + R)
-    delta    += K × y,  variance ×= 1 − K
+    ȳ, R̄      = the block's mean y and mean R             (block closed)
+    S         = variance + block_share² × R̄
+    K         = variance / S
+    delta    += K × ȳ,  variance ×= 1 − K
+
+So delta learns as fast at any cadence, and the alarms see each block
+before delta takes it in.
 
 A track starts at delta 0, variance (σ/2)², σ the quantity's; it starts
 afresh when the location's offset for the device is relearned (another
@@ -509,18 +548,23 @@ the references are the anchor, so its delta stays 0 and its variance
 fingerprint is the regime and the location's references ("a+b"),
 constant and plain nil.
 
-The alarms run on z = y / √(variance + R):
+The alarms:
 
-- **jumped**: `cusum_up` = max(0, `cusum_up` + z − k), `cusum_down` =
-  max(0, `cusum_down` − z − k); either above h, and the track has
-  jumped. It stays so until its offset is relearned or
+- **jumped**: at each closed block, with z̄ = ȳ / √S, `cusum_up` =
+  max(0, `cusum_up` + z̄ − k), `cusum_down` = max(0, `cusum_down` − z̄ −
+  k); either above h, and the track has jumped. The block under way
+  counts too, as if it closed now, its mean taken to vary as one
+  reading (`Track#level`), and so does one reading alone whose z =
+  y / √(variance + R) is beyond h + k: a large step is flagged before
+  its block closes. It stays so until its offset is relearned or
   `Tracker#reset` drops it.
 - **drifting**: |delta| above `drift_alarm` × the offset's σ; back to
   ok under `drift_clear` × σ. Not for a reference.
 
 | `Quantity` setting | default |
 |---|---|
-| `track_q` | (σ/2)² a day: σ² / 96 per hour |
+| `track_q` | (σ/2)² in half a day: σ² / 48 per hour |
+| `cusum_block` | 10 800 s (3 h) |
 | `cusum_k` (k) | 0.5 |
 | `cusum_h` (h) | 5 |
 | `drift_alarm` | 3 |
@@ -587,9 +631,14 @@ previous = fused                                # made with the tracks
 
 The gain is small by design. In the tests' room (a sensor of
 σ 0.2 °C against two of 0.1 and 0.08), ten hourly updates take delta
-to 40 % of a constant bias, 48 hourly ones to 88 % and ten daily ones
-to 80 %, while a step of 3 σ is flagged jumped at the third update,
-and the reference stepping by 5 σ at the second.
+to 21 % of a constant bias, 48 hourly ones to 76 % and ten daily ones
+to 94 %, while a step of 3 σ is flagged jumped at the seventh hourly
+update, and the reference stepping by 5 σ at the fourth. In a real
+room recorded over a winter (its last ten days, tracked against what
+its first twenty learned), no part is flagged, where taking each
+reading alone flagged a wall sensor within eleven hours; steps of 1, 2
+and 3 of its offset's σ put into its readings are flagged after 20,
+8 and 5 hours at ten-minute updates, 37, 10 and 4 hourly.
 
 ## Running it
 
@@ -704,14 +753,20 @@ and `relative` thresholds (`{ "600": [fall, rise] }`). Tables made before
 the survey rounds lack six columns of `sensor_offsets`: `taus`,
 `series` and `states` (text), `rate`, `off_p10` and `off_p90` (float),
 and `sensor_locations` lacks `deltas` (text); a caller with its own
-schema adds them. A caller whose tables name their columns its own
+schema adds them. Tables made before the blocks lack `block_share`
+(float) in `sensor_offsets`, and `block_sum`, `block_noise` (float),
+`block_count` (integer) and `block_at` (time) in `sensor_tracks`:
+opened with `migrate: true`, a store adds them; a caller with its own
+schema adds them itself. A track kept before them starts its block
+afresh. A caller whose tables name their columns its own
 way says so with `columns:`, sensorium's name to its own, the same in
 every table (`columns: { location: :zone, device: :sensor }`); a name
 that is no column of the store's, or two columns given one name, is
 refused. Another store answers the same fifteen methods (see
 `lib/sensorium/store/memory.rb`), and `knowledge(quantity)` from them
 by including `Store::Knowing`. A time `Store::Sequel` keeps
-(`learned_from`, `learned_to`, `learned_at`, `tracked_at`) is stored
+(`learned_from`, `learned_to`, `learned_at`, `tracked_at`,
+`block_at`) is stored
 and read back as UTC, whether Sequel converts times (a
 `database_timezone` set, as an application in local time with a UTC
 session does) or not, and independently of the database's own
@@ -739,13 +794,28 @@ it.
 
 - Only an offset's level is followed online (Tracking); its terms
   change only when learning runs again.
-- Until a sensor is flagged jumped, the others' deltas take in a
-  little of its step (0.008 °C of 0.6 in the tests' room).
+- Until a sensor is the suspect, the others' deltas may take in a
+  little of its step (0.006 °C of 0.6 in the tests' room).
+- A step is flagged in hours, not at the next reading: a block must
+  close, and the CUSUM add up over a few. One of a sensor's own σ takes
+  about a day; meanwhile its delta takes some of it in, and a step
+  slow enough to be taken in whole is never flagged, only seen as
+  drifting.
 - In a location of three with a jumped sensor, the witness is made
   from the two others: a bias on one of them is shared between their
   deltas. In the tests' room, 48 hourly updates take tado's delta to
-  60 % of a 0.2 bias while Airzone's moves by −0.075. Without
+  53 % of a 0.2 bias while Airzone's moves by −0.071. Without
   dynamics, their tracks stand still until a relearn or a reset.
+- The terms are kept by tests on spreads (80 % on the bins fitted,
+  narrower, or within 5 %, on those held out) whose own noise, a sensor's error
+  persisting for hours, is several times 5 % over a held-out tenth of
+  a few days: the held-out test refuses only what it plainly denies.
+  The widths a term is kept with are widened by what the bins held
+  out confirm, which bounds what a term the test let through costs.
+  On one house's year, the held-out narrowing of a term predicts the
+  narrowing of the later bins in winter (rank correlation 0.6), barely
+  in the mid season (0.3: its last tenth is late October, most of its
+  bins April and May), not in summer.
 - The room preset's humidity σ and drift are first guesses, not
   measured: triple collocation needs three humidity series in a
   location.

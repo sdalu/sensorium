@@ -10,6 +10,7 @@ class TrackerCadenceTest < Minitest::Test
     include TrackerHelpers
 
     READ = 300
+    SPAN = 12 * 3600
 
     def test_the_same_fused_twice_moves_nothing
         fused = fusion.location("room", moment(0, { "tado" => 19.3 }))
@@ -23,22 +24,26 @@ class TrackerCadenceTest < Minitest::Test
         assert_equal fused_every(60), fused_every(READ)
     end
 
-    def test_a_step_is_flagged_after_as_many_readings_at_any_cadence
-        [60, READ].each do |every|
+    # The CUSUM takes the innovations by blocks of time, not by
+    # updates: the step is flagged at the same reading at any cadence,
+    # within six hours of it.
+    def test_a_step_is_flagged_at_the_same_reading_at_any_cadence
+        firsts = [60, READ].map do |every|
             states = states_every(every)
-            first = states.index { |_, state| state == :jumped }
-            refute_nil first, "every #{every} s"
-            assert_equal 3, states.first(first + 1).map(&:first).uniq
-                                  .count { it >= 3600 }, "every #{every} s"
+            states.find { |_, state| state == :jumped }&.first
         end
+        refute_nil firsts.first
+        assert_equal firsts.first, firsts.last
+        assert_operator firsts.first, :<=, 3600 + (6 * 3600)
     end
 
     private
 
-    # tado's [reading time, state] after each fusion, two hours long.
+    # tado's [reading time, state] after each fusion, twelve hours
+    # long.
     def states_every(every)
         tracks = {}
-        (0...7200).step(every).map do |second|
+        (0...SPAN).step(every).map do |second|
             tracks = tracker.update(tracks, at(second))
             [(second / READ) * READ, tracks[%w[room tado]].state]
         end

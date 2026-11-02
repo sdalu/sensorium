@@ -66,12 +66,15 @@ module StoreBehaviour
 
     private
 
+    # A track in the middle of a block of four readings.
     def track(state, device: "tado", at: FakeHouse::START)
         Sensorium::Track.new(location: "room", device:,
                              quantity: "temperature", regime: "winter",
                              reference: "ceil", constant: -1.0, plain: -1.0,
                              delta: 0.125, variance: 0.0025, cusum_up: 1.5,
-                             cusum_down: 0.0, at:, state:)
+                             cusum_down: 0.0, block_sum: 0.375,
+                             block_noise: 0.25, block_count: 4,
+                             block_at: at - 3600, at:, state:)
     end
 
     def learned = Winter.learned
@@ -112,6 +115,28 @@ class SequelStoreTest < Minitest::Test
         refute db.table_exists?(:sensor_locations)
     end
 
+    def test_a_learnings_block_shares_come_back
+        keep(learned)
+        assert(learned.offsets.all?(&:block_share))
+        assert_equal learned.offsets.map(&:block_share).sort,
+                     @store.offsets("temperature").map(&:block_share).sort
+    end
+
+    # Tables made before the blocks: opened with migrate, they get the
+    # columns, and a track kept before them starts a block afresh.
+    def test_tables_made_before_the_blocks_get_their_columns
+        db = Sequel.sqlite
+        Sensorium::Store::Sequel.new(db)
+        older(db)
+        db[:sensor_tracks].insert(old_row)
+        store = Sensorium::Store::Sequel.new(db)
+        assert_includes db.schema(:sensor_offsets).map(&:first), :block_share
+        kept = store.tracks("temperature").fetch(%w[room tado])
+        assert_equal [0.0, 0.0, 0, nil],
+                     kept.to_h.values_at(:block_sum, :block_noise,
+                                         :block_count, :block_at)
+    end
+
     def test_the_tracks_table_can_be_named
         db = Sequel.sqlite
         Sensorium::Store::Sequel.new(db, tables: { tracks: :tracking })
@@ -143,6 +168,22 @@ class SequelStoreTest < Minitest::Test
     end
 
     private
+
+    # The tables as they were before the blocks.
+    def older(db)
+        db.alter_table(:sensor_offsets) { drop_column :block_share }
+        db.alter_table(:sensor_tracks) do
+            %i[block_sum block_noise block_count block_at].each do |name|
+                drop_column name
+            end
+        end
+    end
+
+    def old_row
+        track(:ok).to_h.except(:at, :block_sum, :block_noise, :block_count,
+                               :block_at)
+                  .merge(tracked_at: FakeHouse::START, state: "ok")
+    end
 
     def assert_dst_round_trip(at)
         assert_equal at, track_at(at)

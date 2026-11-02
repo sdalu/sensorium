@@ -24,8 +24,14 @@ module Sensorium
 
                 private
 
+                # A row kept before the blocks (block_count NULL) starts
+                # a block afresh.
                 def track(row)
                     Track.new(**row.slice(*Track.members),
+                              block_sum: row[:block_sum] || 0.0,
+                              block_noise: row[:block_noise] || 0.0,
+                              block_count: row[:block_count] || 0,
+                              block_at: row[:block_at]&.then { wall_utc(it) },
                               at: wall_utc(row[:tracked_at]),
                               state: row[:state].to_sym)
                 end
@@ -36,6 +42,7 @@ module Sensorium
                 # off.
                 def track_row(track)
                     track.to_h.except(:at).merge(tracked_at: track.at.utc,
+                                                 block_at: track.block_at&.utc,
                                                  state: track.state.to_s)
                 end
             end

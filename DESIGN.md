@@ -10,16 +10,52 @@
   not a variance, for the same reason as the medians; the same bins,
   or a neighbour covering fewer of them could win by leaving the rough
   ones out.
-- **And when the bins held out do not deny it.** Terms are chosen on
-  all but the last tenth of the bins and kept only if they leave that
-  tenth no wider, then refitted on everything, as Dynamics are
-  validated. The test is "no more than 5 % wider", not "narrower by a
-  margin": a Switch never on in the last tenth leaves it as it was, and
-  absence of evidence should not undo what the rest of the season
-  showed; the 5 % because a spread over a few hundred correlated bins
-  moves by that much. The
-  last tenth, not a random one: neighbouring bins are correlated, so
-  bins drawn at random would confirm whatever was fitted beside them.
+- **And when the bins held out confirm it, if they can.** Terms are
+  chosen on all but the last tenth of the bins, then refitted on
+  everything, as Dynamics are validated. A term the last tenth can try,
+  what it adds varying over it, is kept only if it leaves that tenth
+  narrower: a model wider than its own plain constant on unseen bins is
+  worse than the fallback it carries, and a neighbour the bins do not
+  confirm makes the sensor depend on another for nothing (one house's
+  mid-season Airzone kept one that left its last tenth 4 % wider). A
+  term the tenth cannot try (a Switch never on in it, or on
+  throughout: a constant there) leaves it as it was, and absence of
+  evidence should not undo what the rest of the season showed: it is
+  kept within 5 %. Not "narrower by a margin": a day's narrowing moves
+  by 13 % on a room recorded over a winter, and the margin would refuse
+  what the season showed for the noise of a few days; the widths carry
+  that noise instead (below). The last tenth, not a random one:
+  neighbouring bins are correlated, so bins drawn at random would
+  confirm whatever was fitted beside them.
+- **A term's widths as the bins held out confirm them.** The narrowing
+  a term claims is measured on the bins it was chosen on, which a
+  sensor's persistent error makes far fewer independent ones than they
+  look (on the recorded room, 270 held-out bins are some 9
+  independent; the 80 % test over 20 days holds about 90). There, a
+  heating term chosen by the data narrowed one sensor's spread by
+  26 % and the ten days after by 10 %: its σ too narrow, var(z) 1.17,
+  the sensor overweighted. So the narrowing of the plain constant's
+  spread the refit on all the bins claims is set against the one
+  confirmed on the bins held out, and when those confirm less, the
+  model's widths are widened by the ratio: its var(z) came back to
+  0.83, the left-out RMS of the others no worse than without the term.
+  The refit's claim, not the one made on the bins chosen on: the
+  widths widened are the refit's, and it claims less, the bins held
+  out among its own; set against the other, two of one house's terms
+  the bins held out confirmed ended wider than their constant. On the
+  house's year, learned on the first part of each regime and measured
+  on the later bins, widths were 12 % too narrow unwidened and 5 % too
+  wide widened. Not a stricter keep test: a term the bins held out
+  only partly confirm is still worth what they confirm, and widening
+  says how much. The plain constant is left as fitted; no term, no
+  ratio.
+- **An Offset's block share, from its own residuals.** The Tracker
+  needs how much a block's mean innovation varies against one's. The
+  residuals of the model learned are what the innovations are made of,
+  less the others' share: their block mean keeps 0.82 to 0.85 of
+  their spread on the recorded room, the innovations' some 0.77; a
+  little wide, so a little slow to flag, and learned with the offset
+  rather than by replaying the Tracker over the span.
 - **The gain and the neighbour fitted together** when both are kept.
   Both regress on the reference's level (r, and r − n), so fitted one
   after the other the second would be biased by the first. The one that
@@ -199,11 +235,10 @@
   either side, so the part is left as it was, unless a witness stands
   in (below).
 - **A slow filter, a CUSUM for jumps.** The gain is kept small so that
-  noise does not move delta: a constant bias takes about a day to be
-  learned at an hourly cadence. A step would then be absorbed over
-  days, the value off all the while, so a two-sided CUSUM on the
-  standardised innovations flags it (k = 0.5, h = 5, the textbook pair
-  for a shift of one innovation σ). A slow ramp the filter keeps up
+  noise does not move delta: a constant bias takes about two days to be
+  learned. A step would then be absorbed over days, the value off all
+  the while, so a two-sided CUSUM flags it (k = 0.5, h = 5, the
+  textbook pair for a shift of one σ of what it runs on). A slow ramp the filter keeps up
   with is said by the drift alarm instead (|delta| past 3 Offset σ,
   cleared under 2). A jumped track stays jumped until a relearn or a
   reset: the Tracker flags, a person or a relearn decides. A jump
@@ -246,8 +281,53 @@
   tracks come in with the Knowledge and go out updated, the previous
   Fused is the caller's, so a Tick is a function of what it is given
   and a store stays the one place the tracks live. Until a part is
-  flagged it still counts in the others' fusion, and leaks a little
-  into their deltas.
+  the suspect (below) it still counts in the others' fusion, and leaks
+  a little into their deltas.
+- **Blocks of three hours, not readings.** A sensor's error persists
+  for hours: on the recorded room its innovations correlate at 0.5 an
+  hour apart and 0.91 ten minutes apart. A CUSUM built for independent
+  innovations then false-alarms within hours (for an AR(1) of 0.91, the
+  mean run before a false alarm falls from some 440 steps to 43, seven
+  hours at ten minutes); it flagged a wall sensor 6 to 11 hours into
+  ten held-back days, and every part at ten-minute updates, with no
+  step there, and once one part is out the two others stand aside.
+  So the innovations are taken by blocks of `cusum_block`, about the
+  time they take to decorrelate: the CUSUM runs on each block's mean,
+  standardised by the Offset's block share, and k and h keep their
+  meaning, one σ of a block. The same ten days: no part flagged, at
+  either cadence; steps of 1, 2 and 3 Offset σ put into the readings
+  flagged after 20, 8 and 5 hours at ten minutes (37, 10, 4 hourly).
+  Blocks by time also make the alarm the same at any cadence, where a
+  sensor reporting every five minutes got twice the CUSUM steps, and
+  twice the false alarms, of one reporting every ten.
+- **The Kalman step by blocks too.** Counted reading by reading, the
+  same correlated innovations teach delta as if each were news: at
+  five-minute readings a 3σ step was half taken into delta within
+  eight hours, before any CUSUM over blocks could see it, and never
+  flagged. Each reading now only walks the variance; a closed block's
+  mean, its noise the mean reading's times the block share squared,
+  is one Kalman step, taken after the CUSUM has seen it. delta then
+  learns as fast at any cadence, and `track_q` doubles, to (σ/2)² in
+  half a day: the old value was tuned while readings counted as
+  independent, and halving the evidence halved the speed (a ramp of
+  0.004 °C/h, drifting before, jumped).
+- **The block under way, and a lone reading, count.** A step in the
+  middle of a block is diluted by the readings before it; the block
+  under way counts as if it closed now, its mean taken to vary as one
+  reading (a mean of positively correlated readings varies no more),
+  and a reading alone beyond h + k is a jump: a step far beyond the
+  noise is flagged at once, a reference's 1 °C at its first reading.
+- **The suspect.** Until a step is flagged, the others take it in: a
+  reference stepping 5 σ, flagged after seven hours, left a third of
+  it in an Airzone's delta, and with the reference out nothing takes
+  it back before a relearn. So the part whose CUSUM is the highest,
+  once past half of h, is left out of every other part's truth: the
+  others no longer learn from it, and the leak fell to nothing.
+  Only the highest: a reference's step pushes every part's CUSUM, and
+  leaving all of them out of one another left none with two others,
+  nothing updated, nothing flagged. And the suspect still learns:
+  holding its delta turned a real bias into a jump, the CUSUM climbing
+  on what the delta was not allowed to take in.
 
 ## Staleness
 
@@ -293,6 +373,12 @@
   `Store::Sequel` creates its tables when missing, with names the
   caller chooses; a caller with its own schema creates them alike and
   passes `migrate: false`.
+- **A column added later is added by `migrate`, and nullable.** The
+  blocks brought five (`Schema::ADDED`); a store opened with
+  `migrate: true` adds those its tables lack, and a row kept before
+  them reads as a block not begun. Earlier additions were left to the
+  caller, which a house's tables, migrated by hand, could not keep up
+  with unaided.
 - **No column is named `group` or `condition`**: both are reserved in
   MySQL and MariaDB. Hence location, and influence.
 - **Names are Strings**: an SQL store gives them back as Strings, so a
@@ -331,3 +417,32 @@
 - **Learning the shift over the full model**: it needs the neighbour at
   the run's bins, and falls back to the plain offset when it is
   missing.
+- **Scaling each innovation by its long-run variance** (z / √f, f the
+  autocorrelation's sum): no false alarm, but the smallest step
+  flagged grows to k√f, about 2 innovation σ at ten minutes, and the
+  faster the cadence the larger f: a step of 1.9 σ was never flagged.
+- **Prewhitening the innovations** (an AR(1) taken out): a level
+  shift becomes one pulse of its size and a tail of a tenth, which no
+  CUSUM sees; the false alarm on the recorded room stayed.
+- **Counting `min_part` and the held-out bins in independent ones.**
+  At the recorded room's correlation it would take three weeks of bins
+  per term, and the count depends on the model it gates. The widths a
+  term keeps are widened instead (Learning).
+- **A held-out test by day** (a term kept when it narrows on most
+  days held out): the recorded room holds out two days, where a median
+  of days is their mean; untried until a learning holds out more.
+- **Learning on fresh bins only** (`carry: 0`), or weighting a bin by
+  its reading's age: 94 % of the bins hold a reading of their own, and
+  the correlation is the room's, not the carry's.
+- **A complementary filter** (the level from a slow sensor, the
+  changes from a fast one): 0.30 °C against the inverse-variance
+  fusion's 0.21; the best weights by time scale, 0.210 against 0.213.
+- **A time-of-day term**, or one on the sun's elevation: a radiator
+  valve's sensor keeps a daily swing (a quarter of its variance), and
+  sin/cos of the hour narrow it by a quarter on held-back days, but on
+  the days it was fitted on less than the 80 % asks.
+- **Segmenting the history at change points** before learning: on the
+  recorded room the one level change found was the heating's weather,
+  and learning on the last segment made the σ too narrow.
+- **A `track_q` estimated from the innovations** (Mehra): they are
+  never white, whatever q, the daily cycle in them; no optimum exists.
