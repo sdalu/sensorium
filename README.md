@@ -171,19 +171,25 @@ others (`states`, `{ "name:high" => [p10, p90, median], "name:low" =>
 [p10, p90, median] }`), each when it has `min_part` bins. A filtered
 Switch is on over its hard hold.
 
-The influences a `Setup` names:
+The influences a `Setup` names, each told by what follows its name and
+learned as what follows the arrow:
 
-| influence              | told by                                                                            | learned as                                                    |
-| ---------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `Influence::Switch`    | events, on when true or positive                                                   | a term while on (`hold` after), or × its exposure with `tau:` |
-| `Influence::Series`    | events with numeric values, mean per bin, carried `hold`                           | coefficient × value                                           |
-| `Influence::Threshold` | nothing: the location's reference, as it reads, above `above` within `hold`        | a term while on                                               |
-| `Influence::Mode`      | events with a value                                                                | left out, a `Shift` per value                                 |
-| `Influence::Transient` | nothing: each sensor's own series against its reference, and its transient profile | left out (`hold` after), no `Shift`                           |
+- `Influence::Switch`: events, on when true or positive → a term while
+  on (`hold` after), or × its exposure with `tau:`.
+- `Influence::Series`: events with numeric values, mean per bin,
+  carried `hold` → coefficient × value.
+- `Influence::Threshold`: nothing; the location's reference, as it
+  reads, above `above` within `hold` → a term while on.
+- `Influence::Mode`: events with a value → left out, a `Shift` per
+  value.
+- `Influence::Transient`: nothing; each sensor's own series against its
+  reference, and its transient profile → left out (`hold` after), no
+  `Shift`.
 
 ```ruby
 solar   = Sensorium::Influence::Series.new(name: "solar", hold: 1800)
-heating = Sensorium::Presets::HEATING.with(tau: Sensorium::Influence::TAUS)
+heating = Sensorium::Presets::HEATING
+              .with(tau: Sensorium::Influence::TAUS)
 setup   = Sensorium::Presets.room.with(
     influences: [heating, Sensorium::Presets::AIRCON, solar]
 )
@@ -244,13 +250,13 @@ learned term explains. A sensor's **transient profile** says how far
 it usually moves over a window; a change far outside it is an event.
 
 ```ruby
-profiles = Sensorium::Transient.learn(source, setup, from:, to:,
-                                      locations: store.locations("temperature"))
+locations = store.locations("temperature")
+profiles  = Sensorium::Transient.learn(source, setup, from:, to:,
+                                       locations:)
 store.keep_transients("temperature", profiles)
 
-detector = Sensorium::Transient::Detector.new(
-    setup, profiles:, locations: store.locations("temperature")
-)
+detector = Sensorium::Transient::Detector.new(setup, profiles:,
+                                              locations:)
 detector.events(snapshot)
 # [Transient::Event(location, device, direction (:fall or :rise), z,
 #                   window, at)]
@@ -300,23 +306,26 @@ Shifts, as a Mode's are; a transient has no Shift of its own. It is
 opt-in: the room preset leaves it out (DESIGN.md, Transients).
 
 ```ruby
-setup = Sensorium::Presets.room
-setup = setup.with(influences: setup.influences +
-                                   [Sensorium::Influence::Transient.new])
+transient = Sensorium::Influence::Transient.new
+setup     = Sensorium::Presets.room
+setup     = setup.with(influences: setup.influences + [transient])
 ```
 
-| `Setup` setting     | default                                          |
-| ------------------- | ------------------------------------------------ |
-| `transient_windows` | [600, 1200] s                                    |
-| `transient_rate`    | 0.2 false alarms a day, per window and direction |
+| `Setup` setting     | default                                        |
+| ------------------- | ---------------------------------------------- |
+| `transient_windows` | [600, 1200] s                                  |
+| `transient_rate`    | 0.2 false alarms/day, per window and direction |
 
 ## Fusing
 
 ```ruby
 snapshot = Sensorium::Snapshot.from(source, setup, at: Time.now)
-fusion   = Sensorium::Fusion.new(setup, offsets: store.offsets("temperature"),
-                                        shifts: store.shifts("temperature"),
-                                        locations: store.locations("temperature"))
+fusion   = Sensorium::Fusion.new(
+    setup,
+    offsets: store.offsets("temperature"),
+    shifts: store.shifts("temperature"),
+    locations: store.locations("temperature")
+)
 fused = fusion.location("green-room", snapshot)
 fused.value       # °C, corrected to the reference
 fused.sigma       # one σ
@@ -461,10 +470,13 @@ rule.
 setup = Sensorium::Presets.room.with(outside: "outside")
 models = Sensorium::Dynamics.learn(source, setup, from:, to:)
 store.keep_dynamics("temperature", models)
-fusion = Sensorium::Fusion.new(setup, offsets: store.offsets("temperature"),
-                                      shifts: store.shifts("temperature"),
-                                      locations: store.locations("temperature"),
-                                      dynamics: store.dynamics("temperature"))
+fusion = Sensorium::Fusion.new(
+    setup,
+    offsets: store.offsets("temperature"),
+    shifts: store.shifts("temperature"),
+    locations: store.locations("temperature"),
+    dynamics: store.dynamics("temperature")
+)
 ```
 
 `Dynamics.learn` takes the location's reference as the learner does
@@ -511,7 +523,8 @@ taken into the transform's space at the reading (2 %RH is some
 may be dead.
 
 ```ruby
-store.set_location("temperature", "green-room", { deltas: { "hue-1" => 0.2 } })
+store.set_location("temperature", "green-room",
+                   { deltas: { "hue-1" => 0.2 } })
 ```
 
 ## Relearning
@@ -528,12 +541,13 @@ rate once, for all four. Given the profiles (`transients:`), the
 Learner does not learn them again for an `Influence::Transient`.
 
 ```ruby
-history  = Sensorium::History.load(source, setup, from:, to:,
-                                   locations: store.locations("temperature"))
-profiles = Sensorium::Transient.learn(source, setup, history:)
-learned  = Sensorium::Learner.new(source, setup, history:,
-                                  transients: profiles).learn
-models   = Sensorium::Dynamics.learn(source, setup, history:)
+locations = store.locations("temperature")
+history   = Sensorium::History.load(source, setup, from:, to:,
+                                    locations:)
+profiles  = Sensorium::Transient.learn(source, setup, history:)
+learned   = Sensorium::Learner.new(source, setup, history:,
+                                   transients: profiles).learn
+models    = Sensorium::Dynamics.learn(source, setup, history:)
 collocations = Sensorium::Collocation.learn(source, setup, history:,
                                             offsets: learned.offsets)
 ```
@@ -548,9 +562,10 @@ anything answering `value` and `sigma`: a `Fused`, an `Estimate`, a
 `Blended`.
 
 ```ruby
-rooms   = fusion.locations(snapshot).to_h { [it, fusion.location(it, snapshot)] }
-blended = Sensorium::Blend.new({ "downstairs" => 0.8, "green-room" => 0.2 })
-                          .of(rooms)
+rooms   = fusion.locations(snapshot)
+                .to_h { [it, fusion.location(it, snapshot)] }
+weights = { "downstairs" => 0.8, "green-room" => 0.2 }
+blended = Sensorium::Blend.new(weights).of(rooms)
 blended.value     # the weighted mean
 blended.sigma     # √Σ (w / W)² σ², nil if one that counts has none
 blended.shares    # { key => Share(weight, value, sigma) }
@@ -608,6 +623,34 @@ tado        ceil, Airzone          wall left out
 Airzone     ceil, tado             wall left out
 ```
 
+In a room of three, a part out (a suspect, a jump) leaves the two
+others with one each, and a room of two has no more:
+
+```text
+ceil the reference, no witness; each part, its others, and whether
+its track is updated
+
+                  part   its others   updated
+room of three     ceil   wall, tado   yes
+                  wall   ceil, tado   yes
+                  tado   ceil, wall   yes
+
+wall the suspect  ceil   tado         no: a sensor alone
+                  wall   ceil, tado   yes
+                  tado   ceil         yes: against its reference
+
+tado jumped       ceil   wall         no: a sensor alone
+                  wall   ceil         yes: against its reference
+                  tado   ceil, wall   the return test
+
+ceil jumped       ceil   wall, tado   the return test
+                  wall   tado         no: two sensors
+                  tado   wall         no: two sensors
+
+room of two       ceil   wall         no: a sensor alone
+                  wall   ceil         yes: against its reference
+```
+
 A sensor's error persists for hours (the sun on a wall, a radiator's
 cycle), so its successive innovations are not independent: counted one
 by one, they would teach delta, and push a CUSUM, as if each were news.
@@ -658,8 +701,9 @@ is usually as wide as the room's sensors' spread against it, not its
 instrument's σ: its innovations are judged with the smallest σ of the
 location's Offsets (the tightest bounds the reference's own
 excursions), or with its own σ (the location's, the quantity's by
-default) where that is wider. Its fingerprint is the regime and the
-location's references ("a+b"), constant and plain nil.
+default) where that is wider, and its block means are standardised by
+the largest `block_share` of those Offsets. Its fingerprint is the
+regime and the location's references ("a+b"), constant and plain nil.
 
 The alarms:
 
@@ -677,12 +721,13 @@ The alarms:
   then restarts as the return test below.
 - **back to ok**: while jumped, the track's delta and variance are
   held as they were at the jump, and each closed block goes to a
-  return CUSUM, the jump's mirrored: `cusum_up` = max(0, `cusum_up` +
-  k − z̄), `cusum_down` = max(0, `cusum_down` + k + z̄). A side climbs
-  only while the error is back on its side of the delta held; both
-  above h, the error is within k of it, with the evidence a jump
-  takes, and the track is ok again, its CUSUM restarted. That takes
-  ten blocks (30 h) at least. Otherwise it stays jumped until its
+  return CUSUM, the jump's mirrored: `cusum_up` + k − z̄ and
+  `cusum_down` + k + z̄, each held between 0 and h + k. A side climbs
+  only while the error is back on its side of the delta held, and the
+  time the error spent away counts for no more than one block of
+  being back; both above h, the error is within k of it, with the
+  evidence a jump takes, and the track is ok again, its CUSUM
+  restarted. That takes eleven blocks (33 h) at least. Otherwise it stays jumped until its
   offset is relearned or `Tracker#reset` drops it.
 - **drifting**: |delta| above `drift_alarm` × the offset's σ; back to
   ok under `drift_clear` × σ. Not for a reference.
@@ -707,12 +752,12 @@ a reading      |z| above h + k                  jumped at once
 the return CUSUM of a jumped track, at each closed block, z its
 mean innovation standardised against the delta held (illustrative)
 
-  up = max(0, up + k - z)        down = max(0, down + k + z)
+  up = up + k - z,  down = down + k + z,  each held in 0 .. h + k
 
 the error still away, z = +2 at each block:
   block       1     2     3     4     5   ...
   up          0     0     0     0     0   never climbs: jumped
-  down      2.5   5.0   7.5  10.0  12.5
+  down      2.5   5.0   5.5   5.5   5.5   held at h + k
 
 the error back at the delta held, z = 0 at each block:
   block       1     2     3   ...    10    11
@@ -783,10 +828,12 @@ for 30 hours at least, until the return CUSUM clears it. Without
 profiles or snapshot, it tracks as before.
 
 ```ruby
-tracker  = Sensorium::Tracker.new(setup, offsets:,
-                                  dynamics: store.dynamics("temperature"),
-                                  locations: store.locations("temperature"),
-                                  transients: store.transients("temperature"))
+tracker  = Sensorium::Tracker.new(
+    setup, offsets:,
+    dynamics: store.dynamics("temperature"),
+    locations: store.locations("temperature"),
+    transients: store.transients("temperature")
+)
 tracks   = tracker.update(tracks, fused, previous:, snapshot:)
 previous = fused                                # made with the tracks
 ```
@@ -882,12 +929,13 @@ the humidity by several g/m³ in minutes; give such a room a wider
 The learner and `Snapshot.from` read the history from any object that
 answers, for a quantity's name:
 
-| method                                  | returns                                                                  |
-| --------------------------------------- | ------------------------------------------------------------------------ |
-| `sensors(quantity)`                     | `[Sensor]`: name, location, tags, whether it may be a neighbour          |
-| `readings(quantity, from, to, devices)` | `[Reading]`: time, location, device, value, context; devices nil for all |
-| `externals(quantity, from, to)`         | `[Reading]` with location nil (optional)                                 |
-| `events(influence, from, to)`           | `[[time, location, value]]` (optional)                                   |
+- `sensors(quantity)`: `[Sensor]`, its name, location, tags and
+  whether it may be a neighbour.
+- `readings(quantity, from, to, devices)`: `[Reading]`, its time,
+  location, device, value and context; `devices` nil for all.
+- `externals(quantity, from, to)`, optional: `[Reading]` with location
+  nil.
+- `events(influence, from, to)`, optional: `[[time, location, value]]`.
 
 A reading's time is when its value was last known to hold. A sensor
 that reports only changes (HomeKit) holds a steady value for hours: its
@@ -906,30 +954,32 @@ missing unless `migrate: false`. The Tracker's tracks, the dynamics
 models, the collocations and the transient profiles are kept in four
 more tables (`sensor_tracks`, `tables: { tracks: }`;
 `sensor_dynamics`, `tables: { dynamics: }`; `sensor_collocations`,
-`tables: { collocations: }`; `sensor_transients`, `tables: {
-transients: }`), which a caller with its own schema creates too, as
-`Store::Sequel::Schema` does. An offset's maps (switches, taus,
-series, states) are kept as JSON, as are a location's `deltas`, a
-dynamics model's `b`, a collocation's `sigmas` and a profile's `own`
-and `relative` thresholds (`{ "600": [fall, rise] }`). Tables made before
-the survey rounds lack six columns of `sensor_offsets`: `taus`,
-`series` and `states` (text), `rate`, `off_p10` and `off_p90` (float),
-and `sensor_locations` lacks `deltas` (text); a caller with its own
-schema adds them. Tables made before the blocks lack `block_share`
-(float) in `sensor_offsets`, and `block_sum`, `block_noise` (float),
-`block_count` (integer) and `block_at` (time) in `sensor_tracks`:
-opened with `migrate: true`, a store adds them; a caller with its own
-schema adds them itself. A track kept before them starts its block
-afresh. A caller whose tables name their columns its own
-way says so with `columns:`, sensorium's name to its own, the same in
-every table (`columns: { location: :zone, device: :sensor }`); a name
-that is no column of the store's, or two columns given one name, is
-refused. Another store answers the same fifteen methods (see
+`tables: { collocations: }`; `sensor_transients`,
+`tables: { transients: }`), which a caller with its own schema creates
+too, as `Store::Sequel::Schema` does. An offset's maps (switches,
+taus, series, states) are kept as JSON, as are a location's `deltas`,
+a dynamics model's `b`, a collocation's `sigmas` and a profile's
+`own` and `relative` thresholds (`{ "600": [fall, rise] }`).
+
+Tables made before the survey rounds lack six columns of
+`sensor_offsets`: `taus`, `series` and `states` (text), `rate`,
+`off_p10` and `off_p90` (float), and `sensor_locations` lacks `deltas`
+(text); a caller with its own schema adds them. Tables made before the
+blocks (0.2.0) lack `block_share` (float) in `sensor_offsets`, and
+`block_sum`, `block_noise` (float), `block_count` (integer) and
+`block_at` (time) in `sensor_tracks`: opened with `migrate: true`, a
+store adds them; a caller with its own schema adds them itself. A
+track kept before them starts its block afresh.
+
+A caller whose tables name their columns its own way says so with
+`columns:`, sensorium's name to its own, the same in every table
+(`columns: { location: :zone, device: :sensor }`); a name that is no
+column of the store's, or two columns given one name, is refused.
+Another store answers the same fifteen methods (see
 `lib/sensorium/store/memory.rb`), and `knowledge(quantity)` from them
 by including `Store::Knowing`. A time `Store::Sequel` keeps
-(`learned_from`, `learned_to`, `learned_at`, `tracked_at`,
-`block_at`) is stored
-and read back as UTC, whether Sequel converts times (a
+(`learned_from`, `learned_to`, `learned_at`, `tracked_at`, `block_at`)
+is stored and read back as UTC, whether Sequel converts times (a
 `database_timezone` set, as an application in local time with a UTC
 session does) or not, and independently of the database's own
 timezone setting: the columns may be DATETIME or TIMESTAMP.

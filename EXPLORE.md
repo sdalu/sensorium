@@ -39,7 +39,6 @@ a Tick every ten minutes), read-only.
    correction until the next relearn drops it (once on the year:
    downstairs Airzone, early February, 2.5 σ for a fortnight). No
    principled cap helped; worth watching in production.
-
 6. **Two sensors left without their reference** still stand still
    until a relearn, a reset or a jump clearing: their disagreement
    cannot be put on either. Only a witness would move them, and with
@@ -57,7 +56,11 @@ a Tick every ten minutes), read-only.
 
 ## Tried and dropped
 
-So that nobody tries them again; DESIGN.md gives the reasons:
+So that nobody tries them again; the reasons are in brackets or in
+DESIGN.md, but for quantisation handling, despiking, other bin widths,
+a GLR test and robust Kalman updates, whose reasons no document
+records:
+
 - splitting the mid regime into spring and autumn; raising the 80 % keep
   threshold; keeping every confirmed term at the refit; a held-out test
   by day or by forward folds (on the year, none gained beyond its

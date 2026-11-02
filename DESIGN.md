@@ -1,5 +1,8 @@
 # Design
 
+Why sensorium is shaped as README.md describes, section by section in
+the README's order; what was tried and dropped is under Ruled out.
+
 ## Learning
 
 - **Medians for the constant and the switch terms**, least squares
@@ -243,6 +246,44 @@
   the shared error from one σ to another rather than accounting for
   it, so it stays a measurement.
 
+## Staleness
+
+- **A first-order ARX of the reference, per location and regime**: one
+  state driven by the gap to the outside, each Switch's on-state and a
+  constant, the discrete form of a one-resistance, one-capacitance
+  room. Its inputs are what the learner reads; it is fitted in closed
+  form, and refused when a < 0 (a room running away from the outside
+  is not a room) or seen too little.
+- **Every Switch by its hard hold**: the room's own time constant
+  filters it already, and a filtered Switch's τ was chosen for a
+  sensor's offset, not for the room. A Switch never off, or never on,
+  in a regime is left out: its column would be the constant's.
+- **Without the bins under a Mode, and not applied under one**: the
+  aircon drives the room far more than anything the model has.
+- **Priors as numbers, not physics.** A room's time constant and
+  heating gain follow from its walls, volume and ventilation, but those
+  are a building's, not a sensor's, and the method that turns them
+  into numbers is a country's: sensorium takes the result, a Gaussian
+  prior per coefficient, added to the least squares, and leaves where
+  it comes from to the caller.
+- **Kept only when it beats holding the last value** by
+  `dynamics_margin`, two hours ahead, on the last tenth of its steps
+  held out: rooms whose model wins or loses by a few thousandths are
+  noise, not a model.
+- **q from an hour ahead, not from one step.** The carried series is
+  steady between reports, so its steps are far from independent; q is
+  the mean square of the error of predicting an hour ahead, as the
+  fusion does.
+- **Only the time update, applied per reading.** No fused state is
+  kept between calls: the fusion stays a function of the snapshot. The
+  change is the model stepped over the reading's age, in closed form
+  (an approach to the equilibrium the inputs hold the room at), so it
+  holds at any age, and the validation forecasts the same way.
+- **Send-on-delta as a cap, not a model.** A value that has not moved
+  by its delta is within ±delta of the truth; spread evenly there its
+  variance is delta² / 3. `max_age` still cuts: without a heartbeat,
+  silence cannot be told from a dead sensor.
+
 ## Blending
 
 - **Blending is not fusion.** Fusion estimates one location's truth
@@ -303,11 +344,18 @@
   innovations shifted by the size it is tuned for; the same evidence
   mirrored clears it. While jumped, delta and variance are held, the
   part is still scored without counting, and the CUSUM runs as the
-  return test (up += k − z, down += k + z): both sides above h, at
-  least h / k = 10 blocks (30 h) of the error back, and it is ok
-  again. No new constant. On MadHouse's year every false jump the
+  return test (up += k − z, down += k + z, each held between 0 and
+  h + k): both sides above h, at least eleven blocks (33 h) of the
+  error back, and it is ok again. No new constant. The ceiling is
+  what keeps "back" meaning back: without it the side facing away
+  climbed for as long as the error stood away, so an error that came
+  back and overshot cleared within a block or two, and one settling
+  a σ off cleared for good (found in 0.4.1 by a test, not on the
+  year). On MadHouse's year every false jump the
   Tracker had flagged cleared, in about 2 days (median) instead of at
-  the monthly relearn; both real steps stayed flagged while their
+  the monthly relearn (64 h on 0.4.1's replay, with the ceiling below
+  and the rooms of two tracked; the fastest clear 22 h, where 0.4.0's
+  was 14); both real steps stayed flagged while their
   error stood, and the time to a first jump was unchanged at every
   start. The limit: the delta held is the one at the jump,
   which has taken in part of a step during the detection delay, so
@@ -323,10 +371,11 @@
   instrument's σ but the scatter the learning measured: the tightest
   Offset σ of the location bounds the reference's own excursions
   against the room. A reference's innovations are judged with the
-  larger of its σ and that tightest Offset σ; the quantity's σ stays
-  the floor. On MadHouse's year the hours a reference spent jumped
-  fell from 4946 to 982, and one real divergence is now blamed on the
-  right sensor. The cost: a reference step smaller than about the
+  larger of its σ and that tightest Offset σ; its own σ (the
+  location's, the quantity's by default) stays the floor. On
+  MadHouse's year the hours a reference spent jumped fell from 4946
+  to 982, and one real divergence is now blamed on the right sensor.
+  The cost: a reference step smaller than about the
   room's tightest Offset σ is not flagged (on the recorded room, steps
   of 0.10 and 0.15 °C, caught before at 4 and 6 of 16 starts after
   days, now at none); and in a room whose third sensor is noisy, which
@@ -377,7 +426,9 @@
   mean run before a false alarm falls from some 440 steps to 43, seven
   hours at ten minutes); it flagged a wall sensor 6 to 11 hours into
   ten held-back days, and every part at ten-minute updates, with no
-  step there, and once one part is out the two others stand aside.
+  step there, and once one part was out the two others stood aside
+  (before 0.4.0; a sensor beside its reference is now judged against
+  it alone).
   So the innovations are taken by blocks of `cusum_block`, about the
   time they take to decorrelate: the CUSUM runs on each block's mean,
   standardised by the Offset's block share, and k and h keep their
@@ -406,7 +457,10 @@
   reading (a mean of positively correlated readings varies no more),
   and a reading alone beyond h + k is a jump: a step far beyond the
   noise is flagged at once, a reference's 1 °C at its first reading
-  where its room's offsets are no wider than the quantity's σ.
+  where its room's offsets are no wider than the quantity's σ. Two
+  later rounds narrow both (below): the block under way counts toward
+  a jump for its share of a block, and a lone reading only against
+  two others or more.
 - **Against a single other, no lone reading is a jump.** The
   lone-reading rule is the Fusion's robustness lent to the Tracker:
   against two others or more, the truth's σ carries their disagreement
@@ -445,44 +499,6 @@
   from, so a stale suspect level locked the room. Letting the suspect
   count where leaving it out leaves one other was rejected: that is
   the leak the suspect rule exists against.
-
-## Staleness
-
-- **A first-order ARX of the reference, per location and regime**: one
-  state driven by the gap to the outside, each Switch's on-state and a
-  constant, the discrete form of a one-resistance, one-capacitance
-  room. Its inputs are what the learner reads; it is fitted in closed
-  form, and refused when a < 0 (a room running away from the outside
-  is not a room) or seen too little.
-- **Every Switch by its hard hold**: the room's own time constant
-  filters it already, and a filtered Switch's τ was chosen for a
-  sensor's offset, not for the room. A Switch never off, or never on,
-  in a regime is left out: its column would be the constant's.
-- **Without the bins under a Mode, and not applied under one**: the
-  aircon drives the room far more than anything the model has.
-- **Priors as numbers, not physics.** A room's time constant and
-  heating gain follow from its walls, volume and ventilation, but those
-  are a building's, not a sensor's, and the method that turns them
-  into numbers is a country's: sensorium takes the result, a Gaussian
-  prior per coefficient, added to the least squares, and leaves where
-  it comes from to the caller.
-- **Kept only when it beats holding the last value** by
-  `dynamics_margin`, two hours ahead, on the last tenth of its steps
-  held out: rooms whose model wins or loses by a few thousandths are
-  noise, not a model.
-- **q from an hour ahead, not from one step.** The carried series is
-  steady between reports, so its steps are far from independent; q is
-  the mean square of the error of predicting an hour ahead, as the
-  fusion does.
-- **Only the time update, applied per reading.** No fused state is
-  kept between calls: the fusion stays a function of the snapshot. The
-  change is the model stepped over the reading's age, in closed form
-  (an approach to the equilibrium the inputs hold the room at), so it
-  holds at any age, and the validation forecasts the same way.
-- **Send-on-delta as a cap, not a model.** A value that has not moved
-  by its delta is within ±delta of the truth; spread evenly there its
-  variance is delta² / 3. `max_age` still cuts: without a heartbeat,
-  silence cannot be told from a dead sensor.
 
 ## Stores and names
 
