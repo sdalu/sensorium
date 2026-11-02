@@ -24,7 +24,7 @@ module Sensorium
 
             # Whether tried leaves the bins held out no wider than kept,
             # each as the correction's (over its model's scale, as
-            # Fit#ratio), over the bins both cover: narrower, when they
+            # Fit#ratio), over the bins both cover: no wider at all, when they
             # try the term (tries?); within TOLERANCE when they cannot.
             def keeps?(kept, tried)
                 bound = tries?(kept, tried) ? 1.0 : TOLERANCE

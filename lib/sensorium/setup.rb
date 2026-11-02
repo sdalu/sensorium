@@ -19,7 +19,8 @@ module Sensorium
     #   min_part    bins each side of a Switch needs (100, likewise), and
     #               the fewest an offset's terms are held out on
     #               (Fit::Validated)
-    #   narrows     a term is kept when it narrows the spread to this
+    #   narrows     a term is kept when it narrows the correction's
+    #               spread to this
     #   covers      share of the bins a neighbour must cover
     #   gain        whether a gain term is tried
     #   rate        whether a term on the reference's rate (dr/dt) is

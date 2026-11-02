@@ -35,13 +35,15 @@ For every sensor of a location, bin by bin (`Setup#bin`, 10 minutes by
 default), the learner
 models the gap to the location's reference r:
 
-    sensor - r = constant
-               + Σ switch terms (each while its Switch is on,
-                                 or × its exposure when filtered)
-               + Σ series coefficients × their values
-               + gain × r
-               + coefficient × (r - neighbour)
-               + rate × dr/dt
+```text
+sensor - r = constant
+           + Σ switch terms (each while its Switch is on,
+                             or × its exposure when filtered)
+           + Σ series coefficients × their values
+           + gain × r
+           + coefficient × (r - neighbour)
+           + rate × dr/dt
+```
 
 - **constant**: the median gap.
 - **switches**: an influence that is on or off (the radiators' water
@@ -58,21 +60,50 @@ models the gap to the location's reference r:
 - **gain**: the sensor reads a share too high or too low. Fitted as a
   Deming line, the reference read with an error of its quantity's σ.
 - **neighbour**: the sensor also follows another place: another
-  location's sensor, or an external series (the outside). The one that
-  fits best is chosen from the data.
+  location's sensor, or an external series (the outside); or, with a
+  coefficient above 0, the neighbour stands in for what drives the
+  sensor's error. The one that fits best is chosen from the data.
 - **rate**: the sensor is slower than the reference and lags it on
   every change (dr/dt per hour, `Setup#rate`).
 
-Each term is kept only if it narrows the spread of what is left
-(p10..p90) to 80 % of what it was, both measured over the bins the term
-covers. The terms are chosen without the last tenth of a sensor's bins
-(100 at least, `min_part`), and a term is kept only if those bins
-confirm it: when what it adds varies over them (a neighbour, a series,
-a Switch that switches there), it must leave them narrower than the
-model before it; when it adds a constant there (a Switch never on in
-them, or on throughout), they cannot tell, and it must leave them no
-more than 5 % wider. The terms kept are then fitted again on all the
-bins. What the terms narrow is measured on the bins they were chosen
+Each term is kept only if it narrows the spread (p10..p90) of the
+correction to 80 % of what it was, both measured over the bins the
+term covers: what the model leaves over |1 + gain + coefficient|, the
+scale a correction divides by (`Fit::Model#scale`, below). A neighbour
+with a coefficient of −0.4 that narrows the gap to 70 % widens the
+correction to 117 % and is refused; one of +0.6 that narrows the gap
+to 90 % narrows the correction to 56 % and is kept. The terms are
+chosen without the last tenth of a sensor's bins (100 at least,
+`min_part`), and a term is kept only if those bins confirm it, their
+correction's spread measured the same way: when what it adds varies
+over them (a neighbour, a series, a Switch that switches there), it
+must leave them no wider than the model before it; when it adds a
+constant there (a Switch never on in them, or on throughout), they
+cannot tell, and it must leave them no more than 5 % wider. The terms
+kept are then fitted again on all the bins.
+
+```text
+a term tried, against the model before it
+
+               p10..p90 of the correction, what the model leaves
+               over |1 + gain + coefficient|, at both steps
+
+bins fitted    narrows p10..p90 to 80 %? ── no ──▸ refused
+                            │ yes
+last tenth     what it adds varies there?
+held out       (its spread above 1e-9)
+                            │
+                 yes ┌──────┴──────┐ no: it adds a constant
+                     │             │
+                 no wider      within 5 %
+                 (≤ 1.00)      (≤ 1.05)
+                     │             │
+                     └──────┬──────┘
+                            ▾
+               kept if it passes, else refused
+```
+
+What the terms narrow is measured on the bins they were chosen
 on, and those overstate it: a sensor's error persists for hours, so a
 season holds far fewer independent bins than it has. The narrowing of
 the plain constant's spread the refit on all the bins claims is set
@@ -85,12 +116,35 @@ The constant alone is kept too (`plain`, its widths as fitted), the
 fallback when the neighbour, a series' value or dr/dt has no fresh
 value.
 
+```text
+inflation = max(1, narrowing held out / narrowing the refit claims)
+
+                 p10         middle          p90
+as fitted         ├─────────────┼─────────────┤
+widened      ├──────────────────┼──────────────────┤
+             each half × inflation, about the middle
+
+p10..p90, each state's and off_p10..off_p90 are widened;
+plain_p10..plain_p90, the plain constant's, never are
+```
+
 An Offset also keeps its `block_share`: the spread of what its model
 leaves, averaged over blocks of the quantity's `cusum_block` (3 h),
 as a share of its spread bin by bin; about 1/√18 if the bins were
 independent, near 1 for a sensor whose error persists for hours
 (0.82 and 0.85 for the two of a room recorded over a winter). The
 Tracker standardises a block's mean innovation by it (see Tracking).
+
+```text
+what the model leaves, bin by bin (10 minutes), and its mean
+over each block of 3 hours (illustrative)
+
+               ├─── 18 bins ────┤  ├─── 18 bins ────┤
+independent    ▅▂▇▁▆▃▄▇▂▅▁▆▃▇▂▄▆▁  ▄▆▁▅▃▇▂▄▆▂▅▇▁▃▆▂▄▅
+  block mean   ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄  ≈ 1/√18
+persistent     ▁▂▁▂▂▁▂▃▂▂▃▂▂▃▂▂▃▂  ▆▇▆▇▇▆▇▇▆▇▇▆▇▆▇▇▆▇
+  block mean   ▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂  ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇  near 1
+```
 
 The terms are chosen one after the other, each fitted on what the
 ones before it left. The room preset tries neither a gain nor a rate
@@ -99,8 +153,10 @@ measured on kept either; `Presets.room(gain: true, rate: true)` puts
 them back.
 
 A correction solves the model for r, so it divides by 1 + gain +
-coefficient: a gain or a neighbour (or the pair) that leaves that
-below `Setup#scale_floor` (0.5) in magnitude is refused, and the model
+coefficient (`Offset#correct`), and so does what it leaves: the keep
+tests above judge that, not the gap. A gain or a neighbour (or the
+pair) that leaves the scale below `Setup#scale_floor` (0.5) in
+magnitude is refused, and the model
 before it kept. A neighbour coefficient of −0.9 would multiply the
 sensor's noise by ten.
 
@@ -117,13 +173,13 @@ Switch is on over its hard hold.
 
 The influences a `Setup` names:
 
-| influence | told by | learned as |
-|---|---|---|
-| `Influence::Switch` | events, on when true or positive | a term while on (`hold` after), or × its exposure with `tau:` |
-| `Influence::Series` | events with numeric values, mean per bin, carried `hold` | coefficient × value |
-| `Influence::Threshold` | nothing: the location's reference, as it reads, above `above` within `hold` | a term while on |
-| `Influence::Mode` | events with a value | left out, a `Shift` per value |
-| `Influence::Transient` | nothing: each sensor's own series against its reference, and its transient profile | left out (`hold` after), no `Shift` |
+| influence              | told by                                                                            | learned as                                                    |
+| ---------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `Influence::Switch`    | events, on when true or positive                                                   | a term while on (`hold` after), or × its exposure with `tau:` |
+| `Influence::Series`    | events with numeric values, mean per bin, carried `hold`                           | coefficient × value                                           |
+| `Influence::Threshold` | nothing: the location's reference, as it reads, above `above` within `hold`        | a term while on                                               |
+| `Influence::Mode`      | events with a value                                                                | left out, a `Shift` per value                                 |
+| `Influence::Transient` | nothing: each sensor's own series against its reference, and its transient profile | left out (`hold` after), no `Shift`                           |
 
 ```ruby
 solar   = Sensorium::Influence::Series.new(name: "solar", hold: 1800)
@@ -249,10 +305,10 @@ setup = setup.with(influences: setup.influences +
                                    [Sensorium::Influence::Transient.new])
 ```
 
-| `Setup` setting | default |
-|---|---|
-| `transient_windows` | [600, 1200] s |
-| `transient_rate` | 0.2 false alarms a day, per window and direction |
+| `Setup` setting     | default                                          |
+| ------------------- | ------------------------------------------------ |
+| `transient_windows` | [600, 1200] s                                    |
+| `transient_rate`    | 0.2 false alarms a day, per window and direction |
 
 ## Fusing
 
@@ -273,27 +329,40 @@ holds at the moment: the switches and thresholds on, a filtered
 switch's exposure over the 5 τ before, each series' latest value
 within its hold, and dr/dt from the reference's two latest readings
 within `max_age` (`Snapshot#history`). Without a series' value or
-dr/dt, the plain offset. Each reading is weighted
-by 1/σ², σ the offset's spread / 2.563 / |1 + gain + coefficient|:
-the widest of the spreads of what holds, those of the Switches kept as
-its terms that are on (the spread of every bin for one without its
-own), or with none on the spread while all were off, and each series'
-spread at its level now (above its median, or not); an offset without
-any of them, the spread of every bin. σ is never below the quantity's `floor`, grows with the
-reading's age (see Staleness), and a reading older than `max_age`
-does not count. A location without references set takes those it was
-learned against in the moment's regime. With two sensors or more, the
-inverse-variance fusion is Student-t reweighted (ν `robust_nu`) until
-it settles: a part far from the rest counts for less, smoothly, rather
-than one furthest part being dropped outright. A part whose final
-weight falls below the quantity's `outlier_factor` share of 1/σ² is
-noted `outlier`, but still counts for that little. Notes say why a
-sensor does not count: `excluded`, `stale`, `not learned`,
-`no context`, `jumped` (its track says so, see Tracking), or that it
-counts with a caveat: `outlier`, `drifting` (its track says so). A
-location with no reference gets its readings as they read, weighted by
-1/σ², each σ the location's (the quantity's by default) grown with the
-reading's age: `corrected` false.
+dr/dt, the plain offset. Each reading is weighted by 1/σ², σ the
+offset's spread / 2.563 / |1 + gain + coefficient|: the widest of the
+spreads of what holds, those of the Switches kept as its terms that
+are on (the spread of every bin for one without its own), or with none
+on the spread while all were off, and each series' spread at its level
+now (above its median, or not); an offset without any of them, the
+spread of every bin. σ is never below the quantity's `floor`, grows
+with the reading's age (see Staleness), and a reading older than
+`max_age` does not count. A location without references set takes
+those it was learned against in the moment's regime. With three
+sensors or more, the inverse-variance fusion is Student-t reweighted
+(ν `robust_nu`) until it settles: a part far from the rest counts for
+less, smoothly, rather than one furthest part being dropped outright.
+A part whose final weight falls below the quantity's `outlier_factor`
+share of 1/σ² is noted `outlier`, but still counts for that little.
+With two, there is no majority to call either an outlier: the fusion
+is the inverse-variance one, and its σ is widened by how far the two
+disagree in their joint σ, never narrowed:
+
+```text
+σ = σ inverse-variance × max(1, |a − b| / √(σa² + σb²))
+
+        a ± σa                    b ± σb
+  ──────●───────────────────────────●──────
+        ├──────── |a − b| ──────────┤
+  within √(σa² + σb²): σ as it is; beyond: × the ratio
+```
+
+Notes say why a sensor does not count: `excluded`, `stale`, `not
+learned`, `no context`, `jumped` (its track says so, see Tracking), or
+that it counts with a caveat: `outlier`, `drifting` (its track says
+so). A location with no reference gets its readings as they read,
+weighted by 1/σ², each σ the location's (the quantity's by default)
+grown with the reading's age: `corrected` false.
 
 ### Which readings a fusion takes
 
@@ -304,7 +373,7 @@ source for the readings of the three hours before T, and the Fusion
 leaves out those older than `max_age` (60 minutes by default). In a
 room of three sensors (illustrative numbers):
 
-```
+```text
 time      10:00   10:02   10:05   10:07   10:10
             |       |       |       |       |
 ceiling     ●───────────────────────●              every ~7 min
@@ -328,7 +397,7 @@ the location's dynamics where there are some, else its σ widened with
 its age (see Staleness), so it counts for less. A fused value is the
 estimate at its moment, not over the interval before it:
 
-```
+```text
 age of the reading     in the fusion
 0 min                  its full weight
 12 min                 brought to the moment, or its σ widened
@@ -338,7 +407,7 @@ over max_age           left out (stale)
 How often to fuse is the caller's: once a bin, or each time a reading
 arrives. Neither is behind; the second gives a value more often.
 
-```
+```text
 readings   ●   ●   ●   ●     ●   ●    ●     ●   ●
 timer      ■            ■            ■            ■     every 10 min
 on arrival ■   ■   ■   ■     ■   ■    ■     ■   ■     after each reading
@@ -349,7 +418,7 @@ taken by the next fusion if it is still its sensor's latest and within
 `max_age`; a fusion already made is not revised, and the learning,
 which reads the history by time, has it in its place:
 
-```
+```text
 valve measures  10:08 ●
 source has it   10:13 ■  at 10:08
 
@@ -370,7 +439,9 @@ its age t (hours) as √(σ² + (drift × t)²), its value unmoved.
 A location's **dynamics** do better where they were learned: a
 first-order model of its reference r over one bin, per regime,
 
-    r(t + bin) - r(t) = a × (outside - r) + Σ b[switch] × on + c + noise
+```text
+r(t + bin) - r(t) = a × (outside - r) + Σ b[switch] × on + c + noise
+```
 
 with `outside` the external series `Setup#outside` names (none: a is
 0) and `on` 1 while each Switch is on (its hard hold, not its
@@ -511,12 +582,25 @@ The truth, for one part of a `Fused`, is the `Combine.robust` fusion
 of the other parts that count (a value and a σ, no note but
 `outlier`), each with its own delta taken out, less those whose track
 has jumped, before or in this update, and less the **suspect**: the
-part whose CUSUM is the highest once past half of h, left out of every
+part whose CUSUM is the highest once past half of h, the block under
+way counted in full (a suspect is left out, not flagged, and is back
+once its CUSUM falls), left out of every
 other part's truth (not its own), so that a step not yet flagged leaks
 into no other delta. The references are updated first, then the other
 parts, each in the `Fused`'s order. A part with fewer than two others
 is left as it was, unless a **witness** stands in for the second
 (below).
+
+```text
+a room of four, ceil the reference; wall's CUSUM is the highest,
+and past half of h: wall is the suspect
+
+part        its truth, the others' fusion of
+ceil        tado, Airzone          wall left out
+wall        ceil, tado, Airzone    it still updates
+tado        ceil, Airzone          wall left out
+Airzone     ceil, tado             wall left out
+```
 
 A sensor's error persists for hours (the sun on a wall, a radiator's
 cycle), so its successive innovations are not independent: counted one
@@ -529,24 +613,47 @@ error keeps when averaged over a block, near 1 for a sensor whose error
 persists, 1/√n for independent bins; 1 when unknown), and delta takes
 one scalar Kalman step over a random walk:
 
-    y         = value − delta − the others' fusion       (each reading)
-    R         = σ² + the others' fusion's σ²
-    variance += track_q × hours since at
-    ȳ, R̄      = the block's mean y and mean R             (block closed)
-    S         = variance + block_share² × R̄
-    K         = variance / S
-    delta    += K × ȳ,  variance ×= 1 − K
+```text
+y         = value − delta − the others' fusion       (each reading)
+R         = σ² + the others' fusion's σ²
+variance += track_q × hours since at
+ȳ, R̄      = the block's mean y and mean R             (block closed)
+S         = variance + block_share² × R̄
+K         = variance / S
+delta    += K × ȳ,  variance ×= 1 − K
+```
 
 So delta learns as fast at any cadence, and the alarms see each block
-before delta takes it in.
+before delta takes it in. A reading that finds its block spanning 3 h
+closes it first, then is measured against the delta that block taught,
+and opens the next:
+
+```text
+time      0:00   0:50   1:40   2:30   3:10   4:00
+reading    ●      ●      ●      ●      ●      ●
+           └───── block 1 ──────┘      └─── block 2 ────
+           block_at 0:00               block_at 3:10
+
+at 3:10, in this order:
+  1. the variance walks: + track_q × hours since 2:30
+  2. 3:10 − block_at ≥ 3 h: block 1 is closed, its mean to the
+     CUSUM, then one Kalman step moves delta
+  3. the 3:10 reading's y, against the delta block 1 taught
+  4. the reading opens block 2
+```
 
 A track starts at delta 0, variance (σ/2)², σ the quantity's; it starts
 afresh when the location's offset for the device is relearned (another
 regime, reference, constant or plain). A reference's track is pinned:
 the references are the anchor, so its delta stays 0 and its variance
-(σ/2)²; only its CUSUM runs, and it may jump, never drift. Its
-fingerprint is the regime and the location's references ("a+b"),
-constant and plain nil.
+(σ/2)²; only its CUSUM runs, and it may jump, never drift. What the
+Tracker sees of a reference is its disagreement with the room, which
+is usually as wide as the room's sensors' spread against it, not its
+instrument's σ: its innovations are judged with the smallest σ of the
+location's Offsets (the tightest bounds the reference's own
+excursions), or with its own σ (the location's, the quantity's by
+default) where that is wider. Its fingerprint is the regime and the
+location's references ("a+b"), constant and plain nil.
 
 The alarms:
 
@@ -554,21 +661,64 @@ The alarms:
   max(0, `cusum_up` + z̄ − k), `cusum_down` = max(0, `cusum_down` − z̄ −
   k); either above h, and the track has jumped. The block under way
   counts too, as if it closed now, its mean taken to vary as one
-  reading (`Track#level`), and so does one reading alone whose z =
-  y / √(variance + R) is beyond h + k: a large step is flagged before
-  its block closes. It stays so until its offset is relearned or
-  `Tracker#reset` drops it.
+  reading, for the share of a block it spans (`Track#level`): its
+  readings are correlated with the block just closed, so a block of
+  minutes adds little the CUSUM has not seen. One reading alone whose
+  z = y / √(variance + R) is beyond h + k counts whole: a large step is
+  flagged before its block closes. The CUSUM then restarts as the
+  return test below.
+- **back to ok**: while jumped, the track's delta and variance are
+  held as they were at the jump, and each closed block goes to a
+  return CUSUM, the jump's mirrored: `cusum_up` = max(0, `cusum_up` +
+  k − z̄), `cusum_down` = max(0, `cusum_down` + k + z̄). A side climbs
+  only while the error is back on its side of the delta held; both
+  above h, the error is within k of it, with the evidence a jump
+  takes, and the track is ok again, its CUSUM restarted. That takes
+  ten blocks (30 h) at least. Otherwise it stays jumped until its
+  offset is relearned or `Tracker#reset` drops it.
 - **drifting**: |delta| above `drift_alarm` × the offset's σ; back to
   ok under `drift_clear` × σ. Not for a reference.
 
-| `Quantity` setting | default |
-|---|---|
-| `track_q` | (σ/2)² in half a day: σ² / 48 per hour |
-| `cusum_block` | 10 800 s (3 h) |
-| `cusum_k` (k) | 0.5 |
-| `cusum_h` (h) | 5 |
-| `drift_alarm` | 3 |
-| `drift_clear` | 2 |
+```text
+the CUSUM's higher side after each closed block, then with the
+block under way counted for the share of a block it spans
+(illustrative)
+
+block 1        ██████······················│
+block 2        █████████████···············│
+block 3        ████████████████████········│
+under way 1 h  ████████████████████████····│    a third of it
+under way 3 h  ███████████████████████████████  above h: jumped
+                                           h (cusum_h)
+
+a reading      |z| above h + k                  jumped at once
+```
+
+```text
+the return CUSUM of a jumped track, at each closed block, z its
+mean innovation standardised against the delta held (illustrative)
+
+  up = max(0, up + k - z)        down = max(0, down + k + z)
+
+the error still away, z = +2 at each block:
+  block       1     2     3     4     5   ...
+  up          0     0     0     0     0   never climbs: jumped
+  down      2.5   5.0   7.5  10.0  12.5
+
+the error back at the delta held, z = 0 at each block:
+  block       1     2     3   ...    10    11
+  up        0.5   1.0   1.5   ...   5.0   5.5
+  down      0.5   1.0   1.5   ...   5.0   5.5   both above h: ok
+```
+
+| `Quantity` setting | default                                |
+| ------------------ | -------------------------------------- |
+| `track_q`          | (σ/2)² in half a day: σ² / 48 per hour |
+| `cusum_block`      | 10 800 s (3 h)                         |
+| `cusum_k` (k)      | 0.5                                    |
+| `cusum_h` (h)      | 5                                      |
+| `drift_alarm`      | 3                                      |
+| `drift_clear`      | 2                                      |
 
 In the fusion, a tracked part's corrected value has its delta taken
 out and its σ² the track's variance added; a jumped one does not count
@@ -617,8 +767,9 @@ Given transient profiles (`transients:`, see Transients) and the
 snapshot the `Fused` was made from, the Tracker leaves every part of a
 location as it was while the `Detector` finds an event there at the
 moment, as it leaves a part with too few others: an opened window
-would read as a step and could push a CUSUM to a `jumped` that sticks
-until a relearn. Without profiles or snapshot, it tracks as before.
+would read as a step and could push a CUSUM to a `jumped` that holds
+for 30 hours at least, until the return CUSUM clears it. Without
+profiles or snapshot, it tracks as before.
 
 ```ruby
 tracker  = Sensorium::Tracker.new(setup, offsets:,
@@ -632,13 +783,13 @@ previous = fused                                # made with the tracks
 The gain is small by design. In the tests' room (a sensor of
 σ 0.2 °C against two of 0.1 and 0.08), ten hourly updates take delta
 to 21 % of a constant bias, 48 hourly ones to 75 % and ten daily ones
-to 87 %, while a step of 3 σ is flagged jumped at the seventh hourly
-update, and the reference stepping by 5 σ at the fourth. In a real
+to 87 %, while a step of 3 σ is flagged jumped at the tenth hourly
+update, and the reference stepping by 5 σ at the seventh. In a real
 room recorded over a winter (its last ten days, tracked against what
 its first twenty learned), no part is flagged, where taking each
 reading alone flagged a wall sensor within eleven hours; steps of 1, 2
-and 3 of its offset's σ put into its readings are flagged after 20,
-8 and 5 hours at ten-minute updates, 37, 10 and 4 hourly.
+and 3 of its offset's σ put into its readings are flagged after 37,
+10 and 5 hours at ten-minute updates, and the same hourly.
 
 ## Running it
 
@@ -720,12 +871,12 @@ the humidity by several g/m³ in minutes; give such a room a wider
 The learner and `Snapshot.from` read the history from any object that
 answers, for a quantity's name:
 
-| method | returns |
-|---|---|
-| `sensors(quantity)` | `[Sensor]`: name, location, tags, whether it may be a neighbour |
+| method                                  | returns                                                                  |
+| --------------------------------------- | ------------------------------------------------------------------------ |
+| `sensors(quantity)`                     | `[Sensor]`: name, location, tags, whether it may be a neighbour          |
 | `readings(quantity, from, to, devices)` | `[Reading]`: time, location, device, value, context; devices nil for all |
-| `externals(quantity, from, to)` | `[Reading]` with location nil (optional) |
-| `events(influence, from, to)` | `[[time, location, value]]` (optional) |
+| `externals(quantity, from, to)`         | `[Reading]` with location nil (optional)                                 |
+| `events(influence, from, to)`           | `[[time, location, value]]` (optional)                                   |
 
 A reading's time is when its value was last known to hold. A sensor
 that reports only changes (HomeKit) holds a steady value for hours: its
@@ -804,12 +955,23 @@ it.
 - In a location of three with a jumped sensor, the witness is made
   from the two others: a bias on one of them is shared between their
   deltas. In the tests' room, 48 hourly updates take tado's delta to
-  57 % of a 0.2 bias while Airzone's moves by −0.076. Without
-  dynamics, their tracks stand still until a relearn or a reset.
-- The terms are kept by tests on spreads (80 % on the bins fitted,
-  narrower, or within 5 %, on those held out) whose own noise, a sensor's error
-  persisting for hours, is several times 5 % over a held-out tenth of
-  a few days: the held-out test refuses only what it plainly denies.
+  57 % of a 0.2 bias while Airzone's moves by −0.077. Without
+  dynamics, their tracks stand still until a relearn, a reset or the
+  jumped one clearing.
+- A jumped track is measured against the delta it held at the jump,
+  which has taken in part of a step during the hours the CUSUM took to
+  flag it: a sensor whose step was real, then undone, may come back
+  short of that delta and not clear before a relearn.
+- A reference's step smaller than about the location's tightest
+  Offset σ is not flagged: it is within what the room usually sees of
+  the reference. In a room whose third sensor is noisy, which of the
+  two tight ones a step between them is put on is still decided by
+  noise.
+- The terms are kept by tests on the correction's spreads (80 % on the
+  bins fitted, no wider, or within 5 %, on those held out) whose own
+  noise, a sensor's error persisting for hours, is several times 5 %
+  over a held-out tenth of a few days: the held-out test refuses only
+  what it plainly denies.
   The widths a term is kept with are widened by what the bins held
   out confirm, which bounds what a term the test let through costs.
   On one house's year, the held-out narrowing of a term predicts the
@@ -847,6 +1009,9 @@ it.
 - The rate holds per window and direction: a sensor with two windows
   may raise up to four times as many false alarms a day, fewer as its
   windows overlap.
+- One house's downstairs Airzone spikes for 3 to 6 hours at a time,
+  from a cause of its own; how to take them (a transient profile of
+  their own) is open.
 
 ## Gate
 

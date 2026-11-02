@@ -10,11 +10,25 @@
   not a variance, for the same reason as the medians; the same bins,
   or a neighbour covering fewer of them could win by leaving the rough
   ones out.
+- **The keep rule judges the correction, not the gap.** A correction
+  divides the gap, and its width, by |1 + gain + k| (`Offset#correct`),
+  so the Fusion, the Tracker and the Collocation all live in the
+  correction's space; the 80 % test and the held-out one judged the
+  gap. A k = −0.4 neighbour narrowing the gap to 70 % was kept while
+  it widened the correction to 117 %, and a k = +0.6 one narrowing the
+  gap to 90 % was refused while it narrowed the correction to 56 %.
+  Both tests now take what a model leaves over its scale. On
+  MadHouse's year (19 forward windows), the RMS of the corrected value
+  went from 0.686 to 0.595 °C, the calibration unchanged, and the
+  terms kept were worse than the constant on 9 of 74 sensor-windows
+  instead of 36 of 66. A neighbour is now also a proxy for a driver
+  (k > 0), not only a place the sensor also follows.
 - **And when the bins held out confirm it, if they can.** Terms are
   chosen on all but the last tenth of the bins, then refitted on
   everything, as Dynamics are validated. A term the last tenth can try,
-  what it adds varying over it, is kept only if it leaves that tenth
-  narrower: a model wider than its own plain constant on unseen bins is
+  what it adds varying over it, is kept only if it leaves that tenth's
+  correction no wider: a model wider than its own plain constant on
+  unseen bins is
   worse than the fallback it carries, and a neighbour the bins do not
   confirm makes the sensor depend on another for nothing (one house's
   mid-season Airzone kept one that left its last tenth 4 % wider). A
@@ -27,6 +41,15 @@
   that noise instead (below). The last tenth, not a random one:
   neighbouring bins are correlated, so bins drawn at random would
   confirm whatever was fitted beside them.
+
+  ```text
+  a sensor's calm bins, in time order
+  ├─────────────── nine tenths ────────────────┤├─── last tenth ────┤
+   terms chosen, each by the 80 % test           held out: each term
+                                                 confirmed, and the
+                                                 narrowing measured
+  ├──────────── all bins: the terms kept, fitted again ─────────────┤
+  ```
 - **A term's widths as the bins held out confirm them.** The narrowing
   a term claims is measured on the bins it was chosen on, which a
   sensor's persistent error makes far fewer independent ones than they
@@ -173,7 +196,8 @@
   out.
 - **The Tracker stands aside during an event.** An opened window
   reads, to the CUSUM, as a step; a long one could push it past h and
-  leave a track jumped until a relearn. The whole location is left as
+  leave a track jumped for a day and more, until the return test
+  clears it. The whole location is left as
   it was, as for a part with too few others: during a whole-room
   change the others' fusion is no truth either.
 
@@ -192,7 +216,17 @@
   pair pulled the value off. Reweighting every part by a Student-t
   factor on its own residual, iterated to convergence, downweights
   however many disagree, smoothly; when every part agrees the result
-  is exactly the inverse-variance fusion.
+  is exactly the inverse-variance fusion, for three parts or more.
+- **Two parts by inverse variance, σ widened by their disagreement.**
+  Student-t reweighting of two parts that disagree slides to the one
+  with the smaller σ: on the recorded room, a 3 % change of one σ
+  moved the fused value by 1.8 °C. With two there is no majority to
+  call one an outlier. Below three parts the inverse-variance mean is
+  taken, its σ widened by max(1, |a − b| / √(σa² + σb²)): a pair that
+  disagrees beyond its σs says one of them is wrong, and the σ says
+  so. On MadHouse's year, two-part moves above σ fell from 22 to 0;
+  the widening also stopped a reference being flagged at a heating
+  start (z 5.65 to 2.88).
 - **A transform, not a humidity model.** Relative humidity depends on
   the sensor's own temperature; in absolute humidity the sensors'
   errors add up again, so the same learner and fusion apply. The
@@ -235,25 +269,51 @@
   either side, so the part is left as it was, unless a witness stands
   in (below).
 - **A slow filter, a CUSUM for jumps.** The gain is kept small so that
-  noise does not move delta: a constant bias takes about two days to be
-  learned. A step would then be absorbed over days, the value off all
-  the while, so a two-sided CUSUM flags it (k = 0.5, h = 5, the
-  textbook pair for a shift of one σ of what it runs on). A slow ramp the filter keeps up
-  with is said by the drift alarm instead (|delta| past 3 Offset σ,
-  cleared under 2). A jumped track stays jumped until a relearn or a
-  reset: the Tracker flags, a person or a relearn decides. A jump
-  flagged wrongly costs precision, not accuracy: the part is out, the
-  others still corrected to the reference, the σ wider (losing a
-  room's best sensor in winter, about ×3.7 on one house). A jump
-  missed costs a bias the σ does not show. So the CUSUM is quick to
-  flag and nothing clears it but a relearn, which a regular relearn
-  bounds to a few days; the Tracker does not watch a jumped part to
-  let it back in, nor take a battery swap as an event.
+  noise does not move delta: a constant bias takes about two days to
+  be learned. A step would then be absorbed over days, the value off
+  all the while, so a two-sided CUSUM flags it (k = 0.5, h = 5, the
+  textbook pair for a shift of one σ of what it runs on). A slow ramp
+  the filter keeps up with is said by the drift alarm instead (|delta|
+  past 3 Offset σ, cleared under 2). A jump flagged wrongly costs
+  precision, not accuracy: the part is out, the others still corrected
+  to the reference, the σ wider (losing a room's best sensor in
+  winter, about ×3.7 on one house). A jump missed costs a bias the σ
+  does not show. So the CUSUM is quick to flag, and a jump is cleared
+  only by the same evidence, mirrored (below); the Tracker does not
+  take a battery swap as an event.
+- **A jump clears the way it came.** A jump is the CUSUM finding the
+  innovations shifted by the size it is tuned for; the same evidence
+  mirrored clears it. While jumped, delta and variance are held, the
+  part is still scored without counting, and the CUSUM runs as the
+  return test (up += k − z, down += k + z): both sides above h, at
+  least h / k = 10 blocks (30 h) of the error back, and it is ok
+  again. No new constant. On MadHouse's year every false jump the
+  Tracker had flagged cleared, in about 2 days (median) instead of at
+  the monthly relearn; both real steps stayed flagged while their
+  error stood, and the time to a first jump was unchanged at every
+  start. The limit: the delta held is the one at the jump,
+  which has taken in part of a step during the detection delay, so
+  such a part may not clear.
 - **References tracked, but pinned.** A reference's reading is the
   location's definition of truth. Untracked, a reference that jumps
   makes every sensor beside it look jumped; tracked like the others,
   the deltas wander together and none learns a bias. So a reference
   runs the CUSUM and the jump state only, its delta pinned at 0.
+- **A reference judged with the room's width.** Its offset is 0 by
+  construction and its delta pinned, but what the Tracker measures of
+  it is its disagreement with the room, whose usual size is not the
+  instrument's σ but the scatter the learning measured: the tightest
+  Offset σ of the location bounds the reference's own excursions
+  against the room. A reference's innovations are judged with the
+  larger of its σ and that tightest Offset σ; the quantity's σ stays
+  the floor. On MadHouse's year the hours a reference spent jumped
+  fell from 4946 to 982, and one real divergence is now blamed on the
+  right sensor. The cost: a reference step smaller than about the
+  room's tightest Offset σ is not flagged (on the recorded room, steps
+  of 0.10 and 0.15 °C, caught before at 4 and 6 of 16 starts after
+  days, now at none); and in a room whose third sensor is noisy, which
+  of the two tight ones a step between them is blamed on is still
+  decided by noise.
 - **References first, a jumped part out of the others.** A jumped part
   left in the others' fusion would pull them after it; within an
   update the references go first, and a part that has jumped is left
@@ -296,7 +356,9 @@
   standardised by the Offset's block share, and k and h keep their
   meaning, one σ of a block. The same ten days: no part flagged, at
   either cadence; steps of 1, 2 and 3 Offset σ put into the readings
-  flagged after 20, 8 and 5 hours at ten minutes (37, 10, 4 hourly).
+  flagged after 20, 8 and 5 hours at ten minutes (37, 10, 4 hourly);
+  37, 10 and 5 at either cadence once the block under way counted for
+  its share and a jump could clear (below).
   Blocks by time also make the alarm the same at any cadence, where a
   sensor reporting every five minutes got twice the CUSUM steps, and
   twice the false alarms, of one reporting every ten.
@@ -316,7 +378,17 @@
   under way counts as if it closed now, its mean taken to vary as one
   reading (a mean of positively correlated readings varies no more),
   and a reading alone beyond h + k is a jump: a step far beyond the
-  noise is flagged at once, a reference's 1 °C at its first reading.
+  noise is flagged at once, a reference's 1 °C at its first reading
+  where its room's offsets are no wider than the quantity's σ.
+- **The block under way for the share of a block it spans.** It is
+  correlated about 0.9 with the block just closed, so counting it as a
+  full block right after a close counted the same evidence twice: on
+  MadHouse's year, 12 of 16 jumps came at `block_count` 1 or 2. It now
+  counts toward a jump for the share of `cusum_block` it spans. The
+  suspect still counts it whole: being the suspect is a decision
+  undone as soon as the CUSUM falls, and may use preliminary evidence.
+  The cost: detection 0.5 to 2.9 h slower (medians over 16 starts on
+  the recorded room), never a block.
 - **The suspect.** Until a step is flagged, the others take it in: a
   reference stepping 5 σ, flagged after seven hours, left a third of
   it in an Airzone's delta, and with the reference out nothing takes
@@ -385,6 +457,13 @@
   Symbol given for an influence, a quantity or a regime is converted on
   the way in, or a term would stop applying after a round-trip.
 
+## Documents
+
+- **Figures explain, they do not decorate.** Each figure sits next to
+  the paragraph it illustrates, and that paragraph still reads on its
+  own. Not a separate section of figures, and not figures in place of
+  prose.
+
 ## Ruled out
 
 - **A Kalman filter over the fused values.** Replayed on MadHouse's
@@ -401,7 +480,6 @@
 - **A joint refit of the chosen terms.** No offset of the house kept
   two terms beside the constant, so it never ran; it returns if data
   ever needs it.
-
 - **An inflation of the fused σ for shared errors**, learned by a
   leave-one-out on triple collocation σ: on the same data it is 1 by
   construction. Shared errors need a series that does not share them.
@@ -429,8 +507,31 @@
   per term, and the count depends on the model it gates. The widths a
   term keeps are widened instead (Learning).
 - **A held-out test by day** (a term kept when it narrows on most
-  days held out): the recorded room holds out two days, where a median
-  of days is their mean; untried until a learning holds out more.
+  days held out), **or by folds**: the recorded room holds out two
+  days, where a median of days is their mean; on MadHouse's year, with
+  the keep rule on the correction, neither gained beyond its spread.
+- **A cap on a neighbour's k**, instead of the keep rule on the
+  correction: of two principled caps tried on MadHouse's year, one
+  changed nothing where it mattered and the other removed the gain.
+- **Raising the 80 % threshold, splitting the mid regime, or keeping
+  every confirmed term at the refit**, beside the keep rule on the
+  correction: on MadHouse's year none gained beyond its spread.
+- **Two parts without the widening**, the plain inverse-variance
+  fusion: it left a pair that disagrees overconfident, and doubled
+  green-room's suspect time. **One Student-t step at every size**
+  instead of three parts or more: it changed fusions of three parts
+  or more by up to 0.42 °C.
+- **The witness's dynamics with the outside series set.** It unfroze
+  only part of the three-sensor rooms, never green-room, and started
+  tracking the noisy two-sensor rooms: jumps 14 to 21 on MadHouse's
+  year.
+- **A fresh track's prior from the Offset's width**: it absorbed both
+  real steps of MadHouse's year.
+- **The Detector's skip for transients alone**: it lengthened blocks,
+  and new jumps came at the block after a skip.
+- **A heating Series delayed and filtered, and PV power for the daily
+  cycle**: the learner's own rules refused them on almost every
+  sensor, and none gained when forced in.
 - **Learning on fresh bins only** (`carry: 0`), or weighting a bin by
   its reading's age: 94 % of the bins hold a reading of their own, and
   the correlation is the room's, not the carry's.
