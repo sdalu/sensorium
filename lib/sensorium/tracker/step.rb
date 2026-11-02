@@ -125,13 +125,15 @@ module Sensorium
             # The return CUSUM of a jumped track, the jump's mirrored:
             # each side climbs by k less the block mean on its side, so
             # a side climbs while the error is back on that side of the
-            # delta held, and stays down while it is still away. Both
-            # past h, the error is within k of the delta held, with the
-            # evidence a jump takes.
+            # delta held, and stays down while it is still away. Each side
+            # is held at h + k at most, so time away counts for no more
+            # than one block of being back: both past h, the error is
+            # within k of the delta held, with the evidence a jump takes.
             def returning(track, z)
-                k = @quantity.cusum_k
-                track.with(cusum_up: [0.0, track.cusum_up + k - z].max,
-                           cusum_down: [0.0, track.cusum_down + k + z].max)
+                k, h = @quantity.to_h.values_at(:cusum_k, :cusum_h)
+                up, down = [[track.cusum_up, k - z], [track.cusum_down, k + z]]
+                           .map { |side, step| (side + step).clamp(0.0, h + k) }
+                track.with(cusum_up: up, cusum_down: down)
             end
 
             # The track with its state: jumped once a CUSUM, the open
