@@ -1,11 +1,13 @@
 # Ideas to explore
 
-What remains after version 0.3.0 (the keep rule on the correction, two
-parts fused by inverse variance with their σ widened by their gap, the
-block under way counted for its share, a jump that clears the way it
-came, a reference judged with its room's width). Ranked by the gain
-expected. Items 1 to 6 are this gem's; item 7 belongs to its users,
-MadHouse and ClimatControl.
+What remains after version 0.4.0 (0.3.0: the keep rule on the
+correction, two parts fused by inverse variance with their σ widened
+by their gap, the block under way counted for its share, a jump that
+clears the way it came, a reference judged with its room's width;
+0.4.0: a sensor judged against its reference alone, no suspect below
+three, no lone-reading jump against a single other). Ranked by the
+gain expected. Items 1 to 6 are this gem's; item 7 belongs to its
+users, MadHouse and ClimatControl.
 
 The evidence comes from two sources: a room recorded over 30 winter days
 (learned on the first 20, scored on the last 10), and MadHouse's year
@@ -14,49 +16,42 @@ a Tick every ten minutes), read-only.
 
 ## Worth doing next
 
-1. **Rooms that freeze when down to two parts.** A room of three whose
-   reference falls silent, or with one part jumped, leaves each of the
-   two others a single other: nothing is updated, and a suspect can
-   stay suspect for weeks. The witness (the location's dynamics) is
-   meant to stand in, but with the room preset's setup the dynamics are
-   kept for few rooms and seasons: with `outside` set, downstairs
-   (summer, winter) and red-room (mid), green-room never. Turning the
-   witness on as learned now is a net loss (jumps 14 to 21 on the year:
-   it also starts tracking the noisy two-sensor rooms). Why green-room
-   gets no model, and what a witness needs to be worth having, is open.
-2. **A fresh track starting on a bias.** Four of the year's false jumps
+1. **A fresh track starting on a bias.** Four of the year's false jumps
    came within hours of a relearn, the two-month fit not knowing a bias
    standing that week (−0.3 to −0.9 °C). A track's prior from the
    Offset's width absorbed the real steps too; the cause is in the
    Learner (weight the recent weeks in the constant), not the Tracker.
-3. **The downstairs Airzone's spikes.** A σ 0.7–1.4 unit that reads
+2. **The downstairs Airzone's spikes.** A σ 0.7–1.4 unit that reads
    +1.5 to +3.4 °C for 3 to 6 hours: flagged in two or three blocks,
    cleared one to five days later. A cause of its own; its own
    transient profile is the first thing to try.
 
 ## Smaller
 
-4. **The delta held at a jump** is the one at the jump, which has taken
+3. **The delta held at a jump** is the one at the jump, which has taken
    in part of a step during the detection delay: a part whose step was
    real, then undone, may not clear. A field for the delta at the start
    of the flagged run (a store column) would fix it.
-5. **Blame in a room whose third sensor is noisy**: a step between the
+4. **Blame in a room whose third sensor is noisy**: a step between the
    two tight ones is put on either by noise (October on the year: the
    reference flagged for the tado's step).
-6. **A neighbour with k above 0 that breaks mid-season** leaves a biased
+5. **A neighbour with k above 0 that breaks mid-season** leaves a biased
    correction until the next relearn drops it (once on the year:
    downstairs Airzone, early February, 2.5 σ for a fortnight). No
    principled cap helped; worth watching in production.
 
+6. **Two sensors left without their reference** still stand still
+   until a relearn, a reset or a jump clearing: their disagreement
+   cannot be put on either. Only a witness would move them, and with
+   the room preset none is worth having (green-room's dynamics lose to
+   holding by a hair).
+
 ## On the users' side
 
-7. **Around sensorium 0.3.0:**
+7. **Around sensorium 0.4.0:**
    - MadHouse's tables need the five columns added in 0.2.0 if it opens
      the store with `migrate: false`: `block_share` on offsets;
      `block_sum`, `block_noise`, `block_count` and `block_at` on tracks.
-   - `local/compare.rb` (the real-history check) no longer runs: it
-     calls `ClimatControl::Energy::Providers` and `Sensing::Learner`,
-     both gone.
    - `climat sensors read` and the planner should be checked against the
      wider σ values.
 
@@ -72,7 +67,12 @@ So that nobody tries them again; DESIGN.md gives the reasons:
   cycle (refused by the learner on almost every sensor, no gain forced
   in);
 - two parts without the widening; one Student-t step at every size;
-- the dynamics witness with the outside series, as learned now;
+- the dynamics witness with the outside series, as learned now (no
+  gain once a sensor is judged against its reference alone);
+- judging a sensor against its reference alone only in rooms that
+  normally have three (the same pair knows the same thing); letting a
+  suspect count where leaving it out leaves one other (the leak the
+  suspect rule exists against);
 - a fresh track's prior from the Offset's width (absorbed both real
   steps); the Detector's skip of transients alone;
 - scaling each innovation by its long-run variance (blinds the
