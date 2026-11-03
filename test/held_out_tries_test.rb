@@ -29,6 +29,20 @@ class HeldOutTriesTest < Minitest::Test
         assert held_out.keeps?(PLAIN, with_switch(0.5))
     end
 
+    # On in three of a hundred bins held out, whose diffs ramp from
+    # -0.5 to 0.49: what it adds has a p10..p90 of 0, yet it switches
+    # there, and the three bins try it: worth 0.5 where they show
+    # nothing, it pushes them below p10, 3.8 % wider, and is refused.
+    def test_a_term_on_in_a_few_of_the_bins_is_tried_there
+        diffs = BINS.to_h { [it, (it / 100.0) - 0.5] }
+        terms = Sensorium::Fit::Terms.new(switches: { "a" => Set[12, 13, 14] })
+        held_out = Sensorium::Fit::HeldOut.new(diffs, {}, terms)
+        tried = with_switch(0.5)
+        assert held_out.tries?(PLAIN, tried)
+        assert_in_delta 0.82 / 0.79, held_out.narrowing(PLAIN, tried), 1e-9
+        refute held_out.keeps?(PLAIN, tried)
+    end
+
     # On throughout the bins held out: a constant there, no evidence.
     def test_a_term_on_throughout_is_not_tried_and_is_kept
         held_out = held_out(BINS.to_set)

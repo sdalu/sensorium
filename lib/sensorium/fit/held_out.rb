@@ -11,7 +11,7 @@ module Sensorium
             # what the rest of the season showed.
             TOLERANCE = 1.05
 
-            # The spread below which what a term adds is a constant, its
+            # The range below which what a term adds is a constant, its
             # variation that of the rounding.
             ROUNDING = 1e-9
 
@@ -32,13 +32,17 @@ module Sensorium
             end
 
             # Whether the bins held out try the term: what it adds to
-            # kept varies over them. A Switch never on there, or on
-            # throughout, adds a constant: no evidence either way.
+            # kept varies over them, by more than the rounding (its
+            # range, not its p10..p90: a Switch on in a few of them
+            # switches there, and they try it on those few). A Switch
+            # never on there, or on throughout, adds a constant: no
+            # evidence either way.
             def tries?(kept, tried)
                 before, after = [kept, tried].map { residuals(it) }
                 bins = before.keys & after.keys
                 return false if bins.empty?
-                Stats.spread(bins.map { before[it] - after[it] }) > ROUNDING
+                added = bins.map { before[it] - after[it] }
+                added.max - added.min > ROUNDING
             end
 
             # The spread tried leaves on the bins held out over the one
