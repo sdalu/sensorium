@@ -21,6 +21,18 @@ class StoreUtcTest < Minitest::Test
         end
     end
 
+    # The database's zone UTC: Sequel parses the text as local time too.
+    def test_a_time_in_the_spring_gap_round_trips_with_the_database_in_utc
+        at = Time.utc(2026, 3, 29, 2, 30)
+        with_tz("Europe/Paris") do
+            ZONES.each do |application|
+                with_sequel_zones(database: :utc, application:) do
+                    assert_round_trip(at, application.inspect)
+                end
+            end
+        end
+    end
+
     # Sequel's application in UTC, the database's zone unset.
     def test_a_time_round_trips_with_the_application_in_utc
         at = Time.utc(2026, 1, 5, 12)
