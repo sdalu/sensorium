@@ -64,9 +64,10 @@ module Sensorium
             end
 
             def learned(quantity)
-                names = %i[regime learned_from learned_to learned_at]
+                times = %i[learned_from learned_to learned_at]
                 scope(:offsets, { quantity: })
-                    .distinct.select_map(names.map { name_of(it) })
+                    .distinct.select_map([name_of(:regime),
+                                          *times.map { time_column(it) }])
                     .map { utc_row(it) }.group_by(&:first)
                     .transform_values { latest(it) }
             end

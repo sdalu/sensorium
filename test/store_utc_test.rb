@@ -10,6 +10,17 @@ require "support/winter"
 class StoreUtcTest < Minitest::Test
     ZONES = [nil, :utc, :local].freeze
 
+    # 02:30 UTC on 2026-03-29 is a valid instant; as a Europe/Paris wall
+    # clock (the spring-forward gap, 02:00-03:00 local) it does not exist.
+    def test_a_time_in_the_spring_gap_round_trips
+        at = Time.utc(2026, 3, 29, 2, 30)
+        with_tz("Europe/Paris") do
+            store = Sensorium::Store::Sequel.new(Sequel.sqlite)
+            assert_equal at, track_at(store, at)
+            assert_equal at, learned_at(store, at)
+        end
+    end
+
     # Sequel's application in UTC, the database's zone unset.
     def test_a_time_round_trips_with_the_application_in_utc
         at = Time.utc(2026, 1, 5, 12)

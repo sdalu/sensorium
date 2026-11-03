@@ -7,7 +7,9 @@ module Sensorium
             # at is kept as tracked_at, the state as a String.
             module Tracks
                 def tracks(quantity)
-                    rows(:tracks, quantity, %i[location device])
+                    scope(:tracks, { quantity: })
+                        .select_append(*texts(%i[tracked_at block_at]))
+                        .order(name_of(:location), name_of(:device)).all
                         .to_h { [[it[:location], it[:device]], track(it)] }
                 end
 
@@ -31,8 +33,8 @@ module Sensorium
                               block_sum: row[:block_sum] || 0.0,
                               block_noise: row[:block_noise] || 0.0,
                               block_count: row[:block_count] || 0,
-                              block_at: row[:block_at]&.then { wall_utc(it) },
-                              at: wall_utc(row[:tracked_at]),
+                              block_at: utc_at(row, :block_at),
+                              at: utc_at(row, :tracked_at),
                               state: row[:state].to_sym)
                 end
 
