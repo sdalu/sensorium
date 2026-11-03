@@ -61,7 +61,9 @@ sensor - r = constant
   Deming line, the reference read with an error of its quantity's σ.
   A column that does not vary (a frozen reference) has no slope:
   `Stats`' `line`, `plane` and `least_squares` answer nil when a
-  column's least is its greatest (`Stats.constant?`).
+  column's range is within rounding (1e-9) of its size
+  (`Stats.constant?`): a frozen sensor's bin means, sums of ten
+  readings or eleven divided, differ by an ulp.
 - **neighbour**: the sensor also follows another place: another
   location's sensor, or an external series (the outside); or, with a
   coefficient above 0, the neighbour stands in for what drives the
@@ -409,8 +411,12 @@ higher than the tightest σ of the corrections to it (each holds the
 reference's error); else (several references, no collocation, or one
 that could not measure it) the quantity's. With three
 sensors or more, the inverse-variance fusion is Student-t reweighted
-(ν `robust_nu`) until it settles, the value moving less than 1e-6
-(`Combine::STEPS`, 1000 steps, a guard no fusion reaches): a part far
+(ν `robust_nu`) until it settles, the value moving less than 1e-6;
+past `Combine::STEPS` (1000) the steps are crawling, near where a far
+part's pull gives way, and the crawl is taken through at once, to the
+fixed point the steps were nearing or past a bottleneck with none (no
+fusion of the house's year crawls; about one random three-part fusion
+in 150 000 does): a part far
 from the rest counts for less, smoothly, rather than one furthest
 part being dropped outright. A part whose final weight falls below
 the quantity's `outlier_factor` share of 1/σ² is noted `outlier`, but
@@ -794,10 +800,12 @@ The alarms:
   held as they were at the jump, and each closed block goes to a
   return CUSUM, the jump's mirrored: `cusum_up` + k − z̄ and
   `cusum_down` + k + z̄, each held between 0 and h + k, z̄ read
-  within ±(h/2 − k) of zero (±2 with the defaults)
-  before it enters either side. A side climbs only while the error is
-  back on its side of the delta held, and the time the error spent
-  away counts for no more than one block of being back; one block
+  within ±(h/2 − k) of zero (±2 with the defaults) before it enters
+  either side. That clip is k at least, so `cusum_h` is at least 4
+  `cusum_k`; a `Quantity` below is refused. A side climbs only while
+  the error is back on its side of the delta held, and the time the
+  error spent away counts for no more than one block of being back;
+  one block
   moves a side by h/2 at most, so no two blocks fill one, however far
   they swing: a return is told by time, not by magnitude. Both above
   h, the error is within k of it, with the evidence a jump takes, and
@@ -853,7 +861,7 @@ the error back at the delta held, z = 0 at each block:
 | `track_q`          | (σ/2)² in half a day: σ² / 48 per hour |
 | `cusum_block`      | 10 800 s (3 h)                         |
 | `cusum_k` (k)      | 0.5                                    |
-| `cusum_h` (h)      | 5                                      |
+| `cusum_h` (h)      | 5, at least 4 `cusum_k`                |
 | `drift_alarm`      | 3                                      |
 | `drift_clear`      | 2                                      |
 

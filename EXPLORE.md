@@ -1,6 +1,9 @@
 # Ideas to explore
 
-What remains after version 0.2.2 (since 0.2.1: the return test
+What remains after version 0.2.3 (since 0.2.2: a column constant
+within rounding, a Quantity with `cusum_h` below 4 `cusum_k` refused,
+a robust crawl taken through at once, Quantity and Setup through
+Marshal; since 0.2.1: the return test
 reading a block mean within ±(h/2 − k), a reference's pinned track
 left out of its σ in the Fusion, Student-t reweighting until it
 settles, Dynamics steps and forecasts free of a Mode, regimes asked of
@@ -54,7 +57,7 @@ a Tick every ten minutes), read-only.
 
 ## On the users' side
 
-7. **Around sensorium 0.2.2:**
+7. **Around sensorium 0.2.3:**
    - The API changed: a `Tracker` is made without `dynamics:`,
      `Tracker#update` and `Tick#call` take no `previous:`, and a
      `Fusion` is made without `dynamics:`; `collocations:` is new to
@@ -70,7 +73,10 @@ a Tick every ten minutes), read-only.
      off); `Dynamics::Forecast.new` takes an optional fourth argument,
      `near`; `Setup#with` and `Quantity#with` derive again what was
      not given; and a regime is asked of local times, so a regime of
-     one's own sees the History's zone.
+     one's own sees the History's zone. Since 0.2.3: a `Quantity`
+     with `cusum_h` below 4 `cusum_k` raises ArgumentError; a
+     `Quantity` and a `Setup` round-trip through Marshal, and two
+     `Regime::Calendar` of the same months are equal.
    - MadHouse's tables need the five columns added in 0.2.0 if it opens
      the store with `migrate: false`: `block_share` on offsets;
      `block_sum`, `block_noise`, `block_count` and `block_at` on tracks.

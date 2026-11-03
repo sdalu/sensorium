@@ -120,10 +120,14 @@ the README's order; what was tried and dropped is under Ruled out.
   measured kept either.
 - **A column that does not vary has no slope.** `Stats`' `line`,
   `plane` and `least_squares` answer nil for a column
-  whose least is its greatest (`Stats.constant?`), not for a centred
-  sum of squares of exactly zero: a constant column whose float mean
-  is an ulp off left rounding there, and a frozen reference learned a
-  gain of 1e28 and a σ of 0.
+  whose range is within rounding (1e-9) of its size
+  (`Stats.constant?`), not for a centred sum of squares of exactly
+  zero: a constant column whose float mean is an ulp off left
+  rounding there, and a frozen reference learned a gain of 1e28 and a
+  σ of 0. Nor for a least equal to the greatest: a frozen reference
+  read every minute or so has bins of ten readings and of eleven,
+  whose means differ by an ulp, and learned a gain of −9e14 (the
+  tests).
 - **A scale floor on the linear terms.** A correction is (reading −
   the other terms + k × neighbour) / (1 + gain + k), and its σ is the
   spread over |1 + gain + k|. A sensor that mostly follows another
@@ -297,12 +301,21 @@ the README's order; what was tried and dropped is under Ruled out.
   factor on its own residual, iterated to convergence, downweights
   however many disagree, smoothly; when every part agrees the result
   is exactly the inverse-variance fusion, for three parts or more.
-  Iterated until it settles (the value moving less than 1e-6), with
-  `Combine::STEPS` = 1000 a guard no fusion reaches: the former cap of
-  20 steps stopped 171 of 55 101 robust fusions on MadHouse's year
-  short of the settled value, by up to 0.5 σ. A three-way split
-  crawls 42 to 221 steps before it settles (up to 2.5 σ off at the
-  cap on a made-up three-way split, the tests).
+  Iterated until it settles (the value moving less than 1e-6): the
+  former cap of 20 steps stopped 171 of 55 101 robust fusions on
+  MadHouse's year short of the settled value, by up to 0.5 σ. A
+  three-way split crawls 42 to 221 steps before it settles (up to
+  2.5 σ off at the cap on a made-up three-way split, the tests).
+  Near the point where a far part's pull gives way, the steps shrink
+  to about 5e-6 for some 1800 steps, a bottleneck; returning the
+  crawl's value at a guard left one fusion 1.7 σ short (about one
+  random three-part fusion in 150 000). So past `Combine::STEPS`
+  (1000) the crawl is taken through at once: probed ahead at doubling
+  distances, the least step found by golden section, then crossed
+  where it stays positive or bisected to the first zero, the fixed
+  point the steps were nearing; every fusion that settles before is
+  unchanged (2.3 million random ones), and no fusion of the year
+  crawls.
 - **Two parts by inverse variance, σ widened by their disagreement.**
   Student-t reweighting of two parts that disagree slides to the one
   with the smaller σ: on the recorded room, a 3 % change of one σ
@@ -492,7 +505,8 @@ the README's order; what was tried and dropped is under Ruled out.
   mirrored clears it. While jumped, delta and variance are held, the
   part is still scored without counting, and the CUSUM runs as the
   return test (up += k − z, down += k + z, each held between 0 and h +
-  k, z read within ±(h/2 − k) of zero, ±2 with the defaults): both
+  k, z read within ±(h/2 − k) of zero, ±2 with the defaults; that
+  clip at k at least, so a `Quantity` with h below 4k is refused): both
   sides above h, about eleven blocks (33 h) of the error back, and it
   is ok again. No new constant. The clip is what keeps a return told
   by time, not by magnitude: a wild block mean is a transient, not
@@ -783,7 +797,18 @@ the README's order; what was tried and dropped is under Ruled out.
   the mirror: under noise a side gained about 0.1 a block, not k, and
   on MadHouse's year 25 of 50 jumps cleared before the month's end,
   against 43 of 60. **A clip of the block mean at 2k** instead of
-  h/2 − k: it moves the "within k" boundary to about 0.78 σ.
+  h/2 − k: it moves the "within k" boundary to about 0.78 σ. **A clip
+  bounded below at k** when h is below 4k, instead of refusing such a
+  `Quantity`: the two properties of the return test are the two
+  sides of one inequality, h/2 − k ≥ k; with the clip held at k, one
+  block moves a side by 2k, more than h/2, two blocks fill a side,
+  and under noise the clipped mean averages below k, so the side
+  facing away climbs.
+- **Aitken or Steffensen acceleration of a robust crawl**: the crawl
+  is a bottleneck, not a slow linear approach, and extrapolating it
+  aims at a fixed point that is not there. **Bisecting from the plain
+  mean to the parts' edge**: the Student-t likelihood has several
+  maxima, and a bracket need not hold the one the steps reach.
 - **Judging the reference by its own σ** in the Tracker, as the one
   model would without the width rule: it caught small reference steps
   on the recorded room, but added two false reference jumps on
