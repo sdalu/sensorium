@@ -84,8 +84,7 @@ class TickTest < Minitest::Test
     def fusion(tracks: {})
         Sensorium::Fusion.new(SETUP, offsets: knowledge.offsets,
                                      shifts: knowledge.shifts,
-                                     locations: knowledge.locations,
-                                     dynamics: knowledge.dynamics, tracks:)
+                                     locations: knowledge.locations, tracks:)
     end
 
     def tracker

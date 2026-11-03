@@ -25,13 +25,6 @@ class DeltasTest < Minitest::Test
         assert_in_delta Math.hypot(0.1, 50 / 60.0), sigma
     end
 
-    def test_the_cap_holds_over_the_models_variance
-        fused = with_model(deltas: { "ceil" => 0.2 })
-        assert_in_delta Math.sqrt((0.1**2) + (0.04 / 3)),
-                        part(fused, "ceil").part.sigma
-        assert_in_delta 20.0 + (0.01 * 5), fused.value
-    end
-
     def test_a_reading_older_than_max_age_still_does_not_count
         fused = fuse({ "ceil" => [20.0, 3700], "tado" => [19.0, 0] },
                      locations: room(deltas: { "ceil" => 0.2 }))
@@ -60,17 +53,5 @@ class DeltasTest < Minitest::Test
 
     def room(**settings)
         { "room" => Sensorium::Location.new(name: "room", **settings) }
-    end
-
-    def with_model(deltas:)
-        model = Sensorium::Dynamics::Model.new(
-            location: "room", quantity: "temperature", regime: "winter",
-            a: 0.0, b: {}, c: 0.01, q: 0.04, bin: 600, steps: 1000
-        )
-        Sensorium::Fusion.new(Sensorium::Presets.room, offsets:, shifts: [],
-                                                       locations: room(deltas:),
-                                                       dynamics: [model])
-                         .location("room",
-                                   snapshot("room", { "ceil" => [20.0, 3000] }))
     end
 end

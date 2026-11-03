@@ -17,10 +17,9 @@ module Sensorium
 
         # What was learned of the location in the moment's regime:
         # offsets { device => Offset }, shifts { [device, influence,
-        # mode] => Shift }, tracks { device => Track } (Tracker),
-        # dynamics its Dynamics::Model (nil: none).
-        Learning = Data.define(:offsets, :shifts, :tracks, :dynamics) do
-            def initialize(tracks: {}, dynamics: nil, **) = super
+        # mode] => Shift }, tracks { device => Track } (Tracker).
+        Learning = Data.define(:offsets, :shifts, :tracks) do
+            def initialize(tracks: {}, **) = super
         end
 
         # location: a resolved Location; references: [device], nil when
@@ -35,7 +34,7 @@ module Sensorium
             @snapshot = snapshot
             @quantity = setup.quantity
             @inputs   = Inputs.new(location, references, snapshot, setup)
-            @aging    = Aging.new(location, learning.dynamics, snapshot, setup)
+            @aging    = Aging.new(location, snapshot, setup)
         end
 
         def all = pairs.map(&:first)
@@ -117,5 +116,4 @@ module Sensorium
 end
 
 require_relative "parts/inputs"
-require_relative "parts/driven"
 require_relative "parts/aging"

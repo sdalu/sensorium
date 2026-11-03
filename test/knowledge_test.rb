@@ -66,7 +66,7 @@ class KnowledgeGivenTest < Minitest::Test
     def test_a_fusion_given_a_knowledge
         given = Sensorium::Fusion.new(SETUP, knowledge:)
         keywords = Sensorium::Fusion.new(
-            SETUP, **knowledge.to_h.except(:transients)
+            SETUP, **knowledge.to_h.except(:dynamics, :transients)
         )
         assert_equal fused(keywords), fused(given)
     end

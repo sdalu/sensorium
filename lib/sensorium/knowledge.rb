@@ -7,7 +7,8 @@ module Sensorium
     # [Dynamics::Model], transients [Transient::Profile] and
     # collocations [Collocation]. The Fusion, the Tracker and the
     # Transient::Detector each take the part they need of it
-    # (knowledge:), as a Tick does.
+    # (knowledge:), as a Tick does; none takes the dynamics, kept for
+    # the caller.
     Knowledge = Data.define(:offsets, :shifts, :locations, :tracks,
                             :dynamics, :transients, :collocations) do
         def initialize(offsets: [], shifts: [], locations: {}, tracks: {},

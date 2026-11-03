@@ -39,7 +39,7 @@ class DynamicRoom
         list.select { (from..to).cover?(it.first) }
     end
 
-    # The value 1 hour (six bins) after each bin, as Fusion predicts it
+    # The value 1 hour (six bins) after each bin, as a Model predicts it
     # with the room's true terms, less what it was.
     def hour_errors
         @rows.each_cons(7).map do |first, *, last|

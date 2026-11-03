@@ -2,10 +2,9 @@
 
 module Sensorium
     module Dynamics
-        # A location's reference predicted some hours ahead, as the
-        # Fusion ages a reading: from its value at a bin, by the model's
-        # change over the hours, from the inputs at the bin predicted
-        # (the outside, the Switches on).
+        # A location's reference predicted some hours ahead: from its
+        # value at a bin, by the model's change over the hours, from the
+        # inputs at the bin predicted (the outside, the Switches on).
         class Forecast
             # reference, outside: { bin => value } (outside nil: none);
             # on: { name => bins on }.

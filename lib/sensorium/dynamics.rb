@@ -10,12 +10,11 @@ module Sensorium
     # by least squares over the bins where every term is known and no
     # Mode held (nor within its hold), on the reference's carried
     # series, as the History finds it. q is the mean square of the
-    # error of predicting an hour ahead (as the Fusion does) over the
-    # bins fitted, per hour. The Fusion moves an aged reading by the
-    # change the model predicts over its age, and grows its σ² by
-    # q × its age (hours). A model is kept only when, fitted without
-    # the last tenth of its bins (a week at least), it predicts those
-    # two hours ahead better than holding the last value (Validation).
+    # error of predicting an hour ahead (Forecast) over the bins
+    # fitted, per hour. A model is kept only when, fitted without the
+    # last tenth of its bins (a week at least), it predicts those two
+    # hours ahead better than holding the last value (Validation). The
+    # models are the caller's: the Fusion does not read them.
     module Dynamics
         # A location's model in a regime: a, c per bin; b { name => per
         # bin }; q per hour; bin, seconds; steps, how many it was

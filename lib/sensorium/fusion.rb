@@ -32,12 +32,13 @@ module Sensorium
 
         # The keywords a Fusion may be given instead of a Knowledge.
         REQUIRED = %i[offsets shifts].freeze
-        OPTIONAL = %i[locations tracks dynamics collocations].freeze
+        OPTIONAL = %i[locations tracks collocations].freeze
 
         # knowledge: a Knowledge of the setup's quantity, its offsets,
-        # shifts, locations (those set), tracks (the Tracker's),
-        # dynamics and collocations (a sole reference's σ, where a
-        # Location sets none); or, instead, those as keywords, offsets:
+        # shifts, locations (those set), tracks (the Tracker's) and
+        # collocations (a sole reference's σ, where a Location sets
+        # none), its dynamics not read (a reading ages by the drift
+        # rule, Parts::Aging); or, instead, those as keywords, offsets:
         # and shifts: required.
         def initialize(setup, knowledge: nil, **given)
             knowledge = Knowledge.given(knowledge, given, REQUIRED, OPTIONAL)
@@ -46,7 +47,6 @@ module Sensorium
             @shifts    = keyed(knowledge.shifts)
             @locations = knowledge.locations
             @tracks    = knowledge.tracks
-            @dynamics  = keyed(knowledge.dynamics).transform_values(&:first)
             @collocations = keyed(knowledge.collocations)
                             .transform_values(&:first)
         end
@@ -119,8 +119,7 @@ module Sensorium
                 shifts: @shifts.fetch(key, []).to_h do |shift|
                     [[shift.device, shift.influence, shift.mode], shift]
                 end,
-                tracks: tracks(key, references, offsets),
-                dynamics: @dynamics[key]
+                tracks: tracks(key, references, offsets)
             )
         end
 

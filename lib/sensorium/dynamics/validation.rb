@@ -5,7 +5,7 @@ module Sensorium
         # Whether a location's model in a regime predicts better than
         # holding the last value: fitted without the last tenth of its
         # steps (a week of them at least), it must predict the reference
-        # two hours ahead from those steps' bins, as the Fusion does,
+        # two hours ahead from those steps' bins (Forecast),
         # with an RMS error at most Setup#dynamics_margin (0.98) of
         # holding's: margins of a few thousandths are noise (a model that
         # won in May by 0.7 % lost in October). Kept, it is fitted again
