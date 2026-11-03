@@ -39,7 +39,7 @@ module Sensorium
             def capped(spread, device, reading)
                 delta = @location.deltas[device] or return spread
                 inside = inside(reading, delta) or return spread
-                [spread, (inside**2) / 3].min
+                [spread, (inside**2) / 3.0].min
             end
 
             # The delta as the transform takes it at the reading.
