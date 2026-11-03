@@ -48,11 +48,13 @@ class LearnerTest < Minitest::Test
         assert(shifts.values.all? { it.influence == "aircon" })
     end
 
+    # Over the 180 bins reported cooling and the 3 of the Mode's hold
+    # after the last.
     def test_the_aircon_shift_is_over_the_plain_offset
         airzone = shifts[%w[airzone cooling]]
         assert_in_delta 5.0 - @found[%w[room-a airzone]].plain,
                         airzone.shift, 0.01
-        assert_equal 180, airzone.samples
+        assert_equal 183, airzone.samples
     end
 
     def test_a_sensor_the_aircon_misses_has_no_shift

@@ -122,9 +122,16 @@ module Sensorium
             { near: events.group_by { it[1] }.transform_values do |list|
                 @series.spans(list.map(&:first), mode.hold)
             end,
-              at: events.to_h do |time, location, value|
-                  [[location, @series.bin(time)], value]
-              end }
+              at: at(events, mode.hold) }
+        end
+
+        # { [location, bin] => value }, each event's value carried
+        # `hold`, a later event's over an earlier one's.
+        def at(events, hold)
+            events.sort_by(&:first)
+                  .each_with_object({}) do |(time, location, value), at|
+                @series.spans([time], hold).each { at[[location, it]] = value }
+            end
         end
     end
 end
