@@ -239,15 +239,43 @@ the README's order; what was tried and dropped is under Ruled out.
 - **Settings per quantity**: a smoke detector may be the temperature
   reference and not measure humidity at all, hence the humidity
   preset's own places (wall, valve).
-- **Triple collocation measures; it does not feed the fusion.** It
+- **A sole reference's σ from its collocation.** A sole reference's σ
+  was the quantity's, a hand-set 0.1 °C, yet it anchors every weight:
+  on NoisyRoom, a reference three times noisier made the fused value
+  overconfident (var(z) against the truth 6.94) and took the most
+  weight (0.83). Where the Location sets none, a sole reference now
+  takes the σ its Collocation measured, bounded below by the
+  quantity's floor and above by the tightest σ of the corrections to
+  it, every one of which holds the reference's error: var(z) 0.41,
+  weight 0.32. Not with several references, nor where the
+  Collocation finds the reference not measurable (a negative
+  variance). With a noisy reference the fused
+  σ then errs wide (0.41): the safe side. On MadHouse's year, rooms of
+  three went from 24 to 30 jumps (false 15 to 19, real 2 to 3), var(z)
+  and RMS unchanged.
+- **Triple collocation feeds the reference's σ, and nothing more.** It
   tells each series' own error apart, assuming the errors independent:
   an error every series shares is in no difference, and one shared by
-  every series but one is put on that one. Fed to the fusion it moves
-  the shared error from one σ to another rather than accounting for
-  it, so it stays a measurement.
+  every series but one is put on that one. Taken out of each sensor's
+  σ as well, it moved the shared error from one σ to another rather
+  than accounting for it (Ruled out); so it gives the reference its σ,
+  which nothing else measures, and stays a measurement for the rest.
 
 ## Staleness
 
+- **An old reading ages by the drift rule only.** A location's
+  Dynamics model used to move an old reading to the moment. On
+  MadHouse's year it moved values by 0.017 °C RMS and the left-out RMS
+  by 0.006 °C on the hours it touched (0.002 over the year), and
+  narrowed σ too far on readings 30 to 60 minutes old: var(z) 1.34 in
+  rooms of two, one sparse reading swinging red-room by 1.6 °C.
+  Without the outside series it acted in two months only. So an old
+  reading's σ always grows by drift × its age, its value unmoved, and
+  the Fusion takes no dynamics.
+- **Dynamics stays, as a toolkit.** The model, its learning, its
+  validation, its forecast and the stores that keep it are for a
+  caller that predicts a room, such as a heating planner; the bullets
+  below are why it is shaped so.
 - **A first-order ARX of the reference, per location and regime**: one
   state driven by the gap to the outside, each Switch's on-state and a
   constant, the discrete form of a one-resistance, one-capacitance
@@ -258,8 +286,8 @@ the README's order; what was tried and dropped is under Ruled out.
   filters it already, and a filtered Switch's τ was chosen for a
   sensor's offset, not for the room. A Switch never off, or never on,
   in a regime is left out: its column would be the constant's.
-- **Without the bins under a Mode, and not applied under one**: the
-  aircon drives the room far more than anything the model has.
+- **Without the bins under a Mode**: the aircon drives the room far
+  more than anything the model has.
 - **Priors as numbers, not physics.** A room's time constant and
   heating gain follow from its walls, volume and ventilation, but those
   are a building's, not a sensor's, and the method that turns them
@@ -272,13 +300,12 @@ the README's order; what was tried and dropped is under Ruled out.
   noise, not a model.
 - **q from an hour ahead, not from one step.** The carried series is
   steady between reports, so its steps are far from independent; q is
-  the mean square of the error of predicting an hour ahead, as the
-  fusion does.
-- **Only the time update, applied per reading.** No fused state is
-  kept between calls: the fusion stays a function of the snapshot. The
-  change is the model stepped over the reading's age, in closed form
-  (an approach to the equilibrium the inputs hold the room at), so it
-  holds at any age, and the validation forecasts the same way.
+  the mean square of the error of predicting an hour ahead, as a
+  forecast does.
+- **The change in closed form.** It is the model stepped over the
+  hours asked, in closed form (an approach to the equilibrium the
+  inputs hold the room at), so it holds at any horizon, and the
+  validation forecasts the same way.
 - **Send-on-delta as a cap, not a model.** A value that has not moved
   by its delta is within ±delta of the truth; spread evenly there its
   variance is delta² / 3. `max_age` still cuts: without a heartbeat,
@@ -308,7 +335,25 @@ the README's order; what was tried and dropped is under Ruled out.
   a part is the others' fusion, the part left out, or it would pull its
   own truth. A sensor whose single other is the reference is judged
   against it alone (below); any other part with fewer than two others
-  is left as it was, unless a witness stands in (below).
+  is left as it was.
+- **One model behind the rules.** The attribution is one model in the
+  correction's space: a common mode, the reference's error, whose
+  innovation is the robust consensus of the sensors' differentials
+  against the reference; and one differential per sensor, judged
+  against a GLS blend of the reference and the other sensors'
+  consensus, with weight ρ = σr² / (σr² + spread²) on that consensus.
+  The rules below are that model's arithmetic: the references first,
+  the suspect, a sensor against its reference alone (ρ = 0, no other
+  sensor) and no lone reading against a single other (one sensor).
+  With the reference's width kept, the model reproduced the Tracker on
+  all 43 632 ticks of MadHouse's year. Only that width (the tightest
+  Offset σ, below) is a rule of its own.
+- **Widths in the correction's space.** delta and the innovations live
+  in the correction's space, where a reading is corrected to the
+  reference; the drift limit and a reference's width took an Offset's
+  gap σ, so a sensor with a kept k = +0.6 neighbour drifted at 4.8 σ
+  instead of 3. Both now take the corrected σ, the gap's over
+  |1 + gain + k|.
 - **A sensor against its reference alone.** The sensor's Offset was
   learned on exactly that pair, with that pair's spread as its σ, and
   the reference's delta is pinned at 0 by convention, so their
@@ -328,8 +373,13 @@ the README's order; what was tried and dropped is under Ruled out.
   arbitrary (green-room and red-room are pairs all summer by
   learning).
 - **A slow filter, a CUSUM for jumps.** The gain is kept small so that
-  noise does not move delta: a constant bias takes about two days to
-  be learned. A step would then be absorbed over days, the value off
+  noise does not move delta. `track_q` is in the quantity's units (how
+  fast the offset itself wanders, in °C), so the filter's time
+  constant varies with each sensor's corrected σ: 18 h to 152 h across
+  MadHouse's offsets, median 44 h; a constant bias takes about two
+  days to be learned near σ 0.25. Kept on purpose: a noisier sensor
+  should take longer to show a drift. A step would then be absorbed
+  over days, the value off
   all the while, so a two-sided CUSUM flags it (k = 0.5, h = 5, the
   textbook pair for a shift of one σ of what it runs on). A slow ramp
   the filter keeps up with is said by the drift alarm instead (|delta|
@@ -380,32 +430,25 @@ the README's order; what was tried and dropped is under Ruled out.
   of 0.10 and 0.15 °C, caught before at 4 and 6 of 16 starts after
   days, now at none); and in a room whose third sensor is noisy, which
   of the two tight ones a step between them is blamed on is still
-  decided by noise.
+  decided by noise. The one model above would judge the reference by
+  its own σ instead; that was measured and not adopted (Ruled out).
 - **References first, a jumped part out of the others.** A jumped part
   left in the others' fusion would pull them after it; within an
   update the references go first, and a part that has jumped is left
   out of every later part's others.
-- **A witness from the location's own dynamics** for a part left with
-  a single other, as in a room of three once one part has jumped.
-  Unless a sensor has its reference, a disagreement between two cannot
-  be put on either side; the room's
-  last fused value, moved by its model to the moment, is a third that
-  depends on neither reading now, its σ grown by what the model
-  cannot tell over the time since. It comes from a Fused made with the
-  tracks, so the jumped part is already out of it. The previous value
-  holds both sensors' deltas, so a bias on one is in part put on the
-  other; that still beats standing still until a relearn. It is the
-  aged-reading rule of the fusion, the same inputs from the snapshot,
-  and stands aside where that rule does: no model, no outside the
-  model needs, a Mode holding, or a previous value past `max_age`.
-  With the room preset it stays unused: green-room's model loses to
-  holding by a hair (on MadHouse's year, a held-out ratio of 0.987 to
-  0.996 in winter against the 0.98 margin; a 0.001 per bin, q 0.18 to
-  0.26 °C²/h). With the outside set and Dynamics learned monthly, once
-  a sensor is judged against its reference alone and no lone reading
-  is a jump against a single other, the witness brought no var(z) gain
-  and an RMS 0.0025 °C lower, and let a reference be judged against a
-  sensor plus a copy of the room's last value.
+- **No witness.** A part left with a single other, as in a room of
+  three once one part has jumped, used to take a witness as a second
+  other: the previous Fused moved by the location's dynamics to the
+  moment. With the room preset it stayed unused: green-room's model
+  loses to holding by a hair (on MadHouse's year, a held-out ratio of
+  0.987 to 0.996 in winter against the 0.98 margin; a 0.001 per bin,
+  q 0.18 to 0.26 °C²/h). With the outside set and Dynamics learned
+  monthly it brought no var(z) gain (an RMS 0.0025 °C lower), and let
+  a reference be judged against a sensor plus a copy of the room's
+  last value; once a sensor is judged against its reference alone,
+  nothing was left for it to unfreeze. It is gone, and with it the
+  Tracker's dynamics and the previous Fused a Tick or an update took.
+  Without the dynamics MadHouse's year is unchanged tick for tick.
 - **A Fused carries both estimates, and a Tick holds no state.** The
   value needs each part with its track applied; the Tracker needs it
   without, so that each delta is taken out once, by the Tracker, and a
@@ -414,8 +457,8 @@ the README's order; what was tried and dropped is under Ruled out.
   the part after, so one fusion per location serves both, where two
   Fusions per tick computed every correction twice. The Tick keeps
   nothing between calls, as the Fusion keeps nothing (Staleness): the
-  tracks come in with the Knowledge and go out updated, the previous
-  Fused is the caller's, so a Tick is a function of what it is given
+  tracks come in with the Knowledge and go out updated, so a Tick is
+  a function of what it is given
   and a store stays the one place the tracks live. Until a part is
   the suspect (below) it still counts in the others' fusion, and leaks
   a little into their deltas.
@@ -609,3 +652,17 @@ the README's order; what was tried and dropped is under Ruled out.
   and learning on the last segment made the σ too narrow.
 - **A `track_q` estimated from the innovations** (Mehra): they are
   never white, whatever q, the daily cycle in them; no optimum exists.
+- **Taking the reference's collocation σ out of each sensor's σ**,
+  measured twice (as specified, and with a reference σ at the bound
+  counted not measurable): on MadHouse's year the Collocation puts the
+  downstairs sensors' shared errors on the reference, and a real 3 σ
+  July step on the tado went unflagged, the reference blamed.
+- **Carrying a track across a relearn** (delta rebased by the
+  constant's move): false jumps 30 to 34 on MadHouse's year. Its
+  post-relearn jumps come from the first learning and the regime
+  boundaries, not from a track restarted on a rounded constant; an
+  exact form needs the Offset's terms stored with the track.
+- **Judging the reference by its own σ** in the Tracker, as the one
+  model would without the width rule: it caught small reference steps
+  on the recorded room, but added two false reference jumps on
+  MadHouse's year. The width is kept until a second house can tell.

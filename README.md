@@ -207,6 +207,11 @@ under it, and its hold after, are left out of the fit, and each value it
 takes is learned apart as a `Shift` on top of the plain offset.
 
 Each **regime** (by default the calendar seasons) is learned apart.
+The room preset's months are one climate's heating season (winter
+Nov–Mar, mid Apr, May and Oct, summer Jun–Sep): elsewhere, set them
+with `Regime::Calendar.new(months)`, months `{ name => [month] }`,
+every month in one, given as the `Setup`'s `regime`
+(`Presets.room.with(regime: Sensorium::Regime::Calendar.new(...))`).
 
 A location's **reference** is the devices its `Location` names (their
 mean when several, each then learned against it too), else its first
@@ -240,8 +245,9 @@ their mean by their offset, and the mean, made of them, is not a
 series beside them. It assumes the series' errors independent:
 an error they all share (the sun on the room, the radiators' plume)
 is not seen, and an error every sensor but the reference shares is
-taken for the reference's. They measure; the Fusion does not use
-them (DESIGN.md, Fusion).
+taken for the reference's. The Fusion takes one of them only: a sole
+reference's σ (see Fusing); every sensor keeps its offset's σ
+(DESIGN.md, Fusion).
 
 ## Transients
 
@@ -324,7 +330,8 @@ fusion   = Sensorium::Fusion.new(
     setup,
     offsets: store.offsets("temperature"),
     shifts: store.shifts("temperature"),
-    locations: store.locations("temperature")
+    locations: store.locations("temperature"),
+    collocations: store.collocations("temperature")
 )
 fused = fusion.location("green-room", snapshot)
 fused.value       # °C, corrected to the reference
@@ -347,7 +354,13 @@ now (above its median, or not); an offset without any of them, the
 spread of every bin. σ is never below the quantity's `floor`, grows
 with the reading's age (see Staleness), and a reading older than
 `max_age` does not count. A location without references set takes
-those it was learned against in the moment's regime. With three
+those it was learned against in the moment's regime. A reference is
+weighted by the location's σ: the one its `Location` sets; else, for
+a sole reference its `Collocation` measured in the moment's regime
+(`collocations:`), that σ, no lower than the quantity's `floor` and no
+higher than the tightest σ of the corrections to it (each holds the
+reference's error); else (several references, no collocation, or one
+that could not measure it) the quantity's. With three
 sensors or more, the inverse-variance fusion is Student-t reweighted
 (ν `robust_nu`) until it settles: a part far from the rest counts for
 less, smoothly, rather than one furthest part being dropped outright.
@@ -401,15 +414,15 @@ valve       20.1   −1.1      21.20     10 min    low (older, noisier)
                              fused 21.35 ± 0.08 at 10:10
 ```
 
-An older reading is not dropped but brought to the moment: moved by
-the location's dynamics where there are some, else its σ widened with
-its age (see Staleness), so it counts for less. A fused value is the
-estimate at its moment, not over the interval before it:
+An older reading is not dropped but brought to the moment: its value
+as it is, its σ widened with its age (see Staleness), so it counts for
+less. A fused value is the estimate at its moment, not over the
+interval before it:
 
 ```text
 age of the reading     in the fusion
 0 min                  its full weight
-12 min                 brought to the moment, or its σ widened
+12 min                 its σ widened with its age
 over max_age           left out (stale)
 ```
 
@@ -442,11 +455,29 @@ the newer one is fused.
 ### Staleness
 
 A reading is an estimate of the reference when it was taken; by the
-time it is fused, the room has moved on. By default its σ grows with
-its age t (hours) as √(σ² + (drift × t)²), its value unmoved.
+time it is fused, the room has moved on. Its σ grows with its age t
+(hours) as √(σ² + (drift × t)²), its value unmoved: the drift rule,
+`drift` the location's (the quantity's by default).
 
-A location's **dynamics** do better where they were learned: a
-first-order model of its reference r over one bin, per regime,
+A **send-on-delta** sensor reports only when its value moved by a
+threshold: an unchanged value is within that delta of the truth as
+long as the sensor is alive. A `Location`'s `deltas` (`{ device =>
+delta }`, as the quantity reads, before the transform) cap what the
+age adds to σ² at delta² / 3; the delta is
+taken into the transform's space at the reading (2 %RH is some
+0.35 g/m³ at 20 °C). `max_age` still cuts: a sensor silent for longer
+may be dead.
+
+```ruby
+store.set_location("temperature", "green-room",
+                   { deltas: { "hue-1" => 0.2 } })
+```
+
+### Dynamics
+
+A location's **dynamics** are a toolkit for a caller that wants to
+predict its reference, such as a heating planner: a first-order model
+of the reference r over one bin, per regime,
 
 ```text
 r(t + bin) - r(t) = a × (outside - r) + Σ b[switch] × on + c + noise
@@ -454,29 +485,21 @@ r(t + bin) - r(t) = a × (outside - r) + Σ b[switch] × on + c + noise
 
 with `outside` the external series `Setup#outside` names (none: a is
 0) and `on` 1 while each Switch is on (its hard hold, not its
-exposure). An aged reading is moved by what the model predicts over
-its age, from the inputs at the moment (the outside's latest value
-among the snapshot's externals, if no older than the location's
-`max_age`, the Switches on): the model stepped over the age's n
-bins, in closed form, (r* − value) × (1 − (1 − a)ⁿ) toward
+exposure). A `Dynamics::Model` gives the change it predicts over some
+hours from a value and the inputs (`change(value, outside, on,
+hours)`): the model stepped over the hours' n bins, in closed form,
+(r* − value) × (1 − (1 − a)ⁿ) toward
 r* = outside + (Σ b × on + c) / a ((Σ b × on + c) × n when a is 0),
-and its σ² grows by q × t, q the variance the model leaves, per
-hour. Without a model for the
-moment's regime, without the outside value when a ≠ 0, or while a
-Mode holds (the model was fitted without those bins), the drift
-rule.
+nil without the outside when a ≠ 0; and the variance its noise adds
+(`variance(hours)`, q × hours, q per hour). The Fusion does not use
+the models: an old reading ages by the drift rule (DESIGN.md,
+Staleness).
 
 ```ruby
 setup = Sensorium::Presets.room.with(outside: "outside")
 models = Sensorium::Dynamics.learn(source, setup, from:, to:)
 store.keep_dynamics("temperature", models)
-fusion = Sensorium::Fusion.new(
-    setup,
-    offsets: store.offsets("temperature"),
-    shifts: store.shifts("temperature"),
-    locations: store.locations("temperature"),
-    dynamics: store.dynamics("temperature")
-)
+store.dynamics("temperature")     # [Sensorium::Dynamics::Model]
 ```
 
 `Dynamics.learn` takes the location's reference as the learner does
@@ -487,7 +510,7 @@ a location and regime seen less than `min_samples` steps, or with
 a < 0 (a room running away from the outside is not a model). A Switch
 never off, or never on, in a regime is left out: its term cannot be
 told from c. q is the mean square of the error of predicting the
-reference an hour ahead, as the Fusion does, over the bins fitted.
+reference an hour ahead (`Dynamics::Forecast`), over the bins fitted.
 
 What the caller knows of a room beforehand can be given as a prior:
 `priors:` maps a location to a `Dynamics::Prior` (or answers
@@ -512,20 +535,6 @@ of holding the last value's, or the
 location and regime get no model; kept, it is fitted again on all its
 steps and carries both errors (`rms_hold`, `rms_model`). It is learned
 apart from `Learner#learn`, so a caller can run it on its own schedule.
-
-A **send-on-delta** sensor reports only when its value moved by a
-threshold: an unchanged value is within that delta of the truth as
-long as the sensor is alive. A `Location`'s `deltas` (`{ device =>
-delta }`, as the quantity reads, before the transform) cap what the
-age adds to σ² at delta² / 3, whichever rule gave it; the delta is
-taken into the transform's space at the reading (2 %RH is some
-0.35 g/m³ at 20 °C). `max_age` still cuts: a sensor silent for longer
-may be dead.
-
-```ruby
-store.set_location("temperature", "green-room",
-                   { deltas: { "hue-1" => 0.2 } })
-```
 
 ## Relearning
 
@@ -609,8 +618,7 @@ updated against it alone: its `Offset` was learned on that pair, and
 the reference's delta is pinned at 0, so their disagreement is the
 sensor's. Any other part with fewer than two others (a reference with
 a sensor alone, two sensors without their reference, two references)
-is left as it was, unless a **witness** stands in for the second
-(below).
+is left as it was.
 
 ```text
 a room of four, ceil the reference; wall's CUSUM is the highest,
@@ -627,8 +635,8 @@ In a room of three, a part out (a suspect, a jump) leaves the two
 others with one each, and a room of two has no more:
 
 ```text
-ceil the reference, no witness; each part, its others, and whether
-its track is updated
+ceil the reference; each part, its others, and whether its track is
+updated
 
                   part   its others   updated
 room of three     ceil   wall, tado   yes
@@ -700,8 +708,8 @@ Tracker sees of a reference is its disagreement with the room, which
 is usually as wide as the room's sensors' spread against it, not its
 instrument's σ: its innovations are judged with the smallest σ of the
 location's Offsets (the tightest bounds the reference's own
-excursions), or with its own σ (the location's, the quantity's by
-default) where that is wider, and its block means are standardised by
+excursions), or with its own σ (the location's, see Fusing) where
+that is wider, and its block means are standardised by
 the largest `block_share` of those Offsets. Its fingerprint is the
 regime and the location's references ("a+b"), constant and plain nil.
 
@@ -731,6 +739,12 @@ The alarms:
   offset is relearned or `Tracker#reset` drops it.
 - **drifting**: |delta| above `drift_alarm` × the offset's σ; back to
   ok under `drift_clear` × σ. Not for a reference.
+
+An Offset's σ, here as in the drift alarm and a reference's width, is
+the one its corrections carry: its spread / 2.563 / |1 + gain +
+coefficient|, where delta and the innovations are (`Offset#correct`).
+A sensor with a neighbour of k = +0.6 drifts at 3 of that σ, not at 3
+of its gap's.
 
 ```text
 the CUSUM's higher side after each closed block, then with the
@@ -804,21 +818,6 @@ part still counts and can clear. Made with tracks or without, the
 `Fused` gives the same tracks. `tracker.reset(tracks, "green-room",
 "tado")` drops a track, which starts afresh at its next update.
 
-In a location of three, a jumped part leaves each other one with a
-single other. Given the location's dynamics (see Staleness), the
-previous `Fused` (made *with* the tracks, so its jumped parts were
-already out) and the snapshot the current one was made from, the
-Tracker makes a witness: the previous value moved by the model to the
-moment, as an aged reading is, with the moment's inputs (the outside,
-the Switches on), its σ² the previous one's plus q × the hours since.
-It counts as one more other for a part that has a single one. There is
-none without a model for the location and the moment's regime,
-without the outside its model needs, while a Mode holds there, or
-when the previous `Fused` has no value or σ, or is older than the
-location's `max_age`; the part is then taken as above: a sensor whose
-single other is a reference against it alone, any other left as it
-was.
-
 Given transient profiles (`transients:`, see Transients) and the
 snapshot the `Fused` was made from, the Tracker leaves every part of a
 location as it was while the `Detector` finds an event there at the
@@ -828,14 +827,12 @@ for 30 hours at least, until the return CUSUM clears it. Without
 profiles or snapshot, it tracks as before.
 
 ```ruby
-tracker  = Sensorium::Tracker.new(
+tracker = Sensorium::Tracker.new(
     setup, offsets:,
-    dynamics: store.dynamics("temperature"),
     locations: store.locations("temperature"),
     transients: store.transients("temperature")
 )
-tracks   = tracker.update(tracks, fused, previous:, snapshot:)
-previous = fused                                # made with the tracks
+tracks  = tracker.update(tracks, fused, snapshot:)
 ```
 
 The gain is small by design. In the tests' room (a sensor of
@@ -853,29 +850,28 @@ and 3 of its offset's σ put into its readings are flagged after 37,
 
 What a store keeps of a quantity is one `Knowledge`
 (`store.knowledge("temperature")`: offsets, shifts, locations, tracks,
-dynamics, transient profiles); the `Fusion`, the `Tracker` and the
-`Transient::Detector` each take it as `knowledge:`. A `Tick` runs the
-ten-minute cycle on it:
+dynamics, transient profiles, collocations); the `Fusion`, the
+`Tracker` and the `Transient::Detector` each take it as `knowledge:`,
+none of them the dynamics, which are the caller's (see Dynamics). A
+`Tick` runs the ten-minute cycle on it:
 
 ```ruby
-setup    = Sensorium::Presets.room
-previous = {}
+setup = Sensorium::Presets.room
 loop do                                         # every ten minutes
     snapshot = Sensorium::Snapshot.from(source, setup, at: Time.now)
     tick = Sensorium::Tick.new(setup, store.knowledge("temperature"))
-                          .call(snapshot, previous:)
+                          .call(snapshot)
     tick.fused        # { location => Fused }, made with the tracks
     tick.events       # [Transient::Event] of the moment
     store.keep_tracks("temperature", tick.tracks)
-    previous = tick.fused
     sleep 600
 end
 ```
 
 Each location is fused once, with the tracks the `Knowledge` holds;
 the `Tracker` is updated from those `Fused` (each part as it was
-before its track, see Tracking), with `previous` for the witness and
-the snapshot for the `Detector`; and the `Detector` gives the events.
+before its track, see Tracking), with the snapshot for the
+`Detector`; and the `Detector` gives the events.
 The tracks updated show in the next tick's `Fused`, not in this one's.
 
 A blend, if wanted, takes the `Fused` as they come:
@@ -887,8 +883,7 @@ Sensorium::Blend.new({ "downstairs" => 0.8, "green-room" => 0.2 })
 
 A `Tick` holds nothing between calls: the tracks it gives back are all
 those it was given, updated, and `keep_tracks` keeps them for the next
-`store.knowledge`; `previous` is the caller's to keep. A process
-restarted without it loses only the witness for one tick. For a
+`store.knowledge`. For a
 quantity with a transform, `call(snapshot, context:)` takes each
 location's context ({ location => context }, or anything answering
 `call(location)`): humidity is brought back at the location's
@@ -1013,12 +1008,9 @@ it.
   about a day; meanwhile its delta takes some of it in, and a step
   slow enough to be taken in whole is never flagged, only seen as
   drifting.
-- In a location of three with a jumped reference, the witness is made
-  from the two others: a bias on one of them is shared between their
-  deltas. In the tests' room, 48 hourly updates take tado's delta to
-  57 % of a 0.2 bias while Airzone's moves by −0.077. Without
-  dynamics, two sensors left without their reference stand still
-  until a relearn, a reset or the jumped one clearing.
+- In a location of three with a jumped reference, the two sensors left
+  without it stand still until a relearn, a reset or the jumped one
+  clearing: their disagreement cannot be put on either.
 - A sensor judged against its reference alone takes the reference's
   excursions as its own: one of hours can be put on the sensor (once on
   one house's year, 81 h). In a location of two, which part moved
@@ -1049,12 +1041,14 @@ it.
 - The fused σ still assumes the parts' errors independent: an error
   they share (the reference's, the sun, a radiator's plume) is not in
   it, and neither triple collocation nor a leave-one-out on the same
-  data can see one (DESIGN.md, Fusion). The collocations are learned
-  and kept but not used by the Fusion.
+  data can see one (DESIGN.md, Fusion). The collocations give a sole
+  reference its σ, and nothing else.
 - A sensor's σ is the spread of its difference to the reference, the
   reference's own noise counted in: with a noisy reference it errs
   wide (a left-out part's var(z) 0.76 in the tests' room, the
-  reference's σ 0.1).
+  reference's σ 0.1; the fused value's var(z) 0.41 against the truth
+  in the tests' noisy room, its reference three times noisier and its
+  σ learned): the safe side.
 - A location without a reference is fused from its readings as they
   read: its σ says how fresh they are, not how far its sensors differ
   from one another.
@@ -1062,6 +1056,9 @@ it.
   not the Modes (a Shift has its own spread).
 - A dynamics model's q is calibrated on the span it was fitted on:
   another season may move more, or less.
+- The bins under a Mode, and its hold, are left out of learning: a
+  house whose aircon cools most summer days learns little or no
+  summer offset. How little has not been measured.
 - A blend takes its estimates' errors as independent.
 - A transient threshold is learned from all the calm changes of a
   regime, the transients the Detector should find among them: a

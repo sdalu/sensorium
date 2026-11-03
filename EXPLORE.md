@@ -1,13 +1,15 @@
 # Ideas to explore
 
-What remains after version 0.4.0 (0.3.0: the keep rule on the
+What remains after version 0.5.0 (0.3.0: the keep rule on the
 correction, two parts fused by inverse variance with their σ widened
 by their gap, the block under way counted for its share, a jump that
 clears the way it came, a reference judged with its room's width;
 0.4.0: a sensor judged against its reference alone, no suspect below
-three, no lone-reading jump against a single other). Ranked by the
-gain expected. Items 1 to 6 are this gem's; item 7 belongs to its
-users, MadHouse and ClimatControl.
+three, no lone-reading jump against a single other; 0.5.0: a sole
+reference's σ from its collocation, the Tracker's widths in the
+correction's space, no witness, no model aging in the Fusion).
+Ranked by the gain expected. Items 1 to 6 are this gem's; item 7
+belongs to its users, MadHouse and ClimatControl.
 
 The evidence comes from two sources: a room recorded over 30 winter days
 (learned on the first 20, scored on the last 10), and MadHouse's year
@@ -41,13 +43,17 @@ a Tick every ten minutes), read-only.
    principled cap helped; worth watching in production.
 6. **Two sensors left without their reference** still stand still
    until a relearn, a reset or a jump clearing: their disagreement
-   cannot be put on either. Only a witness would move them, and with
-   the room preset none is worth having (green-room's dynamics lose to
-   holding by a hair).
+   cannot be put on either. The witness that could move them is gone
+   (DESIGN.md, Tracking: no var(z) gain).
 
 ## On the users' side
 
-7. **Around sensorium 0.4.0:**
+7. **Around sensorium 0.5.0:**
+   - The API changed: a `Tracker` is made without `dynamics:`,
+     `Tracker#update` and `Tick#call` take no `previous:`, and a
+     `Fusion` is made without `dynamics:`; `collocations:` is new to
+     the `Fusion`, optional (a sole reference's σ). A `Knowledge` from
+     a store carries the collocations already.
    - MadHouse's tables need the five columns added in 0.2.0 if it opens
      the store with `migrate: false`: `block_share` on offsets;
      `block_sum`, `block_noise`, `block_count` and `block_at` on tracks.
@@ -90,4 +96,10 @@ records:
 - change-point segmentation (the one level change was the weather);
 - `track_q` estimated from the innovations (they are never white);
 - a GLR test, robust (Huber) Kalman updates;
-- holding a suspect's delta (turns a real bias into a jump).
+- holding a suspect's delta (turns a real bias into a jump);
+- taking the reference's collocation σ out of each sensor's σ (the
+  downstairs sensors' shared errors put on the reference, a real July
+  step on the tado unflagged);
+- carrying a track across a relearn (false jumps 30 to 34);
+- judging the reference by its own σ in the Tracker (two false
+  reference jumps on the year).
