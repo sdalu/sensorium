@@ -26,11 +26,14 @@ module Sensorium
                 end.to_h
             end
 
-            def of(time) = @by_month.fetch(time.month)
+            # The months are the site's, in the local zone whatever the
+            # time's own (a History's bins are local, a Store's times UTC).
+            def of(time) = @by_month.fetch(time.getlocal.month)
 
             # The regimes a span of time touches, in names' order.
             def covered(from, to)
-                months = (from.to_date..to.to_date).map(&:month).uniq
+                months = (from.getlocal.to_date..to.getlocal.to_date)
+                         .map(&:month).uniq
                 @names.select { @months[it].intersect?(months) }
             end
         end
