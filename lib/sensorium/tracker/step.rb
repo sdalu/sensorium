@@ -144,7 +144,10 @@ module Sensorium
             end
 
             # How far from zero the return test reads a block mean: h/2 - k,
-            # so that one block moves a side by h/2 at most.
+            # so that one block moves a side by h/2 at most; k at least,
+            # so that an error k or more away holds its side down (up +=
+            # k - z is 0 at most), which Quantity keeps by refusing a
+            # cusum_h below 4 cusum_k.
             def swing = (@quantity.cusum_h / 2) - @quantity.cusum_k
 
             # The track with its state: jumped once a CUSUM, the open

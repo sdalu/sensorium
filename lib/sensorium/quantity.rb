@@ -22,7 +22,10 @@ module Sensorium
     #             runs on each block's mean, standardised by the
     #             Offset's block_share (3 h)
     #   cusum_k   the slack of the CUSUM on standardised blocks (0.5)
-    #   cusum_h   the CUSUM above which the track has jumped (5)
+    #   cusum_h   the CUSUM above which the track has jumped (5); at
+    #             least 4 cusum_k, or the return test has no clip of a
+    #             block mean that holds a side down while the error is
+    #             still away (Tracker::Step#swing)
     #   drift_alarm, drift_clear  |delta| in Offset σ above which it
     #             drifts (3), below which it is back (2)
     Quantity = Data.define(:name, :unit, :sigma, :drift, :max_age,
@@ -43,6 +46,10 @@ module Sensorium
             super(**given, name: name.to_s, sigma:,
                            floor: given[:floor] || (sigma / 4.0),
                            track_q: given[:track_q] || ((sigma**2) / 48.0))
+            return if cusum_h >= 4 * cusum_k
+            raise ArgumentError, "cusum_h #{cusum_h} is below 4 cusum_k " \
+                                 "(#{4 * cusum_k}): the return test " \
+                                 "needs its clip, h/2 - k, at k or more"
         end
 
         # The Quantity with changes, floor and track_q derived again
