@@ -15,9 +15,11 @@ module Sensorium
             end
 
             # [[model's error, holding's error]] from each of the bins
-            # where the reference is known then and `hours` after.
+            # where the reference is known then and `hours` after, the
+            # hours rounded to whole bins of the model's, one at least.
             def errors(model, bins, hours)
-                ahead = (hours * 3600).round
+                ahead = ahead(model, hours)
+                hours = ahead / 3600.0
                 bins.filter_map do |bin|
                     from = @reference[bin] or next
                     truth = @reference[bin + ahead] or next
@@ -42,6 +44,11 @@ module Sensorium
             end
 
             private
+
+            # The seconds of the whole bins nearest `hours`, one at least.
+            def ahead(model, hours)
+                [(hours * 3600.0 / model.bin).round, 1].max * model.bin
+            end
 
             def change(model, from, target, hours)
                 on = @on.filter_map do |name, bins|
