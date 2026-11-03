@@ -34,6 +34,13 @@ module Sensorium
                 found.sum { it.first**2 } / found.size unless found.empty?
             end
 
+            # The mean square error per hour of the horizon: the mean
+            # square over the horizon in whole bins, over its hours.
+            def per_hour(model, bins, hours)
+                square = mean_square(model, bins, hours) or return
+                square * 3600.0 / ahead(model, hours)
+            end
+
             # [rms_model, rms_hold]; nil without any error.
             def rms(model, bins, hours)
                 found = errors(model, bins, hours)

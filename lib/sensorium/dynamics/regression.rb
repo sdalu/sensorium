@@ -20,7 +20,7 @@ module Sensorium
                 return if terms[:a].negative?
                 model = Model.new(**key, **terms, q: 0.0, bin: setup.bin,
                                                   steps: steps.size)
-                q = forecast.mean_square(model, steps.map(&:bin), 1.0)
+                q = forecast.per_hour(model, steps.map(&:bin), 1.0)
                 model.with(q:) if q
             end
 
