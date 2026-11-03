@@ -39,14 +39,16 @@ module Sensorium
         def self.sigmas(columns)
             columns.keys.to_h do |name|
                 variance = variance(columns, name)
-                [name, variance.negative? ? nil : Math.sqrt(variance)]
+                variance = nil if variance&.negative?
+                [name, variance && Math.sqrt(variance)]
             end
         end
 
         # The mean over the pairs (j, k) of the others of
-        # cov(x_i - x_j, x_i - x_k).
+        # cov(x_i - x_j, x_i - x_k); nil with fewer than three columns.
         def self.variance(columns, name)
             pairs = (columns.keys - [name]).combination(2).to_a
+            return if pairs.empty?
             pairs.sum do |j, k|
                 Stats.covariance(apart(columns, name, j),
                                  apart(columns, name, k))
