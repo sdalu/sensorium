@@ -1167,6 +1167,30 @@ it.
   from a cause of its own; how to take them (a transient profile of
   their own) is open.
 
+## Upgrading
+
+From 0.1.x to 0.2.x, what a caller must change:
+
+- `Tick#call` takes no `previous:`, nor `Tracker#update`: the witness
+  that used it is gone; drop the argument and the state kept for it.
+- A `Tracker` and a `Fusion` are made without `dynamics:`; Dynamics
+  stays a toolkit of its own (`Dynamics.learn`), no longer used by the
+  Fusion. A `Fusion` takes `collocations:` (optional: a sole
+  reference's σ), which a `Knowledge` from a store carries already.
+- A `Parts::Part` carries the reading's `time`; `Offset#correct` takes
+  `held:`, whether a Mode holds.
+- A store gains five columns: `block_share` on offsets; `block_sum`,
+  `block_noise`, `block_count` and `block_at` on tracks. A Sequel
+  store adds them itself, unless opened with `migrate: false`: then
+  add them by hand first.
+- Since 0.2.3, a `Quantity` with `cusum_h` below 4 `cusum_k` raises
+  ArgumentError (Tracking).
+
+And what changes without a call changing: a Switch's text values
+("off" and "false" are off, Learning), the Shift of two Modes holding
+at once (`aircon+fan`), a Mode with no Shift for its value (the plain
+offset), and regimes asked of local times.
+
 ## Gate
 
 `bundle exec rake`: the tests, then RuboCop.
