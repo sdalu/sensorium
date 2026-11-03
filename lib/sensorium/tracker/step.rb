@@ -128,12 +128,14 @@ module Sensorium
             # a side climbs while the error is back on that side of the
             # delta held, and stays down while it is still away. Each side
             # is held at h + k at most, so time away counts for no more
-            # than one block of being back: both past h, the error is
-            # within k of the delta held, with the evidence a jump takes.
+            # than one block of being back, and climbs by k at most, so a
+            # block swung past the delta counts for no more than one back
+            # at it: both past h, the error is within k of the delta held,
+            # with the evidence a jump takes.
             def returning(track, z)
                 k, h = @quantity.to_h.values_at(:cusum_k, :cusum_h)
-                up, down = [[track.cusum_up, k - z], [track.cusum_down, k + z]]
-                           .map { |side, step| (side + step).clamp(0.0, h + k) }
+                up = (track.cusum_up + k - z.clamp(0.0..)).clamp(0.0, h + k)
+                down = (track.cusum_down + k + z.clamp(..0.0)).clamp(0.0, h + k)
                 track.with(cusum_up: up, cusum_down: down)
             end
 
