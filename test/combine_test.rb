@@ -43,6 +43,36 @@ class CombineTest < Minitest::Test
                         1e-6
     end
 
+    # Three parts near the point where the far one's pull gives way
+    # (one of about 200 000 random three-part fusions): the steps creep
+    # through a bottleneck, 5e-6 at a time for 1800 of them, where the
+    # 1000-step guard returned 6.938 (σ 0.312), 1.7 σ short of the 7.457
+    # the steps settle at. The crawl is taken through at once, and the
+    # value is the one the steps alone reach, within the 1e-6 they
+    # settle by.
+    def test_a_crawl_through_a_bottleneck_settles_past_it
+        parts = [part("a", 6.460762157811805, 0.33428169888080045),
+                 part("b", 7.7606917912233655, 0.2589396069249798),
+                 part("c", 0.8510774383815356, 0.24351478926535491)]
+        value, = Sensorium::Combine.robust(parts, 4.0)
+        assert_in_delta settled(parts, 4.0), value, 1e-5
+        assert_in_delta 7.457, value, 1e-3
+    end
+
+    # The same with the first part 3e-5 lower: the bottleneck's least
+    # step is now below zero (-6e-7), a pair of fixed points, and the
+    # steps settle at the first of them, 6.936, in 13 571 steps; the
+    # guard returned 6.935. The crawl is taken through to that one, not
+    # past it.
+    def test_a_crawl_that_ends_in_the_bottleneck_settles_there
+        parts = [part("a", 6.460732157811805, 0.33428169888080045),
+                 part("b", 7.7606917912233655, 0.2589396069249798),
+                 part("c", 0.8510774383815356, 0.24351478926535491)]
+        value, = Sensorium::Combine.robust(parts, 4.0)
+        assert_in_delta settled(parts, 4.0), value, 1e-6
+        assert_in_delta 6.936, value, 1e-3
+    end
+
     # Two parts that disagree (the recorded room's wall-1 and valve-1,
     # 26 January 08:00): neither can be told the outlier, and a
     # Student-t fit settled on whichever σ was the smaller, a 3 %
@@ -79,6 +109,19 @@ class CombineTest < Minitest::Test
     end
 
     private
+
+    # The Student-t steps alone, no guard, until one moves less than
+    # 1e-13.
+    def settled(parts, nu)
+        combine = Sensorium::Combine
+        value = combine.weighted(parts).first
+        loop do
+            moved = combine.averaged(parts,
+                                     combine.reweighted(parts, nu, value))
+            return moved if (moved - value).abs < 1e-13
+            value = moved
+        end
+    end
 
     def part(device, value, sigma)
         Sensorium::Parts::Part.new(device:, raw: value, value:, sigma:,
