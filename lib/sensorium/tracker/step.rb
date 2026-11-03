@@ -66,9 +66,7 @@ module Sensorium
                 track.variance + (@quantity.track_q * hours(track, at))
             end
 
-            def hours(track, at)
-                track.at ? [at - track.at, 0].max / 3600.0 : 0.0
-            end
+            def hours(track, at) = [at - (track.at || at), 0].max / 3600.0
 
             # Whether the block under way spans cusum_block at `at`.
             def spans?(track, at)
@@ -128,16 +126,26 @@ module Sensorium
             # a side climbs while the error is back on that side of the
             # delta held, and stays down while it is still away. Each side
             # is held at h + k at most, so time away counts for no more
-            # than one block of being back, and climbs by k at most, so a
-            # block swung past the delta counts for no more than one back
-            # at it: both past h, the error is within k of the delta held,
-            # with the evidence a jump takes.
+            # than one block of being back; and the block mean is read
+            # within h/2 - k of zero, so one block moves a side by h/2 at
+            # most: no two blocks fill a side, however far they swing (a
+            # block mean beyond 2 σ with the defaults, which noise reaches
+            # once in twenty blocks, counts as 2 σ). The sides still
+            # mirror, so a part back at its delta, its block means
+            # scattered around it, climbs by k a block on average: both
+            # past h, the error is within k of the delta held, with the
+            # evidence a jump takes.
             def returning(track, z)
                 k, h = @quantity.to_h.values_at(:cusum_k, :cusum_h)
-                up = (track.cusum_up + k - z.clamp(0.0..)).clamp(0.0, h + k)
-                down = (track.cusum_down + k + z.clamp(..0.0)).clamp(0.0, h + k)
+                z = z.clamp(-swing, swing)
+                up, down = [track.cusum_up + k - z, track.cusum_down + k + z]
+                           .map { it.clamp(0.0, h + k) }
                 track.with(cusum_up: up, cusum_down: down)
             end
+
+            # How far from zero the return test reads a block mean: h/2 - k,
+            # so that one block moves a side by h/2 at most.
+            def swing = (@quantity.cusum_h / 2) - @quantity.cusum_k
 
             # The track with its state: jumped once a CUSUM, the open
             # block counted for the share of a block it spans at `at`

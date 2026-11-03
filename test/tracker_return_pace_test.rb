@@ -6,8 +6,8 @@ require "test_helper"
 # k of it, with the evidence a jump takes ... That takes eleven blocks
 # (33 h) at least" (README, Tracking; DESIGN.md: "at least eleven blocks
 # (33 h) of the error back"). One block whose mean swings 5 σ the other
-# way counts for no more than one block back, and an error 0.55 σ away,
-# beyond k, is not back.
+# way moves a side by h/2 at most, half of what a return takes, and an
+# error 0.55 σ away, beyond k, is not back: the jump does not clear.
 class TrackerReturnPaceTest < Minitest::Test
     QUANTITY = Sensorium::Presets.room.quantity
     AT = Time.utc(2026, 1, 10)
