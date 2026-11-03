@@ -4,7 +4,7 @@ module Sensorium
     module Store
         class Sequel
             # Times read back as UTC, whatever Sequel or the database
-            # makes of its own timezone. The write side gives Time#utc.
+            # makes of its own timezone. The write side gives Time#getutc.
             # With a database timezone (the Database's, else Sequel's),
             # Sequel converts both ways and the Time read is the
             # instant. Without one, or with UTC, Sequel writes the UTC

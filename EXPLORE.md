@@ -1,6 +1,6 @@
 # Ideas to explore
 
-What remains after version 0.2.0 (since 0.1.2: the Tracker by blocks
+What remains after version 0.2.1 (since 0.1.2: the Tracker by blocks
 of three hours, an Offset's widths as the held-out bins confirm them,
 the keep rule on the correction, two parts fused by inverse variance
 with their σ widened by their gap, the block under way counted for its
@@ -49,12 +49,16 @@ a Tick every ten minutes), read-only.
 
 ## On the users' side
 
-7. **Around sensorium 0.2.0:**
+7. **Around sensorium 0.2.1:**
    - The API changed: a `Tracker` is made without `dynamics:`,
      `Tracker#update` and `Tick#call` take no `previous:`, and a
      `Fusion` is made without `dynamics:`; `collocations:` is new to
      the `Fusion`, optional (a sole reference's σ). A `Knowledge` from
-     a store carries the collocations already.
+     a store carries the collocations already. Since 0.2.1, a
+     `Parts::Part` carries the reading's `time`, `Offset#correct` takes
+     `held:` (whether a Mode holds), and a store learned with two
+     Modes holding at once keeps Shifts named by both (`aircon+fan`,
+     `cooling+on`).
    - MadHouse's tables need the five columns added in 0.2.0 if it opens
      the store with `migrate: false`: `block_share` on offsets;
      `block_sum`, `block_noise`, `block_count` and `block_at` on tracks.

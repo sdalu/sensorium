@@ -110,14 +110,18 @@ the plain constant's spread the refit on all the bins claims is set
 against the one the bins held out confirm, and when those confirm
 less, every width of the model (p10..p90, those of `states`,
 `off_p10..off_p90`) is widened about its middle by the ratio: its σ is
-the plain constant's narrowed by what the bins it never saw bear out.
+the plain constant's narrowed by what the bins it never saw bear out,
+and never wider than the plain constant's, both taken as corrected
+(over |1 + gain + coefficient|), the way a width is used.
 A sensor with too few bins to hold any out keeps the constant alone.
 The constant alone is kept too (`plain`, its widths as fitted), the
 fallback when the neighbour, a series' value or dr/dt has no fresh
 value.
 
 ```text
-inflation = max(1, narrowing held out / narrowing the refit claims)
+inflation = max(1, min(narrowing held out, scale)
+                   / narrowing the refit claims)
+scale     = |1 + gain + coefficient|, the plain constant's 1
 
                  p10         middle          p90
 as fitted         ├─────────────┼─────────────┤
@@ -180,8 +184,8 @@ learned as what follows the arrow:
   carried `hold` → coefficient × value.
 - `Influence::Threshold`: nothing; the location's reference, as it
   reads, above `above` within `hold` → a term while on.
-- `Influence::Mode`: events with a value → left out, a `Shift` per
-  value.
+- `Influence::Mode`: events with a value, held `hold` after → left
+  out, a `Shift` per value (two Modes at once: one value).
 - `Influence::Transient`: nothing; each sensor's own series against its
   reference, and its transient profile → left out (`hold` after), no
   `Shift`.
@@ -204,7 +208,13 @@ of each sensor at the moment it is called.
 
 A **mode** (the aircon heating or cooling) is not a term: the bins
 under it, and its hold after, are left out of the fit, and each value it
-takes is learned apart as a `Shift` on top of the plain offset.
+takes is learned apart as a `Shift` on top of the plain offset, over
+the bins it held, its hold after included: those the Fusion takes it
+as holding. Two Modes holding at once are a value of their own: each
+Shift is learned over the bins its Mode held alone, and the pair's
+over the bins both held, named by both (influence "aircon+fan", mode
+"cooling+on"); what two do together is not the sum. A value held
+fewer than `min_shift` bins has no Shift.
 
 Each **regime** (by default the calendar seasons) is learned apart.
 The room preset's months are one climate's heating season (winter
@@ -289,7 +299,11 @@ rate / bins a day. Each window and direction leaves about that many
 calm changes a day beyond its threshold. A threshold of 0 (a sensor
 that almost never changes, or reports in steps) is raised to the
 sensor's smallest change that is not 0, a millionth past it, so a
-single step is not an event. A window seen fewer than `min_samples`
+single step is not an event. A threshold that several changes sit at
+(a sensor reporting in steps) moves a millionth past them too, when
+leaving them out of those beyond comes nearer the rate than counting
+them; a quantile no other change ties keeps its value exactly.
+A window seen fewer than `min_samples`
 changes, or none but 0, has no threshold.
 
 The `Detector` takes, for each sensor of a `Snapshot` with a profile
@@ -340,12 +354,15 @@ fused.parts       # each sensor: raw, corrected, weight, note
 ```
 
 Each reading is corrected to the reference with its offset (while a
-mode holds, with the plain offset and the mode's shift), given what
-holds at the moment: the switches and thresholds on, a filtered
-switch's exposure over the 5 τ before, each series' latest value
-within its hold, and dr/dt from the reference's two latest readings
-within `max_age` (`Snapshot#history`). Without a series' value or
-dr/dt, the plain offset. Each reading is weighted by 1/σ², σ the
+Mode holds, its latest value within its hold, with the plain offset
+and the Shift of exactly what holds: one Mode's value, or two Modes'
+as one; with no Shift learned for it, the plain offset alone and its
+plain σ, as for any input not known), given what holds at the moment:
+the switches and thresholds on, a filtered switch's exposure over the
+5 τ before, each series' latest value within its hold, and dr/dt
+from the reference's two latest readings within `max_age`
+(`Snapshot#history`). Without a series' value or dr/dt, the plain
+offset. Each reading is weighted by 1/σ², σ the
 offset's spread / 2.563 / |1 + gain + coefficient|: the widest of the
 spreads of what holds, those of the Switches kept as its terms that
 are on (the spread of every bin for one without its own), or with none
@@ -511,6 +528,9 @@ a < 0 (a room running away from the outside is not a model). A Switch
 never off, or never on, in a regime is left out: its term cannot be
 told from c. q is the mean square of the error of predicting the
 reference an hour ahead (`Dynamics::Forecast`), over the bins fitted.
+A horizon is whole bins, one at least: with a bin that does not divide
+an hour (480 s), an hour ahead is the nearest whole number of bins
+(eight, 64 minutes).
 
 What the caller knows of a room beforehand can be given as a prior:
 `priors:` maps a location to a `Dynamics::Prior` (or answers
@@ -529,7 +549,8 @@ models = Sensorium::Dynamics.learn(source, setup, from:, to:,
 ```
 
 Each model is validated: fitted without the last tenth of its steps
-(a week at least), it must predict the reference two hours ahead from
+(a week at least), it must predict the reference two hours ahead
+(in whole bins, as above) from
 those steps with an RMS error at most `Setup#dynamics_margin` (98 %)
 of holding the last value's, or the
 location and regime get no model; kept, it is fitted again on all its
@@ -596,7 +617,8 @@ for each sensor with an `Offset` and for each reference, a `Track`:
 `variance`; the two sides of a CUSUM; the block of readings under way
 (the sum of their innovations and of their noise, their count, and
 `block_at`, the time of its first); `at`, the time of the reading its
-last update took; and a `state`, `:ok`, `:drifting` or `:jumped`.
+last update took (the reading's own, which its `Part` carries); and a
+`state`, `:ok`, `:drifting` or `:jumped`.
 A part is updated only when its reading is newer than that: fused
 again before the sensor reads again, it is left as it was, so the
 tracks are the same whether a location is fused every minute or at
@@ -732,11 +754,11 @@ The alarms:
   return CUSUM, the jump's mirrored: `cusum_up` + k − z̄ and
   `cusum_down` + k + z̄, each held between 0 and h + k. A side climbs
   only while the error is back on its side of the delta held, and the
-  time the error spent away counts for no more than one block of
-  being back; both above h, the error is within k of it, with the
-  evidence a jump takes, and the track is ok again, its CUSUM
-  restarted. That takes eleven blocks (33 h) at least. Otherwise it stays jumped until its
-  offset is relearned or `Tracker#reset` drops it.
+  time the error spent away counts for no more than one block of being
+  back; both above h, the error is within k of it, with the evidence a
+  jump takes, and the track is ok again, its CUSUM restarted. That
+  takes eleven blocks (33 h) at least. Otherwise it stays jumped until
+  its offset is relearned or `Tracker#reset` drops it.
 - **drifting**: |delta| above `drift_alarm` × the offset's σ; back to
   ok under `drift_clear` × σ. Not for a reference.
 
@@ -976,8 +998,13 @@ by including `Store::Knowing`. A time `Store::Sequel` keeps
 (`learned_from`, `learned_to`, `learned_at`, `tracked_at`, `block_at`)
 is stored and read back as UTC, whether Sequel converts times (a
 `database_timezone` set, as an application in local time with a UTC
-session does) or not, and independently of the database's own
-timezone setting: the columns may be DATETIME or TIMESTAMP.
+session does) or not, but for the one case below: the columns may be
+DATETIME or TIMESTAMP. With no
+`database_timezone`, or `:utc`, a time is read as its text and parsed
+as UTC, so one in the hour the clocks skip every spring round-trips.
+With `database_timezone` `:local`, a time in the hour the clocks
+repeat every autumn is stored as an ambiguous local wall clock and
+may read back an hour off.
 
 Every `keep_*` method follows the one rule: it replaces what shares
 the kept rows' key, and leaves the rest. Keeping dynamics
@@ -1059,6 +1086,11 @@ it.
 - The bins under a Mode, and its hold, are left out of learning: a
   house whose aircon cools most summer days learns little or no
   summer offset. How little has not been measured.
+- A sensor under a Mode's value it has no Shift for yet (a value's
+  first weeks in a regime) takes the plain offset alone: it is off by
+  about the Shift learned later (up to 1.1 °C on one sensor of one
+  house's year), its σ not saying so, until the value has held
+  `min_shift` bins and the next learning runs.
 - A blend takes its estimates' errors as independent.
 - A transient threshold is learned from all the calm changes of a
   regime, the transients the Detector should find among them: a

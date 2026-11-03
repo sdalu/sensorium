@@ -73,8 +73,14 @@ the README's order; what was tried and dropped is under Ruled out.
   on the later bins, widths were 12 % too narrow unwidened and 5 % too
   wide widened. Not a stricter keep test: a term the bins held out
   only partly confirm is still worth what they confirm, and widening
-  says how much. The plain constant is left as fitted; no term, no
-  ratio.
+  says how much. The widening stops at the plain constant's widths,
+  both taken as corrected (over |1 + gain + k|), the way a width is
+  used: bounded on the gap, a kept k = +0.6 neighbour's widths came
+  out too narrow (0.625 of the constant's where the bins held out
+  confirm 0.75, in the tests) and a k = −0.4 one's wider than the
+  constant. On MadHouse's year two offsets widen, both with a
+  positive-k neighbour; the other 24 are unchanged. The plain
+  constant is left as fitted; no term, no ratio.
 - **An Offset's block share, from its own residuals.** The Tracker
   needs how much a block's mean innovation varies against one's. The
   residuals of the model learned are what the innovations are made of,
@@ -128,6 +134,22 @@ the README's order; what was tried and dropped is under Ruled out.
   blown air does to a sensor depends on where it sits and how the air
   flows, not on any series there is; a Shift per value, over the plain
   offset, is all the data supports.
+- **A Shift over the bins the Fusion takes as held.** A Mode's value
+  holds over its hold after each event, in learning as in the Fusion:
+  marked only in the bin of its event, a Mode reporting slower than a
+  bin had its Shift learned on a few bins, or on none past
+  `min_shift`, while the Fusion held the value and found no Shift
+  (4.5 off in the tests).
+- **Two Modes holding at once are a value of their own.** Each Shift
+  is learned over the bins its Mode held alone, the pair's over the
+  bins both held, named by both (aircon+fan, cooling+on), and the
+  Fusion applies the Shift of exactly what holds; nothing is summed.
+  Learned each over every bin its value held, each Shift took in the
+  other's effect, and their sum corrected 4.5 °C too far on a
+  made-up room (the tests). Rejected: forbidding two
+  Modes to overlap, and learning each Shift only where the others do
+  not hold but still summing them: what two do together is not the
+  sum. With one Mode nothing changes.
 - **A term on the reference's rate.** Sensors with different time
   constants disagree on every transient by about τ·dr/dt. The term is
   the reference's own rate (per hour, a central difference over a bin
@@ -180,7 +202,12 @@ the README's order; what was tried and dropped is under Ruled out.
   each have their own, the two tails being unlike (in one house's
   green-room, a ceiling sensor's winter rise threshold is nearly
   twice its fall). A quantile of 0 would make every step an event: it
-  is raised just past the sensor's smallest step.
+  is raised just past the sensor's smallest step. So is a quantile
+  that several changes tie at, a sensor reporting in steps, when
+  leaving the ties out comes nearer the rate than counting them:
+  counted beyond it, every tie fired (22 alarms where the rate
+  allowed 2, in the tests). Untied changes keep exactly their
+  quantile.
 - **Two thresholds.** A window opened cools the whole room: live, a
   sensor's own change says so, whatever its reference does. For
   learning only a sensor moving apart from its reference distorts its
@@ -209,6 +236,24 @@ the README's order; what was tried and dropped is under Ruled out.
 - **A shift applies over the plain offset**, the one it was learned
   over; the full model under a Mode would add a neighbour's term the
   shift never saw.
+- **A Mode with no Shift for its value: the plain offset alone**, with
+  the plain σ, as for any input not known: a Shift not learned is not
+  known. The full model was learned with every bin of the Mode left
+  out, so it knows nothing of it either. On MadHouse's year, learned
+  month by month, 17 % of the sensor-ticks under the aircon had no
+  Shift (a value's first weeks in a regime, mostly October heating in
+  the mid regime learned on cooling); under the plain offset they were
+  as honest as the rest (var(z) 0.91, |z| < 2 for 95 %), where the full
+  model was 1.8 °C off on one sensor and the plain right. Rejected: a
+  sensor not counting while its Mode has no Shift, which would have
+  left a fifth of the location-ticks under the aircon on the reference
+  alone; and a σ widened by a number nothing learned. The cost is in
+  the README's Known shortfalls: such a sensor is off by about the
+  Shift learned later (up to 1.1 °C on one sensor on the year), its σ
+  not saying so, until `min_shift` bins and the next learning.
+- **Two Modes holding: the Shift of exactly what holds**, the pair's
+  as one value (Learning); with no Shift for the pair, the plain
+  offset alone, as above. Neither Shift alone applies, nor their sum.
 - **The reference is the moment's regime's**, so a location learned
   against another sensor in another regime keeps both models.
 - **σ has a floor** (`Quantity#floor`): a spread learned at zero (a
@@ -302,6 +347,10 @@ the README's order; what was tried and dropped is under Ruled out.
   steady between reports, so its steps are far from independent; q is
   the mean square of the error of predicting an hour ahead, as a
   forecast does.
+- **Horizons in whole bins.** The reference is known bin by bin, so a
+  horizon is rounded to whole bins, one at least: an hour of seconds
+  matches no bin when the bin does not divide it (480 s), and no
+  model would be learned.
 - **The change in closed form.** It is the model stepped over the
   hours asked, in closed form (an approach to the equilibrium the
   inputs hold the room at), so it holds at any horizon, and the
