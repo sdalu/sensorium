@@ -15,6 +15,11 @@ module Sensorium
         # no event.
         RAISE = 1 + 1e-6
 
+        # The decimals a change is compared at: one step reads as floats
+        # a few ulps apart (1e-15 at 20, 1e-11 at 1e5), equal readings
+        # binned apart as a change of 1e-15; no sensor reads 1e-9.
+        DIGITS = 9
+
         # The changes over a window beyond which a sensor is in a
         # transient: a fall at or below `fall`, a rise at or above
         # `rise`.
@@ -22,8 +27,9 @@ module Sensorium
             # [direction, z] of a change beyond, z the change over its
             # threshold (1 or more); nil within.
             def beyond(change)
-                return [:fall, change / fall] if change <= fall
-                [:rise, change / rise] if change >= rise
+                at = Transient.canonical(change)
+                return [:fall, change / fall] if at <= Transient.canonical(fall)
+                [:rise, change / rise] if at >= Transient.canonical(rise)
             end
         end
 
@@ -64,7 +70,8 @@ module Sensorium
         # none is not 0.
         def threshold(changes, setup)
             return if changes.size < setup.min_samples
-            step = changes.map(&:abs).reject(&:zero?).min or return
+            step = changes.map(&:abs).reject { canonical(it).zero? }.min or
+                return
             share = setup.transient_rate * setup.bin / 86_400.0
             Threshold.new(fall: side(changes, share, -step),
                           rise: side(changes, 1 - share, step))
@@ -73,21 +80,41 @@ module Sensorium
         # The quantile at fraction, on the side of step's sign, raised.
         def side(changes, fraction, step)
             value = Stats.quantile(changes, fraction)
-            return raised(value, step) if value.zero?
-            tied?(changes, fraction, value, step) ? value * RAISE : value
+            return raised(value, step) if canonical(value).zero?
+            tied?(changes, fraction, value, step) ? past(value) : value
         end
 
         # Whether several changes sit at value, and leaving them out of
         # those beyond comes nearer the share than counting them.
         def tied?(changes, fraction, value, step)
-            fall = step.negative?
-            at = changes.count { fall ? it <= value : it >= value }
-            past = changes.count { fall ? it < value : it > value }
+            sides = sides(changes, value, step)
+            at = sides.count { it >= 0 }
+            past = sides.count(&:positive?)
             allowed = [fraction, 1 - fraction].min * changes.size
             at - past > 1 && (past - allowed).abs < (at - allowed).abs
         end
 
-        def raised(value, step) = value.zero? ? step * RAISE : value
+        # Each change's side of value, as compared: 1 past it on step's
+        # side, 0 at it, -1 short of it.
+        def sides(changes, value, step)
+            sign = step <=> 0
+            changes.map { sign * (canonical(it) <=> canonical(value)) }
+        end
+
+        def raised(value, step)
+            canonical(value).zero? ? past(step) : value
+        end
+
+        # The value moved away from 0 by RAISE, by two units of the grid
+        # changes are compared at at least (a raise survives the
+        # rounding, whatever the step).
+        def past(value)
+            by = [value.abs * (RAISE - 1), 2 * (10.0**-DIGITS)].max
+            value + ((value <=> 0) * by)
+        end
+
+        # A change as it is compared, a float's noise rounded off.
+        def canonical(change) = change.round(DIGITS)
     end
 end
 
