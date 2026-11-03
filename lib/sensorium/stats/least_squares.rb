@@ -7,9 +7,11 @@ module Sensorium
         # [intercept, *slopes] of y on any number of columns, least
         # squares: the normal equations of the centred columns, solved by
         # Gaussian elimination with partial pivoting; nil when a column
-        # does not vary, or not apart from the others (its pivot below
-        # 1e-9 of its own sum of squares, as Stats.plane refuses).
+        # does not vary (Stats.constant?), or not apart from the others
+        # (its pivot below 1e-9 of its own sum of squares, as Stats.plane
+        # refuses).
         def least_squares(columns, ys)
+            return if columns.any? { constant?(it) }
             centred = columns.map { centred(it) }
             slopes = eliminated(normal(centred, centred(ys))) or return
             [mean(ys) - columns.zip(slopes).sum { |x, b| b * mean(x) },

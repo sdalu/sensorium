@@ -21,6 +21,7 @@ module Sensorium
         # [intercept, slope] of y on x, least squares; nil when x does
         # not vary.
         def line(xs, ys)
+            return if constant?(xs)
             mx  = mean(xs)
             my  = mean(ys)
             sxx = xs.sum { (it - mx)**2 }
@@ -81,8 +82,9 @@ module Sensorium
         end
 
         # [intercept, a, b] of y on x1 and x2, least squares; nil when
-        # they do not vary apart.
+        # they do not vary apart, or one does not vary at all.
         def plane(x1s, x2s, ys)
+            return if [x1s, x2s].any? { constant?(it) }
             found = slopes(*[x1s, x2s, ys].map { centred(it) }) or return
             a, b = found
             [mean(ys) - (a * mean(x1s)) - (b * mean(x2s)), a, b]
@@ -111,6 +113,11 @@ module Sensorium
         def covariance(xs, ys) = dot(centred(xs), centred(ys)) / xs.size
 
         def mean(values) = values.sum.fdiv(values.size)
+
+        # Whether the values do not vary: their least is their greatest
+        # (a centred sum of squares is rounding when the mean is not
+        # exact, and no zero).
+        def constant?(values) = values.min == values.max
     end
 end
 require_relative "stats/least_squares"
