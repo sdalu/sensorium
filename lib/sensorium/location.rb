@@ -5,7 +5,10 @@ module Sensorium
     # one quantity:
     #   references the devices the others are corrected to, their mean
     #              when several (default: the Setup's places)
-    #   sigma, drift, max_age  the Quantity's, unless set
+    #   sigma      a sole reference's own error (one σ): as learned
+    #              (Collocation, bounded; the Fusion's), else the
+    #              Quantity's, unless set
+    #   drift, max_age  the Quantity's, unless set
     #   exclude    devices left out
     #   deltas     { device => the change it reports on }, as the
     #              quantity reads (before the transform): a device that

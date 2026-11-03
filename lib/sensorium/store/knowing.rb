@@ -10,7 +10,8 @@ module Sensorium
                     offsets: offsets(quantity), shifts: shifts(quantity),
                     locations: locations(quantity), tracks: tracks(quantity),
                     dynamics: dynamics(quantity),
-                    transients: transients(quantity)
+                    transients: transients(quantity),
+                    collocations: collocations(quantity)
                 )
             end
         end

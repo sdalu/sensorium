@@ -4,13 +4,14 @@ module Sensorium
     # What is known of one quantity, as a store keeps it: offsets
     # [Offset], shifts [Shift], locations { name => Location }, those
     # set, tracks { [location, device] => Track }, dynamics
-    # [Dynamics::Model] and transients [Transient::Profile]. The Fusion,
-    # the Tracker and the Transient::Detector each take the part they
-    # need of it (knowledge:), as a Tick does.
+    # [Dynamics::Model], transients [Transient::Profile] and
+    # collocations [Collocation]. The Fusion, the Tracker and the
+    # Transient::Detector each take the part they need of it
+    # (knowledge:), as a Tick does.
     Knowledge = Data.define(:offsets, :shifts, :locations, :tracks,
-                            :dynamics, :transients) do
+                            :dynamics, :transients, :collocations) do
         def initialize(offsets: [], shifts: [], locations: {}, tracks: {},
-                       dynamics: [], transients: [])
+                       dynamics: [], transients: [], collocations: [])
             super
         end
     end

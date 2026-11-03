@@ -3,7 +3,8 @@
 module Sensorium
     # What is measured, and the defaults a Location takes for it, in the
     # transform's units (the space it is learned and fused in):
-    #   sigma     a sole reference's own error (one σ)
+    #   sigma     a sole reference's own error (one σ), where none was
+    #             learned (Collocation) nor set on the Location
     #   drift     how fast the value may move, per hour: an old reading
     #             is trusted less by drift × its age
     #   max_age   minutes after which a reading is not used

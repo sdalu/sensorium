@@ -53,6 +53,10 @@ module Sensorium
         def sigma       = (p90 - p10) / P10_P90
         def plain_sigma = (plain_p90 - plain_p10) / P10_P90
 
+        # What r is multiplied by, the model solved: a correction, and
+        # its width, is the gap's over it.
+        def scale = 1 + (gain || 0.0) + k
+
         private
 
         def k = coefficient || 0.0
@@ -68,9 +72,6 @@ module Sensorium
         end
 
         def fed(values) = series.sum { |name, term| term * values[name] }
-
-        # What r is multiplied by, the model solved.
-        def scale = 1 + (gain || 0.0) + k
 
         # gap: the reading less the terms that do not involve r.
         def model_correct(gap, neighbour, now)

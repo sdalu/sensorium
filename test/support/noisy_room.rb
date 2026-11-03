@@ -38,6 +38,9 @@ class NoisyRoom
         @readings.select { (from..to).cover?(it.time) }
     end
 
+    # The truth at a time: what every device reads, bias and noise aside.
+    def truth_at(time) = truth((time - START) / STEP)
+
     private
 
     def build(noise)

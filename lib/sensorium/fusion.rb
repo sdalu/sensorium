@@ -32,12 +32,13 @@ module Sensorium
 
         # The keywords a Fusion may be given instead of a Knowledge.
         REQUIRED = %i[offsets shifts].freeze
-        OPTIONAL = %i[locations tracks dynamics].freeze
+        OPTIONAL = %i[locations tracks dynamics collocations].freeze
 
         # knowledge: a Knowledge of the setup's quantity, its offsets,
-        # shifts, locations (those set), tracks (the Tracker's) and
-        # dynamics; or, instead, those as keywords, offsets: and shifts:
-        # required.
+        # shifts, locations (those set), tracks (the Tracker's),
+        # dynamics and collocations (a sole reference's σ, where a
+        # Location sets none); or, instead, those as keywords, offsets:
+        # and shifts: required.
         def initialize(setup, knowledge: nil, **given)
             knowledge = Knowledge.given(knowledge, given, REQUIRED, OPTIONAL)
             @setup     = setup
@@ -46,6 +47,8 @@ module Sensorium
             @locations = knowledge.locations
             @tracks    = knowledge.tracks
             @dynamics  = keyed(knowledge.dynamics).transform_values(&:first)
+            @collocations = keyed(knowledge.collocations)
+                            .transform_values(&:first)
         end
 
         # The locations it can tell: those learned, set, or read.
@@ -56,13 +59,13 @@ module Sensorium
 
         # The Fused value of a location; value nil when nothing counts.
         def location(name, snapshot, context: {})
-            location = settings(name)
+            given = @locations.fetch(name) { Location.default(name) }
             key = [name, @setup.regime.of(snapshot.at)]
-            references = location.references
+            references = given.references
             references = learned(key) if references.empty?
             learning = learning(key, references)
-            pairs = Parts.new(location, references, learning, snapshot,
-                              @setup).pairs
+            pairs = Parts.new(settings(given, key, references), references,
+                              learning, snapshot, @setup).pairs
             fused(name, snapshot.at, named(references), pairs, context)
         end
 
@@ -79,9 +82,34 @@ module Sensorium
             found && Sensorium.references_of(found.first.reference)
         end
 
-        def settings(name)
-            @locations.fetch(name) { Location.default(name) }
-                      .resolve(@setup.quantity)
+        # The Location resolved (Location#resolve): its σ, when it sets
+        # none, the sole reference's as learned, when it was.
+        def settings(location, key, references)
+            sigma = location.sigma || reference_sigma(key, references)
+            location.with(sigma:).resolve(@setup.quantity)
+        end
+
+        # A sole reference's σ as the Collocation of the location and
+        # regime measured it, bounded below by the quantity's floor and
+        # above by the tightest σ a sensor's correction carries (its
+        # Offset's spread over its scale): every one holds the
+        # reference's error, so none can be narrower than it. nil with
+        # several references or none, without a Collocation, or where it
+        # could not measure the reference.
+        def reference_sigma(key, references)
+            return unless references&.one?
+            name = named(references)
+            found = @collocations[key]&.sigma(name) or return
+            tightest = tightest(key, name) or return
+            floor = @setup.quantity.floor
+            found.clamp(floor, [tightest, floor].max)
+        end
+
+        # The tightest σ a correction to the reference carries.
+        def tightest(key, name)
+            @offsets.fetch(key, []).filter_map do |offset|
+                offset.sigma / offset.scale.abs if offset.reference == name
+            end.min
         end
 
         def learning(key, references)
