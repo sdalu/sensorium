@@ -8,15 +8,16 @@ module Sensorium
             # With a database timezone (the Database's, else Sequel's),
             # Sequel converts both ways and the Time read is the
             # instant. Without one, Sequel writes the UTC wall clock as
-            # it is and reads it back in the application's zone, so
-            # rebuilding from its wall-clock fields undoes exactly
-            # that, immune to the hour Europe/Paris repeats every
-            # autumn.
+            # it is and parses it back as local time, then converts it
+            # to the application's zone, so rebuilding from its local
+            # wall-clock fields undoes exactly that, immune to the hour
+            # Europe/Paris repeats every autumn.
             module Clock
                 def wall_utc(time)
                     return time.getutc if @db.timezone
-                    Time.utc(time.year, time.month, time.day, time.hour,
-                             time.min, time.sec + time.subsec)
+                    wall = time.getlocal
+                    Time.utc(wall.year, wall.month, wall.day, wall.hour,
+                             wall.min, wall.sec + wall.subsec)
                 end
 
                 # A [regime, learned_from, learned_to, learned_at] row
