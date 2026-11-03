@@ -75,8 +75,8 @@ module Sensorium
         # half their bins at least.
         def self.block_means(residuals, setup)
             seconds = setup.quantity.cusum_block
-            least = seconds / setup.bin / 2.0
-            residuals.group_by { |bin, _| bin / seconds }
+            least = seconds.fdiv(setup.bin) / 2
+            residuals.group_by { |bin, _| bin.div(seconds) }
                      .each_value.filter_map do |list|
                 list.sum(&:last) / list.size if list.size >= least
             end
