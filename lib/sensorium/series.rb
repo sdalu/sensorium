@@ -74,10 +74,12 @@ module Sensorium
             end.to_h
         end
 
-        # The bins at, and up to `seconds` after, each of the times.
+        # The bins at, and up to `seconds` after, each of the times: the
+        # hold counts from the time, not from its bin.
         def spans(times, seconds)
             times.each_with_object(Set.new) do |time, bins|
-                (0..seconds).step(@width) { bins << (bin(time) + it) }
+                (bin(time)..bin(time.to_i + seconds))
+                    .step(@width) { bins << it }
             end
         end
     end
