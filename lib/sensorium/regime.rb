@@ -36,6 +36,16 @@ module Sensorium
                          .map(&:month).uniq
                 @names.select { @months[it].intersect?(months) }
             end
+
+            # Equal when their months are.
+            def ==(other) = other.class == self.class && other.months == months
+            alias eql? ==
+
+            def hash = [self.class, months].hash
+
+            protected
+
+            attr_reader :months
         end
 
         # One regime throughout.
@@ -46,6 +56,12 @@ module Sensorium
 
             def of(_time)             = @names.first
             def covered(_from, _to)   = @names
+
+            # Equal when their names are.
+            def ==(other) = other.class == self.class && other.names == names
+            alias eql? ==
+
+            def hash = [self.class, names].hash
         end
     end
 end

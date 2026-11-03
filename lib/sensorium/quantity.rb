@@ -51,6 +51,11 @@ module Sensorium
             changes.empty? ? self : self.class.new(**@given, **changes)
         end
 
+        # Marshalled as the arguments given, and made again from them
+        # (a Data is frozen before Marshal would restore @given).
+        def marshal_dump = @given
+        def marshal_load(given) = initialize(**given)
+
         # The readings taken into the transform's space, those it cannot
         # take left out.
         def inward(readings)

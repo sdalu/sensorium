@@ -75,6 +75,11 @@ module Sensorium
             changes.empty? ? self : self.class.new(**@given, **changes)
         end
 
+        # Marshalled as the arguments given, and made again from them
+        # (a Data is frozen before Marshal would restore @given).
+        def marshal_dump = @given
+        def marshal_load(given) = initialize(**given)
+
         def self.defaults(bin)
             DEFAULTS.merge(
                 COUNTS.to_h { [it, (DEFAULTS[it] * BIN / bin.to_f).round] },
