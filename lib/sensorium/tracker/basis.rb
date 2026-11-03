@@ -33,18 +33,24 @@ module Sensorium
             # σ, and the tightest bounds it: the quantity's σ is the
             # instrument's own error, not its excursions); another's, of
             # its Offset learned against the Fused's references, with its
-            # σ and share, no width; nil without.
+            # σ and share, no width; nil without. Each σ in the
+            # correction's space (corrected), where delta and the
+            # innovations are.
             def basis(fused, device)
                 if references_of(fused).include?(device)
                     learned = offsets_of(fused)
                     [reference(fused, device), nil,
                      learned.filter_map(&:block_share).max,
-                     learned.map(&:sigma).min]
+                     learned.map { corrected(it) }.min]
                 elsif (offset = offset(fused, device))
-                    [Track.fresh(offset, variance), offset.sigma,
+                    [Track.fresh(offset, variance), corrected(offset),
                      offset.block_share, nil]
                 end
             end
+
+            # An Offset's σ as its corrections carry it (Offset#correct):
+            # the gap's spread over |scale|; Offset#sigma is the gap's.
+            def corrected(offset) = offset.sigma / offset.scale.abs
 
             # The Offsets of the Fused's location, regime and references.
             def offsets_of(fused)

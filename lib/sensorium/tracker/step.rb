@@ -15,13 +15,14 @@ module Sensorium
             NO_BLOCK = { block_sum: 0.0, block_noise: 0.0, block_count: 0,
                          block_at: nil }.freeze
 
-            # sigma: what the drift is measured in, the Offset's; nil for
-            # a reference. share: what a block's mean innovation varies
-            # by, as a share of one's (Offset#block_share); nil, 1: as
-            # much as one innovation. width: the σ the part's innovations
-            # are judged with at least, in place of the part's own when
-            # that is narrower (a reference's, the location's tightest
-            # Offset σ); nil: the part's own.
+            # sigma: what the drift is measured in, the Offset's σ in the
+            # correction's space (Basis#corrected); nil for a reference.
+            # share: what a block's mean innovation varies by, as a share
+            # of one's (Offset#block_share); nil, 1: as much as one
+            # innovation. width: the σ the part's innovations are judged
+            # with at least, in place of the part's own when that is
+            # narrower (a reference's, the location's tightest Offset σ,
+            # in the correction's space too); nil: the part's own.
             def initialize(quantity, sigma, share = nil, width = nil)
                 @quantity = quantity
                 @sigma    = sigma
