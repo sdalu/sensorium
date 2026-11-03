@@ -54,15 +54,23 @@ module Sensorium
             mean / Math.sqrt(variance + (block_noise / block_count))
         end
 
+        # Whether the track is a reference's, pinned: its delta 0 by
+        # convention, never estimated (Tracker::Step).
+        def pinned? = constant.nil?
+
         # A Parts::Part that counts, as the Fusion takes it: delta taken
-        # out, variance added to its σ²; when jumped, it does not count,
-        # when drifting, it is noted.
+        # out, variance, how far delta may be off, added to its σ²; a
+        # pinned track's delta is no estimate, and adds nothing. When
+        # jumped, it does not count, when drifting, it is noted.
         def apply(part)
             return part.with(value: nil, sigma: nil, note: "jumped") if
                 state == :jumped
-            part.with(value: part.value - delta,
-                      sigma: Math.sqrt((part.sigma**2) + variance),
+            part.with(value: part.value - delta, sigma: widened(part.sigma),
                       note: ("drifting" if state == :drifting))
+        end
+
+        def widened(sigma)
+            pinned? ? sigma : Math.sqrt((sigma**2) + variance)
         end
     end
 

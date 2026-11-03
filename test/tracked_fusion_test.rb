@@ -50,6 +50,19 @@ class TrackedFusionTest < Minitest::Test
         assert_operator tado.weight, :>, 0.05
     end
 
+    # ceil, the sole reference, its Location's σ 0.05, with the track
+    # the Tracker keeps for it (delta 0, variance (σ/2)² of the
+    # quantity's σ, never moved): a reference is weighted by the
+    # location's σ, and its pinned track adds nothing to it.
+    def test_a_references_pinned_track_leaves_its_sigma
+        locations = { "room" => Sensorium::Location.new(name: "room",
+                                                        sigma: 0.05) }
+        fusion = Sensorium::Fusion.new(SETUP, offsets:, shifts: [], locations:,
+                                              tracks: pinned("ceil"))
+        fused = fusion.location("room", moment(0))
+        assert_in_delta 0.05, part(fused, "ceil").part.sigma, 1e-9
+    end
+
     def test_a_part_that_does_not_count_keeps_its_note
         readings = { "ceil" => 20.0, "tado" => [19.7, 7200] }
         fused = tracked(tado(0.7, :jumped))
@@ -78,6 +91,15 @@ class TrackedFusionTest < Minitest::Test
 
     def tracked(tracks)
         Sensorium::Fusion.new(SETUP, offsets:, shifts: [], tracks:)
+    end
+
+    # A reference's track as the Tracker starts it (Tracker::Basis).
+    def pinned(device)
+        { ["room", device] => Sensorium::Track.start(
+            location: "room", device:, quantity: "temperature",
+            regime: "winter", reference: device,
+            variance: (SETUP.quantity.sigma / 2)**2
+        ) }
     end
 
     def tado(delta, state, constant: -1.0)
