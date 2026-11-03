@@ -1,11 +1,12 @@
 # Ideas to explore
 
-What remains after version 0.5.0 (0.3.0: the keep rule on the
-correction, two parts fused by inverse variance with their σ widened
-by their gap, the block under way counted for its share, a jump that
-clears the way it came, a reference judged with its room's width;
-0.4.0: a sensor judged against its reference alone, no suspect below
-three, no lone-reading jump against a single other; 0.5.0: a sole
+What remains after version 0.2.0 (since 0.1.2: the Tracker by blocks
+of three hours, an Offset's widths as the held-out bins confirm them,
+the keep rule on the correction, two parts fused by inverse variance
+with their σ widened by their gap, the block under way counted for its
+share, a jump that clears the way it came, a reference judged with its
+room's width, a sensor judged against its reference alone, no suspect
+below three, no lone-reading jump against a single other, a sole
 reference's σ from its collocation, the Tracker's widths in the
 correction's space, no witness, no model aging in the Fusion).
 Ranked by the gain expected. Items 1 to 6 are this gem's; item 7
@@ -48,7 +49,7 @@ a Tick every ten minutes), read-only.
 
 ## On the users' side
 
-7. **Around sensorium 0.5.0:**
+7. **Around sensorium 0.2.0:**
    - The API changed: a `Tracker` is made without `dynamics:`,
      `Tracker#update` and `Tick#call` take no `previous:`, and a
      `Fusion` is made without `dynamics:`; `collocations:` is new to

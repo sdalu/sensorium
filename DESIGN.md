@@ -360,17 +360,17 @@ the README's order; what was tried and dropped is under Ruled out.
   disagreement is the sensor's. Two sensors without their reference,
   or two references, cannot attribute their disagreement: they stay as
   they are, and the Fusion's widening carries it into σ. On MadHouse's
-  year (0.3.0 to this), a sensor's frozen part-hours in rooms of three
-  fell from 11 406 to 5 430; green-room's October lock from 706 h to
-  31 h (a jumped tado's false jump clearing in 28 h instead of 730 h);
-  a left-out part's var(z) and RMS equal or better for every part; and
-  the rooms of two (bathroom, shower-room, garage) are tracked for the
-  first time. The cost: a reference's excursion of hours can be put on
-  the sensor judged against it alone (once on the year,
-  downstairs/tado, 81 h), and in a room of two which part moved cannot
-  be told. Limiting it to rooms that normally have three was rejected:
-  the same pair knows the same thing, and "normally three" is
-  arbitrary (green-room and red-room are pairs all summer by
+  year (before this rule, then with it), a sensor's frozen part-hours
+  in rooms of three fell from 11 406 to 5 430; green-room's October
+  lock from 706 h to 31 h (a jumped tado's false jump clearing in 28 h
+  instead of 730 h); a left-out part's var(z) and RMS equal or better
+  for every part; and the rooms of two (bathroom, shower-room, garage)
+  are tracked for the first time. The cost: a reference's excursion of
+  hours can be put on the sensor judged against it alone (once on the
+  year, downstairs/tado, 81 h), and in a room of two which part moved
+  cannot be told. Limiting it to rooms that normally have three was
+  rejected: the same pair knows the same thing, and "normally three"
+  is arbitrary (green-room and red-room are pairs all summer by
   learning).
 - **A slow filter, a CUSUM for jumps.** The gain is kept small so that
   noise does not move delta. `track_q` is in the quantity's units (how
@@ -394,22 +394,21 @@ the README's order; what was tried and dropped is under Ruled out.
   innovations shifted by the size it is tuned for; the same evidence
   mirrored clears it. While jumped, delta and variance are held, the
   part is still scored without counting, and the CUSUM runs as the
-  return test (up += k − z, down += k + z, each held between 0 and
-  h + k): both sides above h, at least eleven blocks (33 h) of the
-  error back, and it is ok again. No new constant. The ceiling is
-  what keeps "back" meaning back: without it the side facing away
-  climbed for as long as the error stood away, so an error that came
-  back and overshot cleared within a block or two, and one settling
-  a σ off cleared for good (found in 0.4.1 by a test, not on the
-  year). On MadHouse's year every false jump the
-  Tracker had flagged cleared, in about 2 days (median) instead of at
-  the monthly relearn (64 h on 0.4.1's replay, with the ceiling below
-  and the rooms of two tracked; the fastest clear 22 h, where 0.4.0's
-  was 14); both real steps stayed flagged while their
-  error stood, and the time to a first jump was unchanged at every
-  start. The limit: the delta held is the one at the jump,
-  which has taken in part of a step during the detection delay, so
-  such a part may not clear.
+  return test (up += k − z, down += k + z, each held between 0 and h +
+  k): both sides above h, at least eleven blocks (33 h) of the error
+  back, and it is ok again. No new constant. The ceiling is what keeps
+  "back" meaning back: without it the side facing away climbed for as
+  long as the error stood away, so an error that came back and
+  overshot cleared within a block or two, and one settling a σ off
+  cleared for good (found by a test, not on the year). On MadHouse's
+  year every false jump the Tracker had flagged cleared, in about 2
+  days (median) instead of at the monthly relearn (64 h once the
+  ceiling below was in, with the rooms of two tracked; the fastest
+  clear 22 h, where it had been 14 without it); both real steps stayed
+  flagged while their error stood, and the time to a first jump was
+  unchanged at every start. The limit: the delta held is the one at
+  the jump, which has taken in part of a step during the detection
+  delay, so such a part may not clear.
 - **References tracked, but pinned.** A reference's reading is the
   location's definition of truth. Untracked, a reference that jumps
   makes every sensor beside it look jumped; tracked like the others,
@@ -470,8 +469,8 @@ the README's order; what was tried and dropped is under Ruled out.
   hours at ten minutes); it flagged a wall sensor 6 to 11 hours into
   ten held-back days, and every part at ten-minute updates, with no
   step there, and once one part was out the two others stood aside
-  (before 0.4.0; a sensor beside its reference is now judged against
-  it alone).
+  (until a sensor beside its reference was judged against it
+  alone).
   So the innovations are taken by blocks of `cusum_block`, about the
   time they take to decorrelate: the CUSUM runs on each block's mean,
   standardised by the Offset's block share, and k and h keep their
@@ -625,8 +624,8 @@ the README's order; what was tried and dropped is under Ruled out.
   green-room's suspect time. **One Student-t step at every size**
   instead of three parts or more: it changed fusions of three parts
   or more by up to 0.42 °C.
-- **The witness's dynamics with the outside series set.** At 0.3.0,
-  when a part with a single other stood still, it unfroze only part of
+- **The witness's dynamics with the outside series set.** While a
+  part with a single other stood still, it unfroze only part of
   the three-sensor rooms, never green-room, and started
   tracking the noisy two-sensor rooms: jumps 14 to 21 on MadHouse's
   year.
