@@ -71,13 +71,15 @@ module Sensorium
             # widths back to the plain constant's (a model wider than its
             # own fallback is worse than it: held may be infinite where
             # the constant leaves no spread on the bins held out); 1 when
-            # the refit kept no term.
+            # the refit kept no term. Both narrowings are the gap's; the
+            # bound is the correction's, which divides the gap by the
+            # model's scale (the plain constant's is 1).
             def confirmed(fit, model, held)
                 return 1.0 if model.equal?(fit.plain)
                 before = fit.plain.residuals.values_at(*model.residuals.keys)
                 claimed = model.spread / Stats.spread(before)
                 return 1.0 unless claimed.positive? && claimed.finite?
-                [[held, 1.0].min / claimed, 1.0].max
+                [[held, model.scale].min / claimed, 1.0].max
             end
 
             def again(diffs, setup, levels, chosen, model)
