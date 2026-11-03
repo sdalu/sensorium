@@ -5,6 +5,10 @@ module Sensorium
     module Stats
         module_function
 
+        # The range, relative to the values' size (1 at least), below
+        # which a column is constant (constant?): float rounding.
+        ROUNDING = 1e-9
+
         # The value at fraction f of the sorted values (nearest rank).
         def quantile(values, fraction)
             sorted = values.sort
@@ -114,10 +118,16 @@ module Sensorium
 
         def mean(values) = values.sum.fdiv(values.size)
 
-        # Whether the values do not vary: their least is their greatest
-        # (a centred sum of squares is rounding when the mean is not
-        # exact, and no zero).
-        def constant?(values) = values.min == values.max
+        # Whether the values do not vary: their range is no more than
+        # the rounding of their size (a centred sum of squares is
+        # rounding when the mean is not exact, and no zero; a frozen
+        # sensor's bin means, sums of ten readings or eleven divided,
+        # differ by an ulp).
+        def constant?(values)
+            low, high = values.minmax
+            return true unless low
+            high - low <= ROUNDING * [low.abs, high.abs, 1.0].max
+        end
     end
 end
 require_relative "stats/least_squares"
