@@ -3,11 +3,11 @@
 require "test_helper"
 
 # The return CUSUM of a jumped track: "both above h, the error is within
-# k of it, with the evidence a jump takes ... That takes eleven blocks
-# (33 h) at least" (README, Tracking; DESIGN.md: "at least eleven blocks
-# (33 h) of the error back"). One block whose mean swings 5 σ the other
-# way moves a side by h/2 at most, half of what a return takes, and an
-# error 0.55 σ away, beyond k, is not back: the jump does not clear.
+# k of it, with the evidence a jump takes", "one block moves a side by
+# h/2 at most, so no two blocks fill one" (README, Tracking). One block
+# whose mean swings 5 σ the other way moves a side by h/2 at most, half
+# of what a return takes, and an error 0.55 σ away, beyond k, is not
+# back: the jump does not clear.
 class TrackerReturnPaceTest < Minitest::Test
     QUANTITY = Sensorium::Presets.room.quantity
     AT = Time.utc(2026, 1, 10)

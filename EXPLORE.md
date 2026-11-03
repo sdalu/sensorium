@@ -1,6 +1,11 @@
 # Ideas to explore
 
-What remains after version 0.2.1 (since 0.1.2: the Tracker by blocks
+What remains after version 0.2.2 (since 0.2.1: the return test
+reading a block mean within ±(h/2 − k), a reference's pinned track
+left out of its σ in the Fusion, Student-t reweighting until it
+settles, Dynamics steps and forecasts free of a Mode, regimes asked of
+local times, and nine smaller fixes, each with its test; since 0.1.2:
+the Tracker by blocks
 of three hours, an Offset's widths as the held-out bins confirm them,
 the keep rule on the correction, two parts fused by inverse variance
 with their σ widened by their gap, the block under way counted for its
@@ -49,7 +54,7 @@ a Tick every ten minutes), read-only.
 
 ## On the users' side
 
-7. **Around sensorium 0.2.1:**
+7. **Around sensorium 0.2.2:**
    - The API changed: a `Tracker` is made without `dynamics:`,
      `Tracker#update` and `Tick#call` take no `previous:`, and a
      `Fusion` is made without `dynamics:`; `collocations:` is new to
@@ -58,7 +63,14 @@ a Tick every ten minutes), read-only.
      `Parts::Part` carries the reading's `time`, `Offset#correct` takes
      `held:` (whether a Mode holds), and a store learned with two
      Modes holding at once keeps Shifts named by both (`aircon+fan`,
-     `cooling+on`).
+     `cooling+on`). Since 0.2.2: `Stats.constant?` (a column that
+     does not vary has no slope); `Transient::DIGITS` and
+     `Transient.canonical`, `.sides` and `.past` (changes compared at
+     nine decimals); `Influence::Switch::OFF` (the texts that say
+     off); `Dynamics::Forecast.new` takes an optional fourth argument,
+     `near`; `Setup#with` and `Quantity#with` derive again what was
+     not given; and a regime is asked of local times, so a regime of
+     one's own sees the History's zone.
    - MadHouse's tables need the five columns added in 0.2.0 if it opens
      the store with `migrate: false`: `block_share` on offsets;
      `block_sum`, `block_noise`, `block_count` and `block_at` on tracks.

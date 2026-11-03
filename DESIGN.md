@@ -29,7 +29,8 @@ the README's order; what was tried and dropped is under Ruled out.
 - **And when the bins held out confirm it, if they can.** Terms are
   chosen on all but the last tenth of the bins, then refitted on
   everything, as Dynamics are validated. A term the last tenth can try,
-  what it adds varying over it, is kept only if it leaves that tenth's
+  what it adds varying over it by more than the rounding (1e-9) over
+  its range, max − min, is kept only if it leaves that tenth's
   correction no wider: a model wider than its own plain constant on
   unseen bins is
   worse than the fallback it carries, and a neighbour the bins do not
@@ -38,7 +39,12 @@ the README's order; what was tried and dropped is under Ruled out.
   term the tenth cannot try (a Switch never on in it, or on
   throughout: a constant there) leaves it as it was, and absence of
   evidence should not undo what the rest of the season showed: it is
-  kept within 5 %. Not "narrower by a margin": a day's narrowing moves
+  kept within 5 %. The range, not the p10..p90 of what it adds: a
+  Switch on in a few of those bins switches there, and they judge it;
+  the 5 % stays for absence of evidence only (never on, or on
+  throughout). On the house's year the two rules disagreed on trying
+  once (green-room/tado/mid, heating), and never on keeping.
+  Not "narrower by a margin": a day's narrowing moves
   by 13 % on a room recorded over a winter, and the margin would refuse
   what the season showed for the noise of a few days; the widths carry
   that noise instead (below). The last tenth, not a random one:
@@ -112,6 +118,12 @@ the README's order; what was tried and dropped is under Ruled out.
   share (CO₂, light, particles); `Setup#gain` turns it off, and the
   room preset leaves it off with the rate term: no sensor of the house
   measured kept either.
+- **A column that does not vary has no slope.** `Stats`' `line`,
+  `plane` and `least_squares` answer nil for a column
+  whose least is its greatest (`Stats.constant?`), not for a centred
+  sum of squares of exactly zero: a constant column whose float mean
+  is an ulp off left rounding there, and a frozen reference learned a
+  gain of 1e28 and a σ of 0.
 - **A scale floor on the linear terms.** A correction is (reading −
   the other terms + k × neighbour) / (1 + gain + k), and its σ is the
   spread over |1 + gain + k|. A sensor that mostly follows another
@@ -139,7 +151,10 @@ the README's order; what was tried and dropped is under Ruled out.
   marked only in the bin of its event, a Mode reporting slower than a
   bin had its Shift learned on a few bins, or on none past
   `min_shift`, while the Fusion held the value and found no Shift
-  (4.5 off in the tests).
+  (4.5 off in the tests). The hold counts from the event, as the
+  Fusion counts it, not from the bin the event fell in: with a bin
+  that does not divide the hold (480 s against 1800 s), learning
+  stopped a bin before the Fusion did.
 - **Two Modes holding at once are a value of their own.** Each Shift
   is learned over the bins its Mode held alone, the pair's over the
   bins both held, named by both (aircon+fan, cooling+on), and the
@@ -208,6 +223,15 @@ the README's order; what was tried and dropped is under Ruled out.
   counted beyond it, every tie fired (22 alarms where the rate
   allowed 2, in the tests). Untied changes keep exactly their
   quantile.
+- **Changes compared at nine decimals** (`Transient::DIGITS`). A
+  change is a difference of floats: one physical step reads as
+  several floats a few ulps apart, which defeated the tie rule (six
+  0.55 falls on the recorded room read as two values), and a bin
+  mean's rounding (1.8e-15) became the smallest step, every step then
+  an event. Rounded to nine decimals, a tie made by float noise is a
+  tie; and a raise past a tied quantile, or past the smallest step,
+  is max(|v| × (RAISE − 1), 2e-9) from it, two units of that grid at
+  least, so it survives the rounding whatever the step.
 - **Two thresholds.** A window opened cools the whole room: live, a
   sensor's own change says so, whatever its reference does. For
   learning only a sensor moving apart from its reference distorts its
@@ -256,6 +280,14 @@ the README's order; what was tried and dropped is under Ruled out.
   offset alone, as above. Neither Shift alone applies, nor their sum.
 - **The reference is the moment's regime's**, so a location learned
   against another sensor in another regime keeps both models.
+- **A regime is asked of local times, everywhere.** The History asks
+  it of `Time.at(bin)`, local; the Fusion, the Detector and the
+  Tracker asked it of the snapshot's moment, UTC when read from a
+  store, so with TZ Europe/Paris 2026-03-31T22:30Z was "mid" for
+  learning and winter for the fusion. The Calendar takes the month in
+  the process's local zone whatever the time's own, and the three now
+  pass the moment local, so a regime of one's own sees the same zone
+  as the History.
 - **σ has a floor** (`Quantity#floor`): a spread learned at zero (a
   sensor reading in steps) would give one sensor all the weight.
 - **Student-t reweighting, not a single drop.** Dropping the one part
@@ -265,6 +297,12 @@ the README's order; what was tried and dropped is under Ruled out.
   factor on its own residual, iterated to convergence, downweights
   however many disagree, smoothly; when every part agrees the result
   is exactly the inverse-variance fusion, for three parts or more.
+  Iterated until it settles (the value moving less than 1e-6), with
+  `Combine::STEPS` = 1000 a guard no fusion reaches: the former cap of
+  20 steps stopped 171 of 55 101 robust fusions on MadHouse's year
+  short of the settled value, by up to 0.5 σ. A three-way split
+  crawls 42 to 221 steps before it settles (up to 2.5 σ off at the
+  cap on a made-up three-way split, the tests).
 - **Two parts by inverse variance, σ widened by their disagreement.**
   Student-t reweighting of two parts that disagree slides to the one
   with the smaller σ: on the recorded room, a 3 % change of one σ
@@ -294,7 +332,8 @@ the README's order; what was tried and dropped is under Ruled out.
   it, every one of which holds the reference's error: var(z) 0.41,
   weight 0.32. Not with several references, nor where the
   Collocation finds the reference not measurable (a negative
-  variance). With a noisy reference the fused
+  variance, or fewer than three columns, which give no pairs to
+  average). With a noisy reference the fused
   σ then errs wide (0.41): the safe side. On MadHouse's year, rooms of
   three went from 24 to 30 jumps (false 15 to 19, real 2 to 3), var(z)
   and RMS unchanged.
@@ -331,8 +370,17 @@ the README's order; what was tried and dropped is under Ruled out.
   filters it already, and a filtered Switch's τ was chosen for a
   sensor's offset, not for the room. A Switch never off, or never on,
   in a regime is left out: its column would be the constant's.
-- **Without the bins under a Mode**: the aircon drives the room far
-  more than anything the model has.
+- **Without the bins under a Mode, end to end**: the aircon drives the
+  room far more than anything the model has. A step is left out when
+  its start bin or its end bin is one where a Mode held, or held
+  within its hold, since the step into a Mode's first bin takes in
+  its onset; and a forecast counts only when every bin of its span,
+  start to target, is free of a Mode, the aircon's hold (1800 s)
+  being shorter than the two-hour horizon. On MadHouse's year with
+  the outside series, 0.04 % of the steps went (the three rooms with
+  the aircon), models validated rose from 11 to 13 (downstairs/mid and
+  green-room/mid now pass) and red-room/mid's q fell 20 %; rooms
+  without a Mode are unchanged.
 - **Priors as numbers, not physics.** A room's time constant and
   heating gain follow from its walls, volume and ventilation, but those
   are a building's, not a sensor's, and the method that turns them
@@ -444,8 +492,19 @@ the README's order; what was tried and dropped is under Ruled out.
   mirrored clears it. While jumped, delta and variance are held, the
   part is still scored without counting, and the CUSUM runs as the
   return test (up += k − z, down += k + z, each held between 0 and h +
-  k): both sides above h, at least eleven blocks (33 h) of the error
-  back, and it is ok again. No new constant. The ceiling is what keeps
+  k, z read within ±(h/2 − k) of zero, ±2 with the defaults): both
+  sides above h, about eleven blocks (33 h) of the error back, and it
+  is ok again. No new constant. The clip is what keeps a return told
+  by time, not by magnitude: a wild block mean is a transient, not
+  evidence the error settled, so one block moves a side by h/2 at
+  most and no two blocks fill one, however far they swing; and,
+  symmetric, it leaves the sides mirrored, so a part back at its
+  delta, its block means scattered around it, climbs by k a block on
+  average and clears in about eleven blocks (under noise the floor at
+  0 can shave one). On MadHouse's year, 43 of 60 jumps cleared before
+  the month's end, as at 0.2.1, and the jumped part-hours went from
+  16 056 to 16 027. Capping a side's gain at k instead, never
+  released, broke the mirror (Ruled out). The ceiling is what keeps
   "back" meaning back: without it the side facing away climbed for as
   long as the error stood away, so an error that came back and
   overshot cleared within a block or two, and one settling a σ off
@@ -463,6 +522,15 @@ the README's order; what was tried and dropped is under Ruled out.
   makes every sensor beside it look jumped; tracked like the others,
   the deltas wander together and none learns a bias. So a reference
   runs the CUSUM and the jump state only, its delta pinned at 0.
+  In the Fusion the pinned track adds nothing: its delta 0 is a
+  convention and its variance the fresh prior that never moves, so
+  neither goes into the reference's σ, which stays the location's
+  (set, or measured by its collocation and bounded). Added, it
+  doubled a collocation's 0.05² (0.05 to 0.0707) and widened the
+  quantity's 0.1 to 0.112 at every tick after the first. On
+  MadHouse's year: hourly left-out var(z) 0.497 to 0.509, RMS
+  unchanged (0.3045 to 0.3046), fused σ 0.1285 to 0.1229, the
+  reference's weight 0.611 to 0.635.
 - **A reference judged with the room's width.** Its offset is 0 by
   construction and its delta pinned, but what the Tracker measures of
   it is its disagreement with the room, whose usual size is not the
@@ -710,6 +778,12 @@ the README's order; what was tried and dropped is under Ruled out.
   post-relearn jumps come from the first learning and the regime
   boundaries, not from a track restarted on a rounded constant; an
   exact form needs the Offset's terms stored with the track.
+- **Capping a side's gain at k in the return test** (commit 08e6281,
+  never released): it bounded the gain but not the loss, which broke
+  the mirror: under noise a side gained about 0.1 a block, not k, and
+  on MadHouse's year 25 of 50 jumps cleared before the month's end,
+  against 43 of 60. **A clip of the block mean at 2k** instead of
+  h/2 − k: it moves the "within k" boundary to about 0.78 σ.
 - **Judging the reference by its own σ** in the Tracker, as the one
   model would without the width rule: it caught small reference steps
   on the recorded room, but added two false reference jumps on

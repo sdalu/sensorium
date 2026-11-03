@@ -4,8 +4,8 @@ require "test_helper"
 
 # The return CUSUM of a jumped track clears a part back at its delta at
 # the pace of k a block: "both above h, the error is within k of it,
-# with the evidence a jump takes ... That takes eleven blocks (33 h) at
-# least" (README, Tracking). Its block means are never all at zero: they
+# with the evidence a jump takes", "clears in about eleven blocks (33 h)"
+# (README, Tracking). Its block means are never all at zero: they
 # scatter around it by one σ, and the sides must still climb by k a
 # block on average, so the clear comes within a few blocks of eleven,
 # not after days.
