@@ -30,6 +30,19 @@ class CombineTest < Minitest::Test
         assert_in_delta 20.0, value, 1e-9
     end
 
+    # Three parts split three ways, each pair apart by 2.3 σ or more:
+    # the reweighting crawls between two of them for some 250 steps
+    # before it settles. The value is one a further step leaves where
+    # it is; at the 21st step it was 2.5 σ away.
+    def test_three_parts_split_three_ways_settle
+        parts = [part("a", -0.14, 0.38), part("b", -1.11, 0.18),
+                 part("c", 0.93, 0.16)]
+        value, = Sensorium::Combine.robust(parts, 4.0)
+        factors = Sensorium::Combine.reweighted(parts, 4.0, value)
+        assert_in_delta value, Sensorium::Combine.averaged(parts, factors),
+                        1e-6
+    end
+
     # Two parts that disagree (the recorded room's wall-1 and valve-1,
     # 26 January 08:00): neither can be told the outlier, and a
     # Student-t fit settled on whichever σ was the smaller, a 3 %
