@@ -108,12 +108,12 @@ module Sensorium
 
         # The keywords a Tracker may take instead of a Knowledge.
         REQUIRED = %i[offsets].freeze
-        OPTIONAL = %i[dynamics locations transients].freeze
+        OPTIONAL = %i[locations transients].freeze
 
         # knowledge: a Knowledge of the setup's quantity: its offsets, as
-        # the Fusion's; its dynamics and locations (those set), for the
-        # witness (Witness); its transients, for the Detector. Or,
-        # instead, those as keywords, offsets: required.
+        # the Fusion's; its transients and locations (those set, for
+        # their max_age), for the Detector. Or, instead, those as
+        # keywords, offsets: required.
         def initialize(setup, knowledge: nil, **given)
             knowledge = Knowledge.given(knowledge, given, REQUIRED, OPTIONAL)
             @setup    = setup
@@ -121,8 +121,6 @@ module Sensorium
             @offsets  = knowledge.offsets.to_h do |offset|
                 [[offset.location, offset.regime, offset.device], offset]
             end
-            @witness = Witness.new(setup, knowledge.dynamics,
-                                   knowledge.locations)
             @detector = Transient::Detector.new(setup, knowledge:)
         end
 
@@ -134,18 +132,15 @@ module Sensorium
         # this update. The suspect (suspect), the part whose CUSUM is the
         # highest once past SUSPECT of cusum_h, of three that count or
         # more, is left out of the others of every other part: a step
-        # not yet flagged leaks into no other's delta. A part with a
-        # single other takes, as a second, the witness: previous (a
-        # Fused of the location made with the tracks) moved by the
-        # location's dynamics to the moment, with the inputs of snapshot
-        # (the one fused was made from). A sensor whose single other is
-        # a reference is updated against it alone (told?). A part with
-        # fewer others still is left as it was, as is one whose reading
-        # is no newer than its track's last (a Fused made again before
-        # the sensor read again), and the tracks of other parts. While
-        # the Detector finds an event in the location in snapshot, every
+        # not yet flagged leaks into no other's delta. A sensor whose
+        # single other is a reference is updated against it alone
+        # (told?). A part with fewer others is left as it was, as is
+        # one whose reading is no newer than its track's last (a Fused
+        # made again before the sensor read again), and the tracks of
+        # other parts. While the Detector finds an event in the
+        # location in snapshot (the one fused was made from), every
         # part is left as it was.
-        def update(tracks, fused, previous: nil, snapshot: nil)
+        def update(tracks, fused, snapshot: nil)
             return tracks if transient?(fused, snapshot)
             counted = fused.parts.select { counts?(it) }.map(&:untracked)
             current = current(tracks, fused, counted)
@@ -153,8 +148,7 @@ module Sensorium
                 device if track.state == :jumped
             end
             flagged = [out, suspect(current)]
-            witness = @witness.of(fused, previous, snapshot)
-            tracks.merge(updated(fused, counted, current, flagged, witness))
+            tracks.merge(updated(fused, counted, current, flagged))
         end
 
         # The tracks without that sensor's: its next update starts afresh.
@@ -188,14 +182,13 @@ module Sensorium
 
         # { [location, device] => Track } updated, the references first,
         # in the Fused's order; flagged: [the devices jumped, those that
-        # jump added; the suspect]; witness: an Estimate or nil.
-        def updated(fused, counted, current, flagged, witness)
+        # jump added; the suspect].
+        def updated(fused, counted, current, flagged)
             out, suspect = flagged
             ordered(fused, counted).each_with_object({}) do |part, done|
                 left = part.device == suspect ? out : out + [suspect]
                 others = others_of(part, counted, current, left)
-                track = step(fused, current, part,
-                             witnessed(others, witness)) or next
+                track = step(fused, current, part, others) or next
                 out << part.device if track.state == :jumped
                 done[[fused.location, part.device]] = track
             end
@@ -218,11 +211,6 @@ module Sensorium
         def references_of(fused)
             name = fused.reference or return []
             Sensorium.references_of(name)
-        end
-
-        # The others, and the witness when they are one.
-        def witnessed(others, witness)
-            witness && others.one? ? others + [witness] : others
         end
 
         # The part's track updated; nil without one, when the others
@@ -269,4 +257,3 @@ end
 
 require_relative "tracker/basis"
 require_relative "tracker/step"
-require_relative "tracker/witness"

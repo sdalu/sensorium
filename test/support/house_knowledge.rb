@@ -4,9 +4,9 @@ require "support/winter"
 
 # What is known of FakeHouse's temperature after its ten days, as a
 # store gives it: Winter's offsets and shifts, the transient profiles of
-# the same days, a still room's dynamics for room-a and room-b (room-b,
-# of two, needs the witness once one jumps), and tado's track in room-a
-# drifting by 0.3 °C, last updated ten minutes before its third day.
+# the same days, a still room's dynamics for room-a and room-b, and
+# tado's track in room-a drifting by 0.3 °C, last updated ten minutes
+# before its third day.
 module HouseKnowledge
     SETUP   = Sensorium::Presets.room
     TRACKED = (2 * 86_400) - 600

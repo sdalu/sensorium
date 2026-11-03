@@ -8,7 +8,7 @@ module Sensorium
         # max_age, and the Switches on. Nothing without a model, without
         # the outside its model needs, or while a Mode holds at the
         # location (the model was fitted without those bins). Parts::Aging
-        # and the Tracker's witness take it.
+        # takes it.
         class Driven
             # location: a resolved Location; model: a Dynamics::Model or
             # nil.

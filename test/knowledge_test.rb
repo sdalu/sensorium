@@ -73,7 +73,8 @@ class KnowledgeGivenTest < Minitest::Test
 
     def test_a_tracker_given_a_knowledge
         keywords = Sensorium::Tracker.new(
-            SETUP, **knowledge.to_h.except(:shifts, :tracks, :collocations)
+            SETUP, **knowledge.to_h.except(:shifts, :tracks, :dynamics,
+                                           :collocations)
         )
         given = Sensorium::Tracker.new(SETUP, knowledge:)
         assert_equal updated(keywords), updated(given)

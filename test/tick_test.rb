@@ -23,7 +23,8 @@ class TickTest < Minitest::Test
 
     # Over the 48 hours tado's track drifts and is back, Airzone's in
     # room-a jumps, and Airzone's in room-b, of two, is updated to the
-    # last tick with the witness: the comparison is not of idle tracks.
+    # last tick against its reference alone: the comparison is not of
+    # idle tracks.
     def test_the_hours_compared_are_not_idle
         states = Hash.new { |hash, key| hash[key] = [] }
         last = ticked(states)
@@ -48,36 +49,35 @@ class TickTest < Minitest::Test
 
     # Yields, at each tick, the Tick's Result and the recipe's.
     def tick_by_tick
-        state = [knowledge.tracks, {}]
+        tracks = knowledge.tracks
         TICKS.times do |i|
             snapshot = Sensorium::Snapshot.from(house, SETUP,
                                                 at: FROM + (i * 600))
-            tracks, previous = state
             result = Sensorium::Tick.new(SETUP, knowledge.with(tracks:))
-                                    .call(snapshot, previous:)
-            yield result, recipe(tracks, snapshot, previous)
-            state = [result.tracks, result.fused]
+                                    .call(snapshot)
+            yield result, recipe(tracks, snapshot)
+            tracks = result.tracks
         end
     end
 
     # The Result as made before the Tick: two Fusions, a Tracker updated
     # from the Fused made without tracks, a Detector.
-    def recipe(tracks, snapshot, previous)
+    def recipe(tracks, snapshot)
         tracked = fusion(tracks:)
         names = tracked.locations(snapshot)
         Sensorium::Tick::Result.new(
             fused: names.to_h { [it, tracked.location(it, snapshot)] },
-            tracks: updated(tracks, names, snapshot, previous),
+            tracks: updated(tracks, names, snapshot),
             events: detector.events(snapshot)
         )
     end
 
     # The tracks updated from each location's Fused made without tracks.
-    def updated(tracks, names, snapshot, previous)
+    def updated(tracks, names, snapshot)
         untracked = fusion
         names.reduce(tracks) do |kept, name|
             tracker.update(kept, untracked.location(name, snapshot),
-                           previous: previous[name], snapshot:)
+                           snapshot:)
         end
     end
 
@@ -90,7 +90,6 @@ class TickTest < Minitest::Test
 
     def tracker
         Sensorium::Tracker.new(SETUP, offsets: knowledge.offsets,
-                                      dynamics: knowledge.dynamics,
                                       locations: knowledge.locations,
                                       transients: knowledge.transients)
     end
