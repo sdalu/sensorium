@@ -69,6 +69,6 @@ class CombineTest < Minitest::Test
 
     def part(device, value, sigma)
         Sensorium::Parts::Part.new(device:, raw: value, value:, sigma:,
-                                   age: 0, note: nil)
+                                   age: 0, time: nil, note: nil)
     end
 end

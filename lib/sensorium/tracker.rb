@@ -219,10 +219,9 @@ module Sensorium
         def step(fused, current, part, others)
             track, sigma, share, width = current[part.device]
             return unless track && told?(fused, part, others)
-            read = fused.at - part.age
-            return if track.at && read <= track.at
+            return if track.at && part.time <= track.at
             Step.new(@quantity, sigma, share, width)
-                .call(track, part, others, read)
+                .call(track, part, others, part.time)
         end
 
         # Whether the others tell the part's truth: two or more, whose

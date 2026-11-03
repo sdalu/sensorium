@@ -13,7 +13,9 @@ module Sensorium
     class Parts
         # value nil, and sigma nil, when the sensor does not count; sigma
         # nil alone when the location has no reference to correct it to.
-        Part = Data.define(:device, :raw, :value, :sigma, :age, :note)
+        # time: the reading's, as it was told.
+        Part = Data.define(:device, :raw, :value, :sigma, :age, :time,
+                           :note)
 
         # What was learned of the location in the moment's regime:
         # offsets { device => Offset }, shifts { [device, influence,
@@ -56,10 +58,11 @@ module Sensorium
             inside = inward(reading)
             note = why_not(device, age, inside) and
                 return Part.new(device:, raw: reading.value, value: nil,
-                                sigma: nil, age:, note:)
+                                sigma: nil, age:, time: reading.time, note:)
             estimate = @aging.of(device, reading, estimate(device, inside))
             Part.new(device:, raw: reading.value, value: estimate.value,
-                     sigma: estimate.sigma, age:, note: nil)
+                     sigma: estimate.sigma, age:, time: reading.time,
+                     note: nil)
         end
 
         def why_not(device, age, inside)
