@@ -6,7 +6,7 @@ module Sensorium
     # How the history is cut into spans learned apart: what influences a
     # sensor may differ from one regime to the next (the radiators in
     # winter, the aircon in summer). A regime answers names, of(time) and
-    # covered(from, to).
+    # covered(from, to); of is asked of local times.
     module Regime
         # By month: winter Nov–Mar, mid Apr, May, Oct, summer Jun–Sep by
         # default.

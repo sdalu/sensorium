@@ -60,7 +60,7 @@ module Sensorium
         # The Fused value of a location; value nil when nothing counts.
         def location(name, snapshot, context: {})
             given = @locations.fetch(name) { Location.default(name) }
-            key = [name, @setup.regime.of(snapshot.at)]
+            key = [name, regime(snapshot.at)]
             references = given.references
             references = learned(key) if references.empty?
             learning = learning(key, references)
@@ -70,6 +70,9 @@ module Sensorium
         end
 
         private
+
+        # The regime of a moment, asked of its local time (Regime).
+        def regime(at) = @setup.regime.of(at.getlocal)
 
         # { [location, regime] => [row] }.
         def keyed(rows) = rows.group_by { [it.location, it.regime] }

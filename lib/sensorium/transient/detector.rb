@@ -28,7 +28,7 @@ module Sensorium
 
             # [Event] of the snapshot.
             def events(snapshot)
-                regime = @setup.regime.of(snapshot.at)
+                regime = @setup.regime.of(snapshot.at.getlocal)
                 snapshot.latest.flat_map do |key, latest|
                     profile = @profiles[[*key, regime]] or next []
                     next [] if stale?(key.first, snapshot.age(latest))

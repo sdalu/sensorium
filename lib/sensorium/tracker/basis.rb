@@ -72,7 +72,7 @@ module Sensorium
                 offset if offset&.reference == fused.reference
             end
 
-            def regime(fused) = @setup.regime.of(fused.at)
+            def regime(fused) = @setup.regime.of(fused.at.getlocal)
 
             # A fresh track's: (σ/2)², σ the quantity's.
             def variance = (@quantity.sigma / 2.0)**2
