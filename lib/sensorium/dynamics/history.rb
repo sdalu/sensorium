@@ -34,23 +34,30 @@ module Sensorium
                 key = { location:, quantity: }
                 on = @timeline.switched(location)
                 reference = @history.carried(location)
-                forecast = Forecast.new(reference, @outside, on)
+                forecast = Forecast.new(reference, @outside, on,
+                                        ->(bin) { near?(location, bin) })
                 steps(location, reference, on).filter_map do |regime, list|
                     Validation.model(key.merge(regime:), list, @setup,
                                      forecast, prior(location, regime))
                 end
             end
 
-            # { regime => [Step] } of a location, the bins where a Mode
-            # held, or held within its hold, left out.
+            # { regime => [Step] } of a location, the steps that start
+            # or end in a bin where a Mode held, or held within its
+            # hold, left out: the step into a Mode's first bin takes in
+            # its onset.
             def steps(location, reference, on)
                 found = reference.filter_map do |bin, r|
-                    next if @timeline.near?(location, bin)
+                    next if near?(location, bin) ||
+                            near?(location, bin + @series.width)
                     step = step(reference, bin, r, on) or next
                     [regime_of(bin), step]
                 end
                 found.group_by(&:first).transform_values { it.map(&:last) }
             end
+
+            # Whether a Mode held at the bin, or held within its hold.
+            def near?(location, bin) = @timeline.near?(location, bin)
 
             def step(reference, bin, r, on)
                 after = reference[bin + @series.width] or return

@@ -7,20 +7,26 @@ module Sensorium
         # inputs at the bin predicted (the outside, the Switches on).
         class Forecast
             # reference, outside: { bin => value } (outside nil: none);
-            # on: { name => bins on }.
-            def initialize(reference, outside, on)
+            # on: { name => bins on }; near: answers call(bin) with
+            # whether a Mode held at the bin, or within its hold (nil:
+            # never).
+            def initialize(reference, outside, on, near = nil)
                 @reference = reference
                 @outside   = outside
                 @on        = on
+                @near      = near
             end
 
             # [[model's error, holding's error]] from each of the bins
             # where the reference is known then and `hours` after, the
-            # hours rounded to whole bins of the model's, one at least.
+            # hours rounded to whole bins of the model's, one at least,
+            # and no Mode held over the span: a forecast across one
+            # errs by the Mode's doing, not the model's.
             def errors(model, bins, hours)
                 ahead = ahead(model, hours)
                 hours = ahead / 3600.0
                 bins.filter_map do |bin|
+                    next if held?(bin, bin + ahead, model.bin)
                     from = @reference[bin] or next
                     truth = @reference[bin + ahead] or next
                     change = change(model, from, bin + ahead, hours) or next
@@ -51,6 +57,12 @@ module Sensorium
             end
 
             private
+
+            # Whether a Mode held, or held within its hold, at any bin
+            # from `from` to `to`.
+            def held?(from, to, width)
+                @near && (from..to).step(width).any? { @near.call(it) }
+            end
 
             # The seconds of the whole bins nearest `hours`, one at least.
             def ahead(model, hours)
