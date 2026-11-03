@@ -3,8 +3,9 @@
 module Sensorium
     # Where a quantity is learned and fused: a space where a sensor's
     # error adds up. forward(value, context) takes a reading there (nil
-    # when its context lacks what it needs), inverse(value, context)
-    # brings a fused value back, sigma(σ, inside, outside) brings its σ.
+    # when it has no value, or its context lacks what it needs),
+    # inverse(value, context) brings a fused value back (nil likewise),
+    # sigma(σ, inside, outside) brings its σ.
     module Transform
         # The quantity as it reads (temperature).
         module Identity
@@ -24,13 +25,13 @@ module Sensorium
             module_function
 
             def forward(value, context = {})
-                t = context[:temperature] or return
-                value * saturation(t) / 100.0
+                t = context&.dig(:temperature) or return
+                value * saturation(t) / 100.0 if value
             end
 
             def inverse(value, context = {})
-                t = context[:temperature] or return
-                100.0 * value / saturation(t)
+                t = context&.dig(:temperature) or return
+                100.0 * value / saturation(t) if value
             end
 
             def sigma(sigma, inside, outside)
