@@ -38,10 +38,17 @@ module Sensorium
                      drift_alarm: 3.0, drift_clear: 2.0 }.freeze
 
         def initialize(name:, sigma:, **settings)
+            @given = { name:, sigma:, **settings }
             given = DEFAULTS.merge(settings)
             super(**given, name: name.to_s, sigma:,
                            floor: given[:floor] || (sigma / 4.0),
                            track_q: given[:track_q] || ((sigma**2) / 48.0))
+        end
+
+        # The Quantity with changes, floor and track_q derived again
+        # from sigma unless they were set.
+        def with(**changes)
+            changes.empty? ? self : self.class.new(**@given, **changes)
         end
 
         # The readings taken into the transform's space, those it cannot

@@ -65,7 +65,14 @@ module Sensorium
             end
             given = Setup.defaults(bin).merge(settings)
             Setup.check_windows(given[:transient_windows], bin)
+            @given = { quantity:, **settings }
             super(quantity:, **given)
+        end
+
+        # The Setup with changes, the counts and transient windows
+        # derived again from bin unless they were set.
+        def with(**changes)
+            changes.empty? ? self : self.class.new(**@given, **changes)
         end
 
         def self.defaults(bin)
