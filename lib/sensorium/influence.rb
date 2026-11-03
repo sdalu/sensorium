@@ -11,21 +11,39 @@ module Sensorium
         TAUS = [600, 1800, 3600, 7200].freeze
 
         # On or off: on while an event with a true or positive value is
-        # under `hold` old. Learned as an additive term of the offset,
-        # kept only when it narrows the spread (the radiators' water
-        # hot). tau: nil, the term holds while the Switch is on; a time
-        # constant in seconds, or several (TAUS), the term is term ×
-        # exposure, a first-order filter of the on-state, with the time
-        # constant that narrows most.
+        # under `hold` old; a text is read as its number, "off" and
+        # "false" (any case, trimmed) as false, any other as itself.
+        # Learned as an additive term of the offset, kept only when it
+        # narrows the spread (the radiators' water hot). tau: nil, the
+        # term holds while the Switch is on; a time constant in seconds,
+        # or several (TAUS), the term is term × exposure, a first-order
+        # filter of the on-state, with the time constant that narrows
+        # most.
         Switch = Data.define(:name, :scope, :hold, :tau) do
             def initialize(name:, scope: :site, hold: 3600, tau: nil)
                 super(name: name.to_s, scope: scope.to_sym, hold:, tau:)
             end
 
-            def on?(value) = value.is_a?(Numeric) ? value.positive? : !!value
+            def on?(value)
+                value = word(value) if value.is_a?(String)
+                value.is_a?(Numeric) ? value.positive? : !!value
+            end
 
             # The time constants tried, none for a hard Switch.
             def taus = Array(tau)
+
+            private
+
+            def word(text)
+                text = text.strip
+                Float(text, exception: false) ||
+                    (!Switch::OFF.include?(text.downcase) && text)
+            end
+        end
+
+        class Switch
+            # The texts that say off, beside a number not positive.
+            OFF = %w[off false].freeze
         end
 
         # A state with values (the aircon heating or cooling): the bins
