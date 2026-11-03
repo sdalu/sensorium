@@ -86,7 +86,9 @@ module Sensorium
                 return Estimate.new(value:,
                                     sigma: @location.sigma)
             end
-            @offsets[device].correct(value, shifts: shifts(device),
+            holding = @snapshot.holding(@location.name)
+            @offsets[device].correct(value, shifts: shifts(device, holding),
+                                            held: holding.any?,
                                             **moment(device))
         end
 
@@ -104,10 +106,12 @@ module Sensorium
             inward(reading)
         end
 
-        def shifts(device)
-            @snapshot.holding(@location.name).filter_map do |name, mode|
-                @learning.shifts[[device, name, mode]]
-            end
+        # The Shift of what the Modes hold (holding: [[name, value]]), as
+        # one value (Shift.named); none when none holds, or none was
+        # learned for it.
+        def shifts(device, holding)
+            return [] if holding.empty?
+            [@learning.shifts[[device, *Shift.named(holding)]]].compact
         end
 
         # The part with its Track applied (Track#apply), when it counts.

@@ -57,6 +57,15 @@ class OffsetTest < Minitest::Test
         assert_in_delta 19.0 + 0.8 + 1.0, found.value
     end
 
+    # A Mode holding that no Shift was learned for: the plain offset
+    # alone, with its own spread, not the full model.
+    def test_a_mode_without_a_shift_takes_the_plain_offset
+        found = offset.correct(19.0, on: %w[heating], neighbour: 15.0,
+                                     held: true)
+        assert_in_delta 19.0 + 0.8, found.value
+        assert_in_delta 2.0 / P10_P90, found.sigma
+    end
+
     private
 
     def shift

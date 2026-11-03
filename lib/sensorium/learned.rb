@@ -126,7 +126,9 @@ module Sensorium
 
         # The Shifts of a sensor: for each value a Mode held often
         # enough, how the sensor reads against its plain offset
-        # meanwhile.
+        # meanwhile; two Modes holding at once are a value of their own
+        # (Shift.named), learned over the bins they held together, which
+        # belong to neither alone: what two do together is not the sum.
         class Shifts
             def initialize(timeline, setup)
                 @timeline = timeline
@@ -143,9 +145,12 @@ module Sensorium
 
             private
 
+            # { [influence, value] => [diff] } over the bins each Mode,
+            # or each combination of Modes, held.
             def by_mode(location, diffs)
                 diffs.each_with_object(Hash.new { [] }) do |(bin, d), all|
-                    @timeline.modes(location, bin).each { all[it] += [d] }
+                    held = @timeline.modes(location, bin)
+                    all[Shift.named(held)] += [d] if held.any?
                 end
             end
 

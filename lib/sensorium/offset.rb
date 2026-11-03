@@ -37,15 +37,15 @@ module Sensorium
         end
 
         # The reference's value, as this sensor's reading tells it: the
-        # model solved for r. shifts: the Shifts of the Modes holding;
+        # model solved for r. shifts: the Shift of what the Modes hold,
+        # when one was learned; held: whether a Mode holds at all;
         # moment: what else holds (Offset::Moment). While a Mode holds,
         # or when the neighbour, a Series' value or dr/dt is not known,
-        # the plain offset: a Shift was learned over it.
-        def correct(reading, shifts: [], **moment)
+        # the plain offset: a Shift was learned over it, and one not
+        # learned is not known, as any term's input may not be.
+        def correct(reading, shifts: [], held: shifts.any?, **moment)
             now = Offset::Moment.new(**moment)
-            if shifts.any? || unknown?(now)
-                return plain_correct(reading, shifts)
-            end
+            return plain_correct(reading, shifts) if held || unknown?(now)
             model_correct(reading - constant - known(now), now.neighbour.to_f,
                           now)
         end
