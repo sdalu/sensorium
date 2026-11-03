@@ -58,15 +58,33 @@ module Sensorium
 
         # The Threshold of changes: their quantiles at the share of the
         # bins transient_rate allows, each side, one of 0 raised just
-        # past the smallest change that is not 0. Nil when fewer than
-        # min_samples, or none is not 0.
+        # past the smallest change that is not 0, one several changes
+        # sit at (ties) raised just past itself when leaving them out
+        # comes nearer the share. Nil when fewer than min_samples, or
+        # none is not 0.
         def threshold(changes, setup)
             return if changes.size < setup.min_samples
             step = changes.map(&:abs).reject(&:zero?).min or return
             share = setup.transient_rate * setup.bin / 86_400.0
-            Threshold.new(fall: raised(Stats.quantile(changes, share), -step),
-                          rise: raised(Stats.quantile(changes, 1 - share),
-                                       step))
+            Threshold.new(fall: side(changes, share, -step),
+                          rise: side(changes, 1 - share, step))
+        end
+
+        # The quantile at fraction, on the side of step's sign, raised.
+        def side(changes, fraction, step)
+            value = Stats.quantile(changes, fraction)
+            return raised(value, step) if value.zero?
+            tied?(changes, fraction, value, step) ? value * RAISE : value
+        end
+
+        # Whether several changes sit at value, and leaving them out of
+        # those beyond comes nearer the share than counting them.
+        def tied?(changes, fraction, value, step)
+            fall = step.negative?
+            at = changes.count { fall ? it <= value : it >= value }
+            past = changes.count { fall ? it < value : it > value }
+            allowed = [fraction, 1 - fraction].min * changes.size
+            at - past > 1 && (past - allowed).abs < (at - allowed).abs
         end
 
         def raised(value, step) = value.zero? ? step * RAISE : value
