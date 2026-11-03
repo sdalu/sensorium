@@ -73,8 +73,8 @@ module Sensorium
             end
 
             def keep(learned, from:, to:, at: Time.now)
-                span = { learned_from: from.utc, learned_to: to.utc,
-                         learned_at: at.utc }
+                span = { learned_from: from.getutc, learned_to: to.getutc,
+                         learned_at: at.getutc }
                 @db.transaction do
                     quantity = learned.quantity
                     drop(quantity, learned.gone(offsets(quantity)))

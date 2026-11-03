@@ -43,9 +43,10 @@ module Sensorium
                 # the repeated autumn hour does not round-trip an hour
                 # off.
                 def track_row(track)
-                    track.to_h.except(:at).merge(tracked_at: track.at.utc,
-                                                 block_at: track.block_at&.utc,
-                                                 state: track.state.to_s)
+                    track.to_h.except(:at)
+                         .merge(tracked_at: track.at.getutc,
+                                block_at: track.block_at&.getutc,
+                                state: track.state.to_s)
                 end
             end
         end
