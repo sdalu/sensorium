@@ -50,6 +50,22 @@ module Sensorium
                           now)
         end
 
+        # The reading this sensor is expected to give while its
+        # location's reference is r: the model as stated above, not
+        # solved (correct is its inverse). shifts:, held: and moment as
+        # correct takes them, and the same fallback: while a Mode holds,
+        # or when the neighbour, a Series' value or dr/dt is not known,
+        # r + the plain offset + the Shift. sigma is the spread of what
+        # the model leaves, a reading's own: a correction's is over
+        # scale, a reading's is not. r is taken as exact: the
+        # reference's σ, and a Track's delta (Track#foresee), are the
+        # caller's.
+        def predict(r, shifts: [], held: shifts.any?, **moment)
+            now = Offset::Moment.new(**moment)
+            return plain_predict(r, shifts) if held || unknown?(now)
+            model_predict(r, now)
+        end
+
         def sigma       = (p90 - p10) / P10_P90
         def plain_sigma = (plain_p90 - plain_p10) / P10_P90
 
@@ -116,6 +132,17 @@ module Sensorium
 
         def plain_correct(reading, shifts)
             Estimate.new(value: reading - plain - moved(shifts),
+                         sigma: widest(plain_sigma, shifts))
+        end
+
+        def model_predict(r, now)
+            Estimate.new(value: (r * scale) - (k * now.neighbour.to_f) +
+                                constant + known(now),
+                         sigma: width(now) / P10_P90)
+        end
+
+        def plain_predict(r, shifts)
+            Estimate.new(value: r + plain + moved(shifts),
                          sigma: widest(plain_sigma, shifts))
         end
 

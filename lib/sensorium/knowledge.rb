@@ -39,5 +39,29 @@ module Sensorium
                 unknown.any?
         end
         private_class_method :check
+
+        # The Offset of a sensor in a regime (the Setup's regime.of(at));
+        # nil when it was not learned there.
+        def offset(location, device, regime)
+            offsets.find { Learned.key(it) == [location, device, regime] }
+        end
+
+        # The Shift of a sensor in a regime for what holds (holding:
+        # [[name, value]] of the Modes, as Snapshot#holding gives them,
+        # named as one by Shift.named); nil when none holds or none was
+        # learned for it. A Mode holding without a Shift is still
+        # held: Offset#predict and #correct then take held: true.
+        def shift(location, device, regime, holding)
+            return if holding.empty?
+            key = [location, device, regime, *Shift.named(holding)]
+            shifts.find { [*Learned.key(it), it.influence, it.mode] == key }
+        end
+
+        # The Track of a sensor while it follows that Offset (its
+        # fingerprint); nil without one, or after a relearn.
+        def track(location, device, offset)
+            found = tracks[[location, device]] or return
+            found if found.fingerprint == Track.fingerprint(offset)
+        end
     end
 end

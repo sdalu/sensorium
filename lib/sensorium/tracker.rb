@@ -72,6 +72,16 @@ module Sensorium
         def widened(sigma)
             pinned? ? sigma : Math.sqrt((sigma**2) + variance)
         end
+
+        # A reading foreseen by an Offset (Offset#predict), as this
+        # track says the sensor reads now: delta put back, variance
+        # added to its σ², apply's inverse; a pinned track's delta is
+        # no estimate and adds nothing; nil while jumped.
+        def foresee(estimate)
+            return if state == :jumped
+            estimate.with(value: estimate.value + delta,
+                          sigma: widened(estimate.sigma))
+        end
     end
 
     class Track
