@@ -316,6 +316,23 @@ the README's order; what was tried and dropped is under Ruled out.
   point the steps were nearing; every fusion that settles before is
   unchanged (2.3 million random ones), and no fusion of the year
   crawls.
+- **A prediction's σ is the reading's, not the correction's.**
+  `Offset#predict` states the model forward, the reading at a
+  reference r, for a caller that sends a device the setpoint its own
+  sensor reads at the room's target. Its σ is the spread of what the
+  model leaves, in the reading's units: a correction divides it by
+  the scale because it solves for r; a prediction does not (for
+  downstairs/airzone in summer, k +0.785, 0.87 against 0.49). r, the
+  target, is exact. Nothing stands for "the device is regulating":
+  for a tado it is the site heating Switch on (the constant already is
+  the heating-on gap, the Switch on 84 % of winter bins), for an
+  Airzone its Mode holding, the very bins its Shift was learned over;
+  a duty fraction has no term to multiply, and the mean exposure over
+  regulated bins would be the site Switch's, about 1. No table of
+  predictions: one is a function of the target, what holds and the
+  track, not a fact. On MadHouse's year, learned month by month, the
+  regulating readings came within their σ on four of five winter
+  sensors (var(z) 0.45 to 1.13) and on the Airzones' heating Mode.
 - **Two parts by inverse variance, σ widened by their disagreement.**
   Student-t reweighting of two parts that disagree slides to the one
   with the smaller σ: on the recorded room, a 3 % change of one σ

@@ -602,6 +602,52 @@ location and regime get no model; kept, it is fitted again on all its
 steps and carries both errors (`rms_hold`, `rms_model`). It is learned
 apart from `Learner#learn`, so a caller can run it on its own schedule.
 
+## Predicting
+
+The other way round: the reading a sensor is expected to give while
+its location's reference is r, for a caller that sends a device the
+setpoint its own sensor reads when the room is at its target.
+`Offset#predict(r, ...)` takes what `correct` takes and states the
+model forward (r × scale − k × neighbour + constant + switched + fed +
+rate × dr/dt), with the same fallback: while a Mode holds, or when an
+input is not known, r + plain + the Shift. `correct` is its inverse.
+Its σ is the spread of what the model leaves, a reading's own: a
+correction's is over scale, a reading's is not, and r is taken as
+exact (the target is). A `Knowledge` finds the facts:
+
+```ruby
+knowledge = store.knowledge("temperature")   # a store opened read-only
+regime    = setup.regime.of(at)              # local months
+offset    = knowledge.offset(location, "tado", regime) or return
+holding   = []              # an Airzone: [%w[aircon heating]]
+shift     = knowledge.shift(location, "tado", regime, holding)
+reading   = offset.predict(target, shifts: [shift].compact,
+                                   held: holding.any?, on: %w[heating],
+                                   neighbour: nil, dr_dt: 0.0)
+track     = knowledge.track(location, "tado", offset)
+reading   = track.foresee(reading) if track  # nil while jumped
+```
+
+`Knowledge#shift` names what holds as one value (`Shift.named`); a
+Mode holding without a Shift is still held (`held: true`).
+`Knowledge#track` answers the sensor's Track while it follows that
+Offset (nil after a relearn), and `Track#foresee` puts its delta
+back, `apply`'s inverse, its variance added; nil while jumped: the
+sensor's reading is then not known. A neighbour is one named device
+(`LOCATION/DEVICE`), not the fused value: without its reading, pass
+nil and take the plain offset. While a device regulates, a tado's
+heating is the site Switch on; an Airzone's is its Mode holding,
+which its Shift was learned over.
+
+On one house's year, learned month by month and predicted over the
+month after, while a device regulated with the reference steady, the
+reading came within the σ stated on four of five winter sensors with
+their valve working (residual −0.22 to +0.07 °C, var(z) 0.45 to 1.13)
+and on the Airzones under their heating Mode (var(z) 0.55 and 1.05);
+not on a noisy tado (var(z) 4.6), nor while the reference moves (a
+steady state is what is predicted). An Offset not learned yet in a
+regime (a season's first month) gives no prediction.
+
 ## Relearning
 
 The four learners read the same span: the `Learner` (offsets and
@@ -1085,6 +1131,15 @@ profiles too. A store's
 it.
 
 ## Known shortfalls
+
+- A tado's reading while its own valve works is below its idle one,
+  the radiator warming its sensor less than the room's reference (by
+  0.06 to 0.5 °C on one house's winter); no input carries the valve's
+  own duty, so `predict` misses it, within its σ. A Switch of
+  location scope on the zone's heating events, or a Series on the
+  valve's power, would; untried. On the same winter, one tado's
+  prediction while regulating was overconfident (var(z) 4.6, its
+  spread twice its σ).
 
 - Only an offset's level is followed online (Tracking); its terms
   change only when learning runs again.

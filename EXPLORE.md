@@ -1,6 +1,8 @@
 # Ideas to explore
 
-What remains after version 0.2.3 (since 0.2.2: a column constant
+What remains after version 0.3.0 (since 0.2.3: `Offset#predict`,
+the reading expected at a reference, `Knowledge#offset`, `#shift`
+and `#track`, `Track#foresee`; since 0.2.2: a column constant
 within rounding, a Quantity with `cusum_h` below 4 `cusum_k` refused,
 a robust crawl taken through at once, Quantity and Setup through
 Marshal; since 0.2.1: the return test
@@ -57,7 +59,7 @@ a Tick every ten minutes), read-only.
 
 ## On the users' side
 
-7. **Around sensorium 0.2.3:**
+7. **Around sensorium 0.3.0:**
    - The API changed: a `Tracker` is made without `dynamics:`,
      `Tracker#update` and `Tick#call` take no `previous:`, and a
      `Fusion` is made without `dynamics:`; `collocations:` is new to
@@ -76,7 +78,11 @@ a Tick every ten minutes), read-only.
      one's own sees the History's zone. Since 0.2.3: a `Quantity`
      with `cusum_h` below 4 `cusum_k` raises ArgumentError; a
      `Quantity` and a `Setup` round-trip through Marshal, and two
-     `Regime::Calendar` of the same months are equal.
+     `Regime::Calendar` of the same months are equal. Since 0.3.0:
+     `Offset#predict`, `Knowledge#offset`, `#shift` and `#track`, and
+     `Track#foresee` (README, Predicting), for ClimatControl, which
+     opens MadHouse's store read-only (`migrate: false`, a SELECT-only
+     user) and pins the tag.
    - MadHouse's tables need the five columns added in 0.2.0 if it opens
      the store with `migrate: false`: `block_share` on offsets;
      `block_sum`, `block_noise`, `block_count` and `block_at` on tracks.
