@@ -616,7 +616,8 @@ correction's is over scale, a reading's is not, and r is taken as
 exact (the target is). A `Knowledge` finds the facts:
 
 ```ruby
-knowledge = store.knowledge("temperature")   # a store opened read-only
+store     = Sensorium::Store::Sequel.new(db, read_only: true)
+knowledge = store.knowledge("temperature")
 regime    = setup.regime.of(at)              # local months
 offset    = knowledge.offset(location, "tado", regime) or return
 holding   = []              # an Airzone: [%w[aircon heating]]
@@ -1073,7 +1074,12 @@ A store keeps what a learning found, the locations' settings and the
 Tracker's tracks, by quantity. `Store::Memory` for tests and one-off
 runs; `Store::Sequel` (`require "sensorium/store/sequel"`) for any SQL
 database, its table names configurable, its tables created when
-missing unless `migrate: false`. The Tracker's tracks, the dynamics
+missing unless `migrate: false`. Opened `read_only: true`, it creates
+and alters nothing and every write (`keep`, `set_location`, `forget`,
+`keep_tracks`, `keep_dynamics`, `keep_collocations`,
+`keep_transients`) raises `Store::ReadOnlyError` before the database
+sees it: for a consumer of another's store, beside a database user
+that may only read. The Tracker's tracks, the dynamics
 models, the collocations and the transient profiles are kept in four
 more tables (`sensor_tracks`, `tables: { tracks: }`;
 `sensor_dynamics`, `tables: { dynamics: }`; `sensor_collocations`,

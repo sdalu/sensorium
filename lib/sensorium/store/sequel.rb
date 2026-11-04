@@ -15,6 +15,7 @@ require_relative "sequel/dynamics_rows"
 require_relative "sequel/collocation_rows"
 require_relative "sequel/transient_rows"
 require_relative "sequel/forget"
+require_relative "sequel/read_only"
 
 module Sensorium
     module Store
@@ -24,7 +25,8 @@ module Sensorium
         # there already, as the caller made them, their columns named
         # as `columns` renames them ({ location: :zone }). Lists are kept
         # as A,B, an Offset's maps (switches, taus, series, states) as
-        # JSON.
+        # JSON. With read_only: true, nothing is created or altered and
+        # every write raises ReadOnlyError (Sequel::ReadOnly).
         class Sequel
             include Clock
             include ColumnNames
@@ -46,11 +48,14 @@ module Sensorium
             include Forget
             include Knowing
 
-            def initialize(db, tables: {}, columns: {}, migrate: true)
+            def initialize(db, tables: {}, columns: {}, migrate: true,
+                           read_only: false)
                 @db      = db
                 @tables  = TABLES.merge(tables)
                 @columns = checked(columns)
-                Schema.create(db, @tables, @columns) if migrate
+                if read_only then extend(ReadOnly)
+                elsif migrate then Schema.create(db, @tables, @columns)
+                end
             end
 
             def offsets(quantity)
