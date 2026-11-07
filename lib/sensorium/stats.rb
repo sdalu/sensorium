@@ -18,6 +18,19 @@ module Sensorium
 
         def median(values) = quantile(values, 0.5)
 
+        # The value at fraction f of the values, each with its weight
+        # (summing to 1): the first, in order, whose cumulative weight
+        # reaches f.
+        def weighted_quantile(values, weights, fraction)
+            pairs = values.zip(weights).sort_by(&:first)
+            total = 0.0
+            pairs.each do |value, weight|
+                total += weight
+                return value if total >= fraction - 1e-12
+            end
+            pairs.last.first
+        end
+
         # p90 - p10: how widely the values spread, outliers aside.
         def spread(values)
             quantile(values, 0.9) - quantile(values, 0.1)

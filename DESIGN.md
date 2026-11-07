@@ -371,11 +371,13 @@ the README's order; what was tried and dropped is under Ruled out.
   reference and not measure humidity at all, hence the humidity
   preset's own places (wall, valve). Temperature falls back on them
   after the ceiling and the floor: a room with only its aircon's unit
-  and its radiator's valve was left unlearned, its tado the very
-  device a caller drives. The unit before the valve, which its
-  radiator warms; on one house's year, the two such rooms' tados came
-  out at σ 0.26 to 0.74 against their unit, the other rooms' 26
-  offsets unchanged.
+  and its radiator's valve was left unlearned unless its Location set
+  a reference by hand, its tado the very device a caller drives. The
+  unit before the valve, which its radiator warms. One house had set
+  the unit by hand in both such rooms; without those settings, its
+  year's two tados come out at σ 0.26 to 0.74 against their unit, the
+  other rooms' 26 offsets unchanged, and with them the fallback
+  changes nothing.
 - **A sole reference's σ from its collocation.** A sole reference's σ
   was the quantity's, a hand-set 0.1 °C, yet it anchors every weight:
   on NoisyRoom, a reference three times noisier made the fused value
@@ -746,8 +748,9 @@ the README's order; what was tried and dropped is under Ruled out.
   not where it stood. Off by default: a Series of an Offset, binned at
   ten minutes, is unchanged.
 - **Pooled before per room.** On MadHouse's gas the rooms' valves open
-  together; fitted room by room, four of seven were kept in winter and
-  the fit was worse than the pooled sum's (R² 0.91 against 0.93). A
+  together; fitted room by room, five of seven were kept in winter,
+  their terms from 0.022 to 0.056 kWh per valve-%-hour, and the fit
+  was no better than the pooled sum's (R² 0.93 against 0.94). A
   room's share is the pooled term × its own valve, and `pooled: true`
   gives that sum without the caller adding it up.
 - **Followed by the Tracker's own step.** The value predicted is the

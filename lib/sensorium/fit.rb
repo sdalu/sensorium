@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "fit/joint"
+require_relative "fit/keep"
 
 module Sensorium
     # One sensor's offset from its location's reference, bin by bin
@@ -26,6 +27,7 @@ module Sensorium
     # before it, within HeldOut::TOLERANCE; Validated holds them out.
     class Fit
         include Joint
+        include Keep
 
         # residuals: { bin => what the model leaves }.
         Model = Data.define(:constant, :switches, :taus, :series, :gain,
@@ -56,7 +58,9 @@ module Sensorium
             @setup  = setup
             @levels = levels
             @terms  = Terms.new(**terms)
-            @held_out = held_out&.then { HeldOut.new(it, levels, @terms) }
+            @held_out = held_out&.then do |out|
+                HeldOut.new(out, levels, @terms, setup.min_part)
+            end
         end
 
         attr_reader :terms
@@ -95,13 +99,6 @@ module Sensorium
         end
 
         private
-
-        def better(kept, tried)
-            return kept unless tried
-            return kept if ratio(kept, tried) > @setup.narrows
-            return kept if @held_out && !@held_out.keeps?(kept, tried)
-            tried
-        end
 
         # The spread tried leaves over what kept left, both over the bins
         # tried covers (a neighbour may cover fewer) and each as the
@@ -168,6 +165,7 @@ module Sensorium
     end
 end
 
+require_relative "fit/balanced"
 require_relative "fit/held_out"
 require_relative "fit/levels"
 require_relative "fit/linear"

@@ -122,7 +122,12 @@ a Tick every ten minutes), read-only.
      raises ArgumentError on a track of another quantity than the one
      it is kept under (the two stores filed it apart), and an
      `Offset::Moment` takes a Symbol name as its String (a Series'
-     value or an exposure so named was taken as unknown).
+     value or an exposure so named was taken as unknown). After
+     0.4.0: a term is judged with the bins it acts on weighing as much
+     as the others (`Fit::Balanced`), so a relearn may keep other terms:
+     three of MadHouse's 32 tado offsets (green-room mid and winter,
+     yellow-room winter); a Regression fitted together no longer stops
+     at the first regressor the bins held out refuse.
    - MadHouse's tables need the five columns added in 0.2.0 if it opens
      the store with `migrate: false`: `block_share` on offsets;
      `block_sum`, `block_noise`, `block_count` and `block_at` on tracks.

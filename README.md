@@ -78,7 +78,11 @@ sensor - r = constant
 
 Each term is kept only if it narrows the spread (p10..p90) of the
 correction to 80 % of what it was, both measured over the bins the
-term covers: what the model leaves over |1 + gain + coefficient|, the
+term covers, the bins its regressor acts on weighing as much as the
+others when they are fewer (a Switch seldom on, a series mostly at
+zero: p10..p90 of all the bins would never see what it does in 2 % of
+them; `Fit::Balanced`), 100 of them at least (`min_part`): what the
+model leaves over |1 + gain + coefficient|, the
 scale a correction divides by (`Fit::Model#scale`, below). A neighbour
 with a coefficient of −0.4 that narrows the gap to 70 % widens the
 correction to 117 % and is refused; one of +0.6 that narrows the gap
@@ -1143,9 +1147,11 @@ The Setup says how the regressors are chosen:
   (`Stats.nonnegative`): a valve open adds gas, never takes it away.
   `ridge:` shares a slope between regressors that tell nearly the same
   (`Stats.least_squares`).
-- A regressor must narrow the spread to `narrows` (0.8) of what it was;
-  with many weak ones, a value nearer 1 lets more in, the bins held
-  out judging each still.
+- A regressor must narrow the spread to `narrows` (0.8) of what it was,
+  the bins it acts on weighing half when they are fewer than half (an
+  aircon zone calling one hour in a hundred), `min_part` of them at
+  least; with many weak ones, a value nearer 1 lets more in, the bins
+  held out judging each still.
 
 A Regression has no gain and no rate: it has no reference.
 `predict(values)` is the constant plus each term × its value, σ what
@@ -1167,16 +1173,17 @@ as above (`local/gas.rb`):
 
 | Model | Winter | Mid-season | Summer |
 |---|---|---|---|
-| the valves pooled, joint | 12.09 kWh + 0.0335 per valve-%-hour, σ 4.1, R² 0.94 | 6.64 + 0.0422, R² 0.90 | 4.88 kWh, no valve term |
-| room by room, joint, ≥ 0, `narrows: 0.95` | 2 rooms of 7 kept, R² 0.83 | 1 room, R² 0.77 | no valve term |
-| room by room, each in turn, `narrows: 0.99` | 6 rooms, R² 0.85, terms by the order given | 3 rooms, R² 0.84 | 2 rooms, R² 0.27 |
+| the valves pooled, joint | 12.09 kWh + 0.0335 per valve-%-hour, σ 4.1, R² 0.94 | 6.64 + 0.0422, R² 0.90 | 5.35 + 0.0425, R² 0.27 |
+| room by room, joint, ≥ 0, `narrows: 0.95` | 5 rooms of 7 kept, 0.022 to 0.056 each, R² 0.93 | 2 rooms, R² 0.85 | no valve term |
+| room by room, each in turn, `narrows: 0.99` | 6 rooms, R² 0.84, terms by the order given | 4 rooms, R² 0.85 | no valve term |
 
 Unshifted, on UTC days, the pooled winter fit was 12.56 + 0.0330, σ
 4.8, R² 0.93. ClimatControl's own fit was 12.5 kWh + 0.0333 per
 valve-%-hour (R² 0.94). The rooms' valves open together, so their own
-terms cannot be told apart: a room's share is the pooled term × its
+terms are poorly told apart (0.022 to 0.056 kWh per valve-%-hour) and
+fit no better than their sum: a room's share is the pooled term × its
 own valve-%-hours, and about 7 kWh a day of winter gas follows no
-valve (12.09 against summer's 4.88).
+valve (12.09 against summer's 5.35).
 
 ### Following a regression
 

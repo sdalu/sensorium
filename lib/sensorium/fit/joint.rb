@@ -5,9 +5,10 @@ module Sensorium
         # The Series chosen best-first and fitted together (setup.joint),
         # for a Fit: at each step, each not chosen yet is fitted with
         # those chosen, all of them together on what the model before
-        # the Series left (Linear.joint); the one that narrows most is
-        # kept as any term is (Fit#better), else the choice ends; it
-        # ends too once what is kept brings no new Series. Stepwise, each
+        # the Series left (Linear.joint); the one that narrows most of
+        # those kept as any term is (Fit#better) is kept, one refused
+        # leaving the next its turn; the choice ends when none is kept,
+        # or what would be brings no new Series. Stepwise, each
         # Series would take what it can of the others' share, in their
         # order: several rooms' valves, open together, would be told
         # apart by the order they were given in.
@@ -17,12 +18,23 @@ module Sensorium
             def joint(model)
                 chosen = model
                 loop do
-                    tried = (@terms.series.keys - chosen.series.keys)
-                            .filter_map { joined(model, chosen, it) }
-                    kept = better(chosen, tried.min_by { ratio(chosen, it) })
-                    return chosen unless grown?(chosen, kept)
+                    kept = next_of(model, chosen) or return chosen
                     chosen = kept
                 end
+            end
+
+            # The model with one more Series, the one that narrows most
+            # of those kept as any term is (Fit#better): one refused,
+            # by the narrowing or by the bins held out, leaves the next
+            # its turn. nil when none is kept.
+            def next_of(model, chosen)
+                tried = (@terms.series.keys - chosen.series.keys)
+                        .filter_map { joined(model, chosen, it) }
+                tried.sort_by { ratio(chosen, it) }.each do |one|
+                    kept = better(chosen, one)
+                    return kept if grown?(chosen, kept)
+                end
+                nil
             end
 
             # Whether kept has a Series chosen lacks: one tried whose
