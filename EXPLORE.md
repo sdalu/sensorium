@@ -76,8 +76,8 @@ a Tick every ten minutes), read-only.
    per location), where the rooms' units run together as the valves
    open together, so pooled first; a heat pump's COP against the
    outside, which needs the heat delivered, no meter of which exists;
-   a daily bin aligned to local days, if a source cannot stamp its
-   days at noon.
+   a daily bin aligned to local days, if a source cannot shift its
+   times onto them (README, Regressions: GRDF's gas day).
 
 ## On the users' side
 

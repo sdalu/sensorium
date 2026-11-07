@@ -1152,24 +1152,31 @@ A Regression has no gain and no rate: it has no reference.
 the model leaves, widened by as much as the bins held out confirmed
 less; a regressor's value unknown, the plain median and its own σ.
 `contributions(values)` is each regressor's share, the constant aside.
-Bins are counted from the epoch, in UTC: a daily bin is a UTC day, and
-a source that stamps a day's total at local noon keeps it on its date.
+Bins are counted from the epoch, in UTC: a daily bin is a UTC day,
+midnight to midnight UTC. A day of the source's own (GRDF's gas day
+runs from 06:00 to 06:00 local) is a bin once the source shifts every
+time it gives, readings and events alike, by its UTC offset less the
+day's start: `Time.at(t.to_i + t.utc_offset - 6 * 3600)` makes each gas
+day a UTC day, its valves weighted over the same hours as its gas, the
+clock changes included. Unshifted, the valves of a day were weighted
+over another 24 hours than its gas, five hours apart in winter.
 
-On MadHouse's gas, a day from November 2022 to November 2026 (1150
-days), against its seven tado valves in valve-%-hours
-(`local/gas.rb`):
+On MadHouse's gas, a gas day from November 2022 to November 2026
+(1150 days), against its seven tado valves in valve-%-hours, shifted
+as above (`local/gas.rb`):
 
 | Model | Winter | Mid-season | Summer |
 |---|---|---|---|
-| the valves pooled, joint | 12.56 kWh + 0.0330 per valve-%-hour, R² 0.93 | 6.73 + 0.0412, R² 0.88 | 4.88 kWh, no valve term |
-| room by room, joint, ≥ 0, `narrows: 0.95` | 4 rooms of 7 kept, R² 0.91 | 1 room, R² 0.74 | no valve term |
-| room by room, each in turn, `narrows: 0.99` | 6 rooms, R² 0.84, terms by the order given | 5 rooms, R² 0.83 | 1 room, R² 0.25 |
+| the valves pooled, joint | 12.09 kWh + 0.0335 per valve-%-hour, σ 4.1, R² 0.94 | 6.64 + 0.0422, R² 0.90 | 4.88 kWh, no valve term |
+| room by room, joint, ≥ 0, `narrows: 0.95` | 2 rooms of 7 kept, R² 0.83 | 1 room, R² 0.77 | no valve term |
+| room by room, each in turn, `narrows: 0.99` | 6 rooms, R² 0.85, terms by the order given | 3 rooms, R² 0.84 | 2 rooms, R² 0.27 |
 
-ClimatControl's own fit was 12.5 kWh + 0.0333 per valve-%-hour (R²
-0.94). The rooms' valves open together, so their own terms cannot be
-told apart: a room's share is the pooled term × its own valve-%-hours,
-and about 7 kWh a day of winter gas follows no valve (12.56 against
-summer's 4.88).
+Unshifted, on UTC days, the pooled winter fit was 12.56 + 0.0330, σ
+4.8, R² 0.93. ClimatControl's own fit was 12.5 kWh + 0.0333 per
+valve-%-hour (R² 0.94). The rooms' valves open together, so their own
+terms cannot be told apart: a room's share is the pooled term × its
+own valve-%-hours, and about 7 kWh a day of winter gas follows no
+valve (12.09 against summer's 4.88).
 
 ### Following a regression
 
@@ -1190,7 +1197,7 @@ it starts afresh once the Regression is learned again (another
 constant or plain median) or in another regime, and once jumped it
 holds until then, as an Offset's. Learned on the winters before and
 followed over MadHouse's winter 2025–26, all 155 days were ok, the
-house ending 3 kWh a day below the model, within its σ (4.8 kWh).
+house ending 2.4 kWh a day below the model, within its σ (4.1 kWh).
 
 A store keeps Regressions and their tracks (Stores):
 `keep_regressions(quantity, list)` replaces those of the same name and

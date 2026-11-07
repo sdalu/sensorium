@@ -760,8 +760,12 @@ the README's order; what was tried and dropped is under Ruled out.
   apart, and its store methods are its own.
 - **Bins from the epoch, in UTC**, a daily bin a UTC day: the Series is
   the Learner's, and a bin aligned to local days would be a second kind
-  of bin everywhere. A source that stamps a day's total at local noon
-  keeps it on its date.
+  of bin everywhere, 23 or 25 hours long twice a year. A source whose
+  day starts elsewhere (GRDF's gas day, 06:00 to 06:00 local) shifts
+  its times instead, each by its own UTC offset less the day's start:
+  its days become UTC days, the clock changes included. On MadHouse's
+  gas, aligning the valves' hours to the gas day's took the winter
+  fit's σ from 4.8 to 4.1 kWh (R² 0.93 to 0.94).
 
 ## Stores and names
 
