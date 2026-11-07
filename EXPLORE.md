@@ -109,7 +109,7 @@ a Tick every ten minutes), read-only.
      `Sensorium::Recent` (`learn`, `find`, `named`, `#predict`), the
      gap of the last 3 days, computed by the caller (README,
      Predicting); `Offset#predict` and `#correct` raise ArgumentError
-     on a Shift given with `held: false`. After 0.3.1: `Regression`
+     on a Shift given with `held: false`. Since 0.4.0: `Regression`
      (`learn`, `load`, `#predict`, `#contributions`, `#follow`), the
      store's `regressions`, `keep_regressions`, `regression_tracks`,
      `keep_regression_tracks` and `forget_regression` and their two
