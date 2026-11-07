@@ -181,12 +181,15 @@ module Sensorium
         # the names of the Switches on; exposures, { name => exposure } of
         # the filtered ones; neighbour, its value; values,
         # { name => value } of the Series; dr_dt, the reference's rate
-        # per hour. A value nil, or absent, is not known.
+        # per hour. A value nil, or absent, is not known. Names are
+        # Strings, a Symbol given taken as its String.
         Moment = Data.define(:on, :exposures, :neighbour, :values,
                              :dr_dt) do
             def initialize(on: [], exposures: {}, neighbour: nil,
                            values: {}, dr_dt: nil)
-                super
+                super(on: on.map(&:to_s), neighbour:, dr_dt:,
+                      exposures: exposures.transform_keys(&:to_s),
+                      values: values.transform_keys(&:to_s))
             end
         end
     end

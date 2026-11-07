@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "knowing"
+require_relative "memory_regressions"
 
 module Sensorium
     # Where what a learning found is kept, and the locations' settings.
@@ -32,10 +33,21 @@ module Sensorium
     #                                      location, device and regime
     #   knowledge(quantity)                Knowledge, all of the above
     #                                      (Store::Knowing)
+    # and, for Regressions, which a Knowledge does not hold:
+    #   regressions(quantity)              [Regression]
+    #   keep_regressions(quantity, list)   replaces those of the same
+    #                                      name and regime
+    #   regression_tracks(quantity)        { name => Track }
+    #   keep_regression_tracks(quantity, tracks)
+    #                                      replaces those of the same
+    #                                      name
+    #   forget_regression(quantity, name)  drops a Regression in every
+    #                                      regime, and its track
     module Store
         # In memory: for tests, and for a learning used at once.
         class Memory
             include Knowing
+            include MemoryRegressions
 
             def initialize
                 @offsets   = []
@@ -46,6 +58,8 @@ module Sensorium
                 @dynamics  = []
                 @collocations = []
                 @transients = []
+                @regressions = []
+                @regression_tracks = {}
             end
 
             def offsets(quantity) = @offsets.select { it.quantity == quantity }
@@ -81,6 +95,7 @@ module Sensorium
             def tracks(quantity) = @tracks.fetch(quantity, {})
 
             def keep_tracks(quantity, tracks)
+                Store.same_quantity!(quantity, tracks.values)
                 @tracks[quantity] =
                     @tracks.fetch(quantity, {}).merge(tracks).freeze
             end

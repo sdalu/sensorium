@@ -42,6 +42,26 @@ module Sensorium
                 end
             end
 
+            # Several Series fitted together (series: { name => { bin =>
+            # value } }), by least squares, or with every slope 0 or
+            # more (setup.nonnegative), each with setup.ridge; a slope
+            # at 0 is no term.
+            def joint(model, series, setup)
+                solver = joint_solver(setup)
+                fit(model, series.values, setup, solver) do |base, slopes|
+                    found = series.keys.zip(slopes).reject { it.last.zero? }
+                    { constant: model.constant + base,
+                      series: model.series.merge(found.to_h) }
+                end
+            end
+
+            def joint_solver(setup)
+                method = setup.nonnegative ? :nonnegative : :least_squares
+                lambda do |columns, ys|
+                    Stats.public_send(method, columns, ys, ridge: setup.ridge)
+                end
+            end
+
             def rate(model, rates, setup)
                 fit(model, [rates], setup) do |base, (slope)|
                     { constant: model.constant + base, rate: slope }
@@ -61,7 +81,7 @@ module Sensorium
                 Stats.public_send(columns.one? ? :line : :plane, *columns, ys)
             end
 
-            # xs: one or two { bin => x }; solver: columns, ys →
+            # xs: { bin => x }, one or more; solver: columns, ys →
             # [intercept, *slopes]. Yields the intercept and the slopes,
             # for the model's changes.
             def fit(model, xs, setup, solver = OLS)

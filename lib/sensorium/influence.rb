@@ -59,12 +59,17 @@ module Sensorium
 
         # A level (the PV inverter's power, W): events with numeric
         # values, binned as their mean per bin and carried `hold`
-        # seconds. Learned as coefficient × value, kept only when it
-        # narrows the spread; at fusion its latest value within `hold`,
-        # the plain offset when there is none.
-        Series = Data.define(:name, :scope, :hold) do
-            def initialize(name:, scope: :site, hold: 3600)
-                super(name: name.to_s, scope: scope.to_sym, hold:)
+        # seconds; weighted: true, each value holds until the next
+        # event, `hold` seconds at most, and a bin is the time-weighted
+        # mean of what held in it (Series#weighted): for a level told
+        # only when it changes (a valve's opening), whose events' own
+        # mean says how often it changed, not where it stood. Learned
+        # as coefficient × value, kept only when it narrows the spread;
+        # at fusion its latest value within `hold`, the plain offset
+        # when there is none.
+        Series = Data.define(:name, :scope, :hold, :weighted) do
+            def initialize(name:, scope: :site, hold: 3600, weighted: false)
+                super(name: name.to_s, scope: scope.to_sym, hold:, weighted:)
             end
         end
 
@@ -100,6 +105,16 @@ module Sensorium
         # The location an event counts for: nil for the whole site.
         def self.where(influence, location)
             influence.scope == :site ? nil : location
+        end
+
+        # The influences of each kind, for what holds a list of them
+        # (influences): a Setup, a Timeline::Plan.
+        module Kinds
+            def switches   = influences.grep(Influence::Switch)
+            def modes      = influences.grep(Influence::Mode)
+            def levels     = influences.grep(Influence::Series)
+            def thresholds = influences.grep(Influence::Threshold)
+            def transients = influences.grep(Influence::Transient)
         end
     end
 end

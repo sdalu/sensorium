@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "fit/joint"
+
 module Sensorium
     # One sensor's offset from its location's reference, bin by bin
     # (diffs: { bin => sensor - reference }), fitted as a constant, then
@@ -7,7 +9,8 @@ module Sensorium
     # then each filtered Switch (filtered: { name => { tau => { bin =>
     # exposure } } }) as term × exposure, with the tau that narrows
     # most, then each Series (series: { name => { bin => value } }) as
-    # coefficient × value, then with the linear terms: a gain on the
+    # coefficient × value (with setup.joint, chosen best-first and
+    # fitted together: Joint), then with the linear terms: a gain on the
     # reference's level (levels: { bin => reference }) and the gap to a
     # neighbour
     # (candidates: { name => { bin => reference - neighbour } }), the one
@@ -22,6 +25,8 @@ module Sensorium
     # also leaves them, as the correction's, no wider than the model
     # before it, within HeldOut::TOLERANCE; Validated holds them out.
     class Fit
+        include Joint
+
         # residuals: { bin => what the model leaves }.
         Model = Data.define(:constant, :switches, :taus, :series, :gain,
                             :neighbour, :coefficient, :rate,
@@ -131,6 +136,7 @@ module Sensorium
         end
 
         def series(model)
+            return joint(model) if @setup.joint
             @terms.series.reduce(model) do |kept, (name, values)|
                 better(kept, Linear.series(kept, name, values, @setup))
             end

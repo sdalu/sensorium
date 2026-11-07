@@ -13,7 +13,9 @@ module Sensorium
             module ReadOnly
                 WRITES = %i[keep set_location forget keep_tracks
                             keep_dynamics keep_collocations
-                            keep_transients].freeze
+                            keep_transients keep_regressions
+                            keep_regression_tracks
+                            forget_regression].freeze
 
                 WRITES.each do |name|
                     define_method(name) do |*|

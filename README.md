@@ -11,6 +11,11 @@ into regimes, and what influences the sensors is told by a `Setup`.
 `Sensorium::Presets.room` is the setup for the rooms of a house
 (temperature or relative humidity).
 
+Its parts serve beyond sensors. A quantity explained by others, per
+regime (a house's gas a day, by its rooms' valves), is a `Regression`,
+learned and followed as an offset is (Regressions); and the binning,
+regimes, statistics and blending are a toolkit of their own (Toolkit).
+
 Ruby ≥ 3.4, standard library only. Sequel only for the SQL store.
 
 ```ruby
@@ -1075,6 +1080,142 @@ unit), else "valve" (a radiator's), as its reference. A shower moves
 the humidity by several g/m³ in minutes; give such a room a wider
 `drift` in its `Location`.
 
+## Regressions
+
+An `Offset` is one case of a quantity explained by others: a sensor's
+gap to its reference, by the switches, series and reference level
+around it. A `Regression` is the general case: any quantity, binned,
+explained in each regime by named regressors,
+
+```text
+value = constant + Σ term × regressor
+```
+
+each regressor kept only when it narrows the spread of what the model
+leaves, and the last tenth of the bins, held out, confirms it: the
+Learner's own fit (`Fit`, `Fit::Validated`), which an `Offset` is
+learned with too.
+
+```ruby
+gas    = Sensorium::Quantity.new(name: "gas", unit: "kWh", sigma: 0.5,
+                                 drift: 5.0, cusum_block: 7 * 86_400)
+valves = Sensorium::Influence::Series.new(name: "heating",
+                                          scope: :location,
+                                          hold: 2 * 86_400, weighted: true)
+setup  = Sensorium::Setup.new(quantity: gas, bin: 86_400,
+                              influences: [valves], joint: true,
+                              regime: Sensorium::Regime::Calendar.new,
+                              min_samples: 60, min_part: 20)
+
+inputs = Sensorium::Regression.load(source, setup, from:, to:,
+                                    pooled: true)
+found  = Sensorium::Regression.learn(inputs[:y],
+                                     inputs[:regressors].slice("heating"),
+                                     setup, name: "house")
+winter = found.find { it.regime == "winter" }
+winter.predict({ "heating" => 25.0 })        # Estimate
+winter.contributions({ "heating" => 25.0 })  # { "heating" => term × 25 }
+```
+
+`Regression.load` reads the source as the Learner does (The source).
+Its y is the quantity's readings, summed per bin (`total: true`, the
+default, for what adds up: energy) or averaged, added across the
+devices (`devices:` picks them). Its regressors come from the events:
+each `Influence::Series` is a level, each `Influence::Switch` 1.0
+while on and 0.0 otherwise, named by the influence, `NAME/LOCATION`
+per location (`heating/green-room`); with `pooled: true`, a location's
+influence is summed over its locations too, under its own name, over
+the bins every location has. A level told only when it changes (a
+tado's valve, about 75 times a day) is `weighted: true`: each value
+holds until the next, `hold` seconds at most, and a bin is the
+time-weighted mean of what held in it; the events' own mean would say
+how often it changed. `Regression.learn` takes any `{ bin => value }`
+and `{ name => { bin => value } }` as well.
+
+The Setup says how the regressors are chosen:
+
+- `joint: true` fits them together: at each step, each not chosen yet
+  is fitted with those chosen, all at once, and the one that narrows
+  most is kept. Each in turn (the default, an Offset's), the first
+  given takes what it can of the others' share: rooms whose valves
+  open together are told apart by the order they were given in.
+- `nonnegative: true` keeps every slope 0 or more
+  (`Stats.nonnegative`): a valve open adds gas, never takes it away.
+  `ridge:` shares a slope between regressors that tell nearly the same
+  (`Stats.least_squares`).
+- A regressor must narrow the spread to `narrows` (0.8) of what it was;
+  with many weak ones, a value nearer 1 lets more in, the bins held
+  out judging each still.
+
+A Regression has no gain and no rate: it has no reference.
+`predict(values)` is the constant plus each term × its value, σ what
+the model leaves, widened by as much as the bins held out confirmed
+less; a regressor's value unknown, the plain median and its own σ.
+`contributions(values)` is each regressor's share, the constant aside.
+Bins are counted from the epoch, in UTC: a daily bin is a UTC day, and
+a source that stamps a day's total at local noon keeps it on its date.
+
+On MadHouse's gas, a day from November 2022 to November 2026 (1150
+days), against its seven tado valves in valve-%-hours
+(`local/gas.rb`):
+
+| Model | Winter | Mid-season | Summer |
+|---|---|---|---|
+| the valves pooled, joint | 12.56 kWh + 0.0330 per valve-%-hour, R² 0.93 | 6.73 + 0.0412, R² 0.88 | 4.88 kWh, no valve term |
+| room by room, joint, ≥ 0, `narrows: 0.95` | 4 rooms of 7 kept, R² 0.91 | 1 room, R² 0.74 | no valve term |
+| room by room, each in turn, `narrows: 0.99` | 6 rooms, R² 0.84, terms by the order given | 5 rooms, R² 0.83 | 1 room, R² 0.25 |
+
+ClimatControl's own fit was 12.5 kWh + 0.0333 per valve-%-hour (R²
+0.94). The rooms' valves open together, so their own terms cannot be
+told apart: a room's share is the pooled term × its own valve-%-hours,
+and about 7 kWh a day of winter gas follows no valve (12.56 against
+summer's 4.88).
+
+### Following a regression
+
+`follow` is the Tracker's step (Tracking) on a Regression: each value
+observed is an innovation against the one predicted, a delta follows
+what the value runs above the model, and a CUSUM on its block means
+(the quantity's `cusum_block`) tells a jump from a drift.
+
+```ruby
+track = winter.follow(track, observed: 31.2,
+                             values: { "heating" => 25.0 },
+                             at: Time.now, quantity: gas)
+winter.predict({ "heating" => 25.0 }, track:)  # nil while jumped
+```
+
+The track is a `Track` of location nil, device the Regression's name;
+it starts afresh once the Regression is learned again (another
+constant or plain median) or in another regime, and once jumped it
+holds until then, as an Offset's. Learned on the winters before and
+followed over MadHouse's winter 2025–26, all 155 days were ok, the
+house ending 3 kWh a day below the model, within its σ (4.8 kWh).
+
+A store keeps Regressions and their tracks (Stores):
+`keep_regressions(quantity, list)` replaces those of the same name and
+regime, `keep_regression_tracks(quantity, { name => Track })` those of
+the same name, and `forget_regression(quantity, name)` drops both.
+
+### Toolkit
+
+What the learners are built of serves a caller's own models:
+
+- `Series`: bins of `width` seconds (`bin`); readings binned as their
+  mean or their sum (`of(readings, total:)`, `means`, `sums`), series
+  added (`added`), carried forward (`carried`), a level told on change
+  time-weighted (`weighted`), a Switch's first-order exposure
+  (`filtered`), a rate (`rates`).
+- `Regime::Calendar` (months, local), `Regime::Constant`, or any object
+  answering `names`, `of(time)` and `covered(from, to)`.
+- `Timeline.of(influences, source, from:, to:, bin:)`: the source's
+  events by bin without a Setup; `on_of(name)` and `levels_of(name)`
+  give each location's (nil: the site's).
+- `Stats`: `quantile`, `median`, `spread`, `line`, `plane`, `deming`,
+  `least_squares(columns, ys, ridge:)`, `nonnegative(columns, ys,
+  ridge:)`.
+- `Blend` and `Estimate` (Blending).
+
 ## The source
 
 The learner and `Snapshot.from` read the history from any object that
@@ -1104,18 +1245,25 @@ database, its table names configurable, its tables created when
 missing unless `migrate: false`. Opened `read_only: true`, it creates
 and alters nothing and every write (`keep`, `set_location`, `forget`,
 `keep_tracks`, `keep_dynamics`, `keep_collocations`,
-`keep_transients`) raises `Store::ReadOnlyError` before the database
+`keep_transients`, `keep_regressions`, `keep_regression_tracks`,
+`forget_regression`) raises `Store::ReadOnlyError` before the database
 sees it: for a consumer of another's store, beside a database user
 that may only read. The Tracker's tracks, the dynamics
 models, the collocations and the transient profiles are kept in four
 more tables (`sensor_tracks`, `tables: { tracks: }`;
 `sensor_dynamics`, `tables: { dynamics: }`; `sensor_collocations`,
 `tables: { collocations: }`; `sensor_transients`,
-`tables: { transients: }`), which a caller with its own schema creates
-too, as `Store::Sequel::Schema` does. An offset's maps (switches,
+`tables: { transients: }`), and the Regressions and their tracks in two
+(`sensor_regressions`, `tables: { regressions: }`;
+`sensor_regression_tracks`, `tables: { regression_tracks: }`), which a
+caller with its own schema creates too, as `Store::Sequel::Schema`
+does, if it keeps Regressions: a store opened `migrate: true` creates
+them when missing, one opened `migrate: false` needs them only once
+they are used. An offset's maps (switches,
 taus, series, states) are kept as JSON, as are a location's `deltas`,
-a dynamics model's `b`, a collocation's `sigmas` and a profile's
-`own` and `relative` thresholds (`{ "600": [fall, rise] }`).
+a dynamics model's `b`, a collocation's `sigmas`, a profile's
+`own` and `relative` thresholds (`{ "600": [fall, rise] }`) and a
+Regression's terms.
 
 Tables made before the survey rounds lack six columns of
 `sensor_offsets`: `taus`, `series` and `states` (text), `rate`,
@@ -1131,7 +1279,7 @@ A caller whose tables name their columns its own way says so with
 `columns:`, sensorium's name to its own, the same in every table
 (`columns: { location: :zone, device: :sensor }`); a name that is no
 column of the store's, or two columns given one name, is refused.
-Another store answers the same fifteen methods (see
+Another store answers the same twenty methods (see
 `lib/sensorium/store/memory.rb`), and `knowledge(quantity)` from them
 by including `Store::Knowing`. A time `Store::Sequel` keeps
 (`learned_from`, `learned_to`, `learned_at`, `tracked_at`, `block_at`)

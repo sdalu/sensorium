@@ -3,7 +3,7 @@
 module Sensorium
     module Store
         class Sequel
-            # The seven tables, created when missing, their columns
+            # The nine tables, created when missing, their columns
             # renamed by columns. A caller that keeps its own schema
             # (types, foreign keys) makes them alike and opens the store
             # with migrate: false.
@@ -11,7 +11,8 @@ module Sensorium
                 module_function
 
                 TABLES = %i[offsets shifts locations tracks dynamics
-                            collocations transients].freeze
+                            collocations transients regressions
+                            regression_tracks].freeze
 
                 def create(db, tables, columns = {})
                     TABLES.each do |name|
@@ -92,19 +93,6 @@ module Sensorium
                     t.primary_key %i[location quantity]
                 end
 
-                def tracks(t)
-                    key(t)
-                    %i[reference state].each { t.String it, null: false }
-                    %i[constant plain].each { t.Float it }
-                    floats(t, %i[delta variance cusum_up cusum_down])
-                    t.Float :block_sum
-                    t.Float :block_noise
-                    t.Integer :block_count
-                    t.Time :block_at
-                    t.Time :tracked_at, null: false
-                    t.primary_key %i[location device quantity]
-                end
-
                 def key(t)
                     %i[location device quantity regime].each do |name|
                         t.String name, null: false
@@ -131,4 +119,5 @@ module Sensorium
 end
 
 require_relative "schema_added"
+require_relative "schema_tracks"
 require_relative "schema_renamed"

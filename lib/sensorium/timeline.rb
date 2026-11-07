@@ -4,8 +4,11 @@ module Sensorium
     # The influences over a span of history, by bin, from the source's
     # events: when each Switch was on (and the exposure of the filtered
     # ones), when each Mode held which value, and each Series' level. A
-    # site-wide influence is kept under the location nil.
+    # site-wide influence is kept under the location nil. Made from a
+    # Setup, or from influences alone (Timeline.of).
     class Timeline
+        # setup: a Setup, or a Plan (anything answering series and the
+        # influences by kind).
         def initialize(setup, source, from, to)
             @series = setup.series
             @span   = [from, to]
@@ -45,6 +48,14 @@ module Sensorium
                 by.fetch(nil, {}).merge(by.fetch(location, {}))
             end
         end
+
+        # { location => bins it was on } of a Switch, the location nil
+        # for a site-wide one; {} for no such Switch.
+        def on_of(name) = @on.fetch(name.to_s, {})
+
+        # { location => { bin => level } } of a Series, the location nil
+        # for a site-wide one; {} for no such Series.
+        def levels_of(name) = @levels.fetch(name.to_s, {})
 
         # Whether a Mode held, or held within its hold, at a bin.
         def near?(location, bin)
@@ -100,12 +111,18 @@ module Sensorium
             end
         end
 
-        # { where => { bin => mean } }, carried `hold`.
+        # { where => { bin => mean } }, carried `hold`; time-weighted
+        # when the level is (Influence::Series#weighted).
         def levels(level, events)
             events.group_by { Influence.where(level, it[1]) }
                   .transform_values do |list|
+                      next weighted(list, level.hold) if level.weighted
                       @series.carried(means(list), level.hold)
                   end
+        end
+
+        def weighted(events, hold)
+            @series.weighted(events.map { [it.first, it.last] }, hold)
         end
 
         def means(events)
@@ -135,3 +152,5 @@ module Sensorium
         end
     end
 end
+
+require_relative "timeline/plan"

@@ -15,6 +15,7 @@ module Sensorium
 
                 # Replaces those of the same location and device.
                 def keep_tracks(quantity, tracks)
+                    Store.same_quantity!(quantity, tracks.values)
                     @db.transaction do
                         tracks.each_key do |location, device|
                             scope(:tracks, { quantity:, location:,

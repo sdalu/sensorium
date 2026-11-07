@@ -108,7 +108,8 @@ the README's order; what was tried and dropped is under Ruled out.
   honest. A term fitted early can take in some of a later one's share
   where their regressors move together; with a single term beside the
   constant, which is all the house measured ever kept, there is no
-  share to divide.
+  share to divide. Where there is, the Series may be fitted together
+  instead (`Setup#joint`, Regressions).
 - **A gain alone is a Deming line.** Least squares of s − r on a noisy
   r biases the gain toward zero by about σ²/var(r), and within one
   regime var(r) is small. The gain is a Deming line of s on r, the
@@ -712,6 +713,55 @@ the README's order; what was tried and dropped is under Ruled out.
   from, so a stale suspect level locked the room. Letting the suspect
   count where leaving it out leaves one other was rejected: that is
   the leak the suspect rule exists against.
+
+## Regressions
+
+- **An Offset is one case of a Regression, and stays as it is.** Both
+  are learned by the same `Fit` and `Fit::Validated`: a constant, terms
+  kept when they narrow the spread, confirmed on the bins held out. An
+  Offset adds what only a sensor has (a gain on its reference, a
+  neighbour, a rate, a scale its correction divides by); a Regression
+  keeps its terms by name. Folding Offset into Regression would have
+  moved MadHouse's stored offsets and its hand-made tables for no
+  gain: the generalisation shares the fit, not the record, and the
+  year's offsets learned with it are byte for byte those before it.
+- **Joint and best-first, for a Regression; each in turn, for an
+  Offset.** Each in turn, a Series takes what it can of the others'
+  share, in the order given: on MadHouse's gas, the first room given
+  took the whole valve term and the second was left out, either way
+  round. Fitted together, each step trying every Series not chosen
+  with those chosen, the choice does not depend on the order. An
+  Offset's terms are of different kinds (switches, filtered, series,
+  linear), each stage its own; the joint fit is for its Series only,
+  off by default, so that no Offset moves.
+- **A ridge relative to each column's own spread**, so that it does not
+  depend on the regressors' units; the intercept is never penalised.
+- **Non-negative slopes by Lawson and Hanson's active set**, the
+  intercept free: exact (checked against every subset's least squares
+  on random problems), and short for a handful of regressors. A slope
+  held at 0 is no term.
+- **A level told on change is weighted by time, on request**
+  (`Influence::Series#weighted`). A tado's valve reports about 75 times
+  a day, on change: the mean of its events says how often it moved,
+  not where it stood. Off by default: a Series of an Offset, binned at
+  ten minutes, is unchanged.
+- **Pooled before per room.** On MadHouse's gas the rooms' valves open
+  together; fitted room by room, four of seven were kept in winter and
+  the fit was worse than the pooled sum's (R² 0.91 against 0.93). A
+  room's share is the pooled term × its own valve, and `pooled: true`
+  gives that sum without the caller adding it up.
+- **Followed by the Tracker's own step.** The value predicted is the
+  single other a reading is judged against, as a sensor's reference
+  alone is: no reading by itself is a jump, only a block's evidence.
+  The Track carries the Regression's name as its device and a location
+  nil, so the store keeps it in a table of its own, keyed by name.
+- **A Knowledge does not hold Regressions.** A Knowledge is what the
+  Fusion and the Tracker of one quantity need; a Regression is used
+  apart, and its store methods are its own.
+- **Bins from the epoch, in UTC**, a daily bin a UTC day: the Series is
+  the Learner's, and a bin aligned to local days would be a second kind
+  of bin everywhere. A source that stamps a day's total at local noon
+  keeps it on its date.
 
 ## Stores and names
 

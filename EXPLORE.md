@@ -19,7 +19,7 @@ room's width, a sensor judged against its reference alone, no suspect
 below three, no lone-reading jump against a single other, a sole
 reference's σ from its collocation, the Tracker's widths in the
 correction's space, no witness, no model aging in the Fusion).
-Ranked by the gain expected. Items 1 to 6 are this gem's; item 7
+Ranked by the gain expected. Items 1 to 7 are this gem's; item 8
 belongs to its users, MadHouse and ClimatControl.
 
 The evidence comes from two sources: a room recorded over 30 winter days
@@ -71,9 +71,17 @@ a Tick every ten minutes), read-only.
    cannot be put on either. The witness that could move them is gone
    (DESIGN.md, Tracking: no var(z) gain).
 
+7. **Regressions beyond the gas.** Untried: the aircon's energy room by
+   room (the outdoor unit's meter against each room's Mode as a Switch
+   per location), where the rooms' units run together as the valves
+   open together, so pooled first; a heat pump's COP against the
+   outside, which needs the heat delivered, no meter of which exists;
+   a daily bin aligned to local days, if a source cannot stamp its
+   days at noon.
+
 ## On the users' side
 
-7. **Around sensorium 0.3.0:**
+8. **Around sensorium 0.3.0:**
    - The API changed: a `Tracker` is made without `dynamics:`,
      `Tracker#update` and `Tick#call` take no `previous:`, and a
      `Fusion` is made without `dynamics:`; `collocations:` is new to
@@ -101,7 +109,20 @@ a Tick every ten minutes), read-only.
      `Sensorium::Recent` (`learn`, `find`, `named`, `#predict`), the
      gap of the last 3 days, computed by the caller (README,
      Predicting); `Offset#predict` and `#correct` raise ArgumentError
-     on a Shift given with `held: false`.
+     on a Shift given with `held: false`. After 0.3.1: `Regression`
+     (`learn`, `load`, `#predict`, `#contributions`, `#follow`), the
+     store's `regressions`, `keep_regressions`, `regression_tracks`,
+     `keep_regression_tracks` and `forget_regression` and their two
+     tables, `Setup#joint`, `#ridge` and `#nonnegative`,
+     `Influence::Series#weighted`, `Timeline.of`, `#on_of` and
+     `#levels_of`, `Series#of(total:)`, `#sums`, `#added` and
+     `#weighted`, `Stats.least_squares(ridge:)` and `Stats.nonnegative`
+     (README, Regressions and Toolkit), for ClimatControl's gas
+     baseline. Two changes an existing caller may meet: `keep_tracks`
+     raises ArgumentError on a track of another quantity than the one
+     it is kept under (the two stores filed it apart), and an
+     `Offset::Moment` takes a Symbol name as its String (a Series'
+     value or an exposure so named was taken as unknown).
    - MadHouse's tables need the five columns added in 0.2.0 if it opens
      the store with `migrate: false`: `block_share` on offsets;
      `block_sum`, `block_noise`, `block_count` and `block_at` on tracks.

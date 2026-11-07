@@ -13,16 +13,68 @@ module Sensorium
 
         def bin(time) = time.to_i / @width * @width
 
-        # { [location, device] => { bin => value } }.
-        def of(readings)
+        # { [location, device] => { bin => value } }: each bin the mean of
+        # its readings, or their sum (total: true) for a quantity that
+        # adds up over time (energy: the kWh a meter reports each hour).
+        def of(readings, total: false)
             readings.group_by { [it.location, it.device] }
-                    .transform_values { means(it) }
+                    .transform_values { total ? sums(it) : means(it) }
         end
 
         def means(readings)
             readings.group_by { bin(it.time) }.transform_values do |list|
                 list.sum { it.value.to_f } / list.size
             end
+        end
+
+        def sums(readings)
+            readings.group_by { bin(it.time) }.transform_values do |list|
+                list.sum { it.value.to_f }
+            end
+        end
+
+        # { bin => mean } of values told as [[time, value]], each
+        # holding from its time until the next one's, `hold` seconds at
+        # most, the mean over each bin weighted by how long each held in
+        # it: where a level told only when it changes stood. A bin
+        # nothing held in is absent; one held in only in part is the
+        # mean over that part.
+        def weighted(told, hold)
+            totals = Hash.new { |all, bin| all[bin] = [0.0, 0] }
+            holds(told, hold).each { held(*it, totals) }
+            totals.transform_values { |sum, seconds| sum / seconds }
+        end
+
+        # [[from, to, value]] of each value told, in seconds: until the
+        # next, `hold` at most.
+        def holds(told, hold)
+            sorted = told.sort_by(&:first)
+            sorted.zip(sorted.drop(1)).map do |(time, value), after|
+                start = time.to_i
+                [start, [start + hold, after&.first&.to_i].compact.min,
+                 value.to_f]
+            end
+        end
+
+        # value × the seconds it held, and those seconds, added to each
+        # bin from..to spans.
+        def held(from, to, value, totals)
+            at = from
+            while at < to
+                stop = [bin(at) + @width, to].min
+                total = totals[bin(at)]
+                total[0] += value * (stop - at)
+                total[1] += stop - at
+                at = stop
+            end
+        end
+
+        # { bin => value } of several series added bin by bin, over the
+        # bins any of them has (a house's meters into one total).
+        def added(all)
+            all.each_with_object(Hash.new(0.0)) do |series, total|
+                series.each { |bin, value| total[bin] += value }
+            end.to_h
         end
 
         # The series with each value carried forward to the bins that

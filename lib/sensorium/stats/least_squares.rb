@@ -9,19 +9,31 @@ module Sensorium
         # Gaussian elimination with partial pivoting; nil when a column
         # does not vary (Stats.constant?), or not apart from the others
         # (its pivot below 1e-9 of its own sum of squares, as Stats.plane
-        # refuses).
-        def least_squares(columns, ys)
+        # refuses). ridge: a penalty on the slopes, each column's own
+        # sum of squares times ridge added to it (a ridge regression
+        # that does not depend on the columns' units; 0, none): columns
+        # that nearly tell the same share it rather than swing apart.
+        # The intercept is never penalised.
+        def least_squares(columns, ys, ridge: 0.0)
             return if columns.any? { constant?(it) }
             centred = columns.map { centred(it) }
-            slopes = eliminated(normal(centred, centred(ys))) or return
-            [mean(ys) - columns.zip(slopes).sum { |x, b| b * mean(x) },
-             *slopes]
+            slopes = eliminated(normal(centred, centred(ys), ridge)) or
+                return
+            [intercept(columns, ys, slopes), *slopes]
         end
 
-        # The augmented matrix [Σ cᵢcⱼ | Σ cᵢy].
-        def normal(centred, cy)
-            centred.map do |ci|
-                [*centred.map { dot(ci, it) }, dot(ci, cy)]
+        # The intercept of y on the columns, given their slopes.
+        def intercept(columns, ys, slopes)
+            mean(ys) - columns.zip(slopes).sum { |x, b| b * mean(x) }
+        end
+
+        # The augmented matrix [Σ cᵢcⱼ (× (1 + ridge) on the diagonal)
+        # | Σ cᵢy].
+        def normal(centred, cy, ridge = 0.0)
+            centred.each_with_index.map do |ci, i|
+                row = centred.map { dot(ci, it) }
+                row[i] *= 1 + ridge if ridge.positive?
+                [*row, dot(ci, cy)]
             end
         end
 

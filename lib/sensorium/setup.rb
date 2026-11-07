@@ -37,11 +37,19 @@ module Sensorium
     #   transient_rate  false alarms a day a sensor's thresholds allow,
     #               per window and direction: each is the quantile of its
     #               calm changes at 1 - rate / bins a day
+    #   joint       whether the Series terms are fitted together, each
+    #               chosen best-first and all fitted again at each step
+    #               (Fit), rather than each in turn on what the one
+    #               before left (false; a Regression's choice)
+    #   ridge       a joint fit's penalty on the slopes
+    #               (Stats.least_squares; 0, none)
+    #   nonnegative whether a joint fit keeps every slope 0 or more
+    #               (Stats.nonnegative)
     Setup = Data.define(:quantity, :regime, :influences, :places, :bin,
                         :carry, :min_samples, :min_shift, :min_part,
                         :narrows, :covers, :gain, :rate, :outside,
                         :dynamics_margin, :scale_floor, :transient_windows,
-                        :transient_rate)
+                        :transient_rate, :joint, :ridge, :nonnegative)
 
     class Setup
         DEFAULTS = { regime: Regime::Constant.new, influences: [],
@@ -50,7 +58,8 @@ module Sensorium
                      covers: 0.8, gain: true, rate: true,
                      outside: nil, dynamics_margin: 0.98,
                      scale_floor: 0.5, transient_windows: [600, 1200],
-                     transient_rate: 0.2 }.freeze
+                     transient_rate: 0.2, joint: false, ridge: 0.0,
+                     nonnegative: false }.freeze
 
         # The bin DEFAULTS' counts (min_samples, min_shift, min_part) are
         # for; with another bin they cover the same time, and the
@@ -96,11 +105,8 @@ module Sensorium
                                  "not whole bins of #{bin} s"
         end
 
-        def switches   = influences.grep(Influence::Switch)
-        def modes      = influences.grep(Influence::Mode)
-        def levels     = influences.grep(Influence::Series)
-        def thresholds = influences.grep(Influence::Threshold)
-        def transients = influences.grep(Influence::Transient)
-        def series     = Series.new(bin)
+        include Influence::Kinds
+
+        def series = Series.new(bin)
     end
 end

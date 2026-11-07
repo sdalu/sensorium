@@ -48,6 +48,14 @@ module StoreBehaviour
         assert_equal replaced.merge(airzone), @store.tracks("temperature")
     end
 
+    # Kept under another quantity, a store would file it under either.
+    def test_a_track_of_another_quantity_is_refused
+        assert_raises(ArgumentError) do
+            @store.keep_tracks("humidity", { %w[room tado] => track(:ok) })
+        end
+        assert_empty @store.tracks("temperature")
+    end
+
     def test_a_references_track_comes_back
         tracks = { %w[room ceil] => track(:jumped, device: "ceil")
                                     .with(constant: nil, plain: nil) }

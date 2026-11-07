@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
 module Sensorium
-    # The few statistics the learner needs.
+    # The statistics the learners need, and a caller's own models
+    # (least_squares, nonnegative: see README, Toolkit).
     module Stats
         module_function
 
@@ -131,3 +132,4 @@ module Sensorium
     end
 end
 require_relative "stats/least_squares"
+require_relative "stats/nonnegative"
