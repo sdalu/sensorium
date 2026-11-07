@@ -630,7 +630,9 @@ reading   = track.foresee(reading) if track  # nil while jumped
 ```
 
 `Knowledge#shift` names what holds as one value (`Shift.named`); a
-Mode holding without a Shift is still held (`held: true`).
+Mode holding without a Shift is still held (`held: true`), and a
+Shift given with `held: false` is refused (`ArgumentError`): a Shift
+is what a Mode does while it holds.
 `Knowledge#track` answers the sensor's Track while it follows that
 Offset (nil after a relearn), and `Track#foresee` puts its delta
 back, `apply`'s inverse, its variance added; nil while jumped: the
@@ -648,6 +650,29 @@ and on the Airzones under their heating Mode (var(z) 0.55 and 1.05);
 not on a noisy tado (var(z) 4.6), nor while the reference moves (a
 steady state is what is predicted). An Offset not learned yet in a
 regime (a season's first month) gives no prediction.
+
+What moved a sensor this week (its valve's duty, a pipe's heat, a
+neighbour term gone wrong) neither the Offset nor its Track knows.
+`Sensorium::Recent` is the gap as it stood: the median of sensor −
+reference over the 3 days before `at` (`DAYS`), per Mode state with
+50 bins at least (`MIN`), its σ their p10..p90. It is computed when
+asked, from a short History, and kept by no store:
+
+```ruby
+recents = Sensorium::Recent.learn(source, setup, at: Time.now)
+recent  = Sensorium::Recent.find(recents, location, "tado", holding)
+recent&.predict(target)                    # Estimate: target + gap
+```
+
+On the same year, the hourly error of what a caller would send (RMS):
+with the track ok, the tracked Offset 0.48 °C, the Recent 0.48, the
+two blended by inverse variance 0.45; with the track jumped, the
+Offset alone 1.00, the Recent 0.73; the target as is 1.04 and 1.39.
+So: blend the two while the track answers, the Recent alone while it
+is jumped or fresh, the Offset alone without a Recent. A neighbour
+that is not a room (a heating pipe) is worth passing only for a
+target that applies within the hour; its reading three hours old is
+no better than the plain offset.
 
 ## Relearning
 

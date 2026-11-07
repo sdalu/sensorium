@@ -333,6 +333,23 @@ the README's order; what was tried and dropped is under Ruled out.
   track, not a fact. On MadHouse's year, learned month by month, the
   regulating readings came within their σ on four of five winter
   sensors (var(z) 0.45 to 1.13) and on the Airzones' heating Mode.
+- **A fast estimate beside the slow one, for a feed-forward.** The
+  Tracker serves the fusion, where a wrong level costs a bias the σ
+  does not show, so it is slow and a jumped part is out; every faster
+  variant was measured worse there (Ruled out). A feed-forward wants
+  the best guess of the next hours, where persistence wins: `Recent`,
+  the median gap of the last 3 days per Mode state. On MadHouse's
+  year, walk-forward, hourly: 0.448 °C blended with the tracked
+  Offset against 0.482 for either alone on ok tracks, 0.731 against
+  1.000 while jumped; it beat the Offset in 43 of 46 sensor groups,
+  losing only where a heating pipe is the neighbour. Computed when
+  asked, not kept: a copy learned once a day was 4.6 % worse, and a
+  table would cost a schema, the stores and a schedule for what a
+  short History gives in a tenth of a second. No heating-effort term
+  instead: a Series on the valve's power was refused on every sensor,
+  and forced in, a line over-corrected (14.8 °C RMS on one sensor at
+  high power); the level a valve will regulate at is not predictable
+  from the weather (R² 0.01 to 0.16).
 - **Two parts by inverse variance, σ widened by their disagreement.**
   Student-t reweighting of two parts that disagree slides to the one
   with the smaller σ: on the recorded room, a 3 % change of one σ

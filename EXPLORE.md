@@ -83,7 +83,11 @@ a Tick every ten minutes), read-only.
      `Track#foresee` (README, Predicting), for ClimatControl, which
      opens MadHouse's store read-only (`read_only: true`, a SELECT-only
      user) and pins the tag; a `Store::Sequel` opened `read_only: true`
-     raises `Store::ReadOnlyError` on any write.
+     raises `Store::ReadOnlyError` on any write. After 0.3.0:
+     `Sensorium::Recent` (`learn`, `find`, `named`, `#predict`), the
+     gap of the last 3 days, computed by the caller (README,
+     Predicting); `Offset#predict` and `#correct` raise ArgumentError
+     on a Shift given with `held: false`.
    - MadHouse's tables need the five columns added in 0.2.0 if it opens
      the store with `migrate: false`: `block_share` on offsets;
      `block_sum`, `block_noise`, `block_count` and `block_at` on tracks.
