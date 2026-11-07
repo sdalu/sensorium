@@ -49,9 +49,23 @@ a Tick every ten minutes), read-only.
    two tight ones is put on either by noise (October on the year: the
    reference flagged for the tado's step).
 5. **A neighbour with k above 0 that breaks mid-season** leaves a biased
-   correction until the next relearn drops it (once on the year:
-   downstairs Airzone, early February, 2.5 σ for a fortnight). No
-   principled cap helped; worth watching in production.
+   correction until the next relearn drops it, or the Tracker flags
+   the part. The cause is the gap r − neighbour leaving the range it
+   was fitted on, not k's size: the neighbour's own level moves (the
+   downstairs Airzone's, under-the-sink, about 4 °C lower from 1
+   February: every bin of the month outside the fit, −3.0 °C of bias
+   on its prediction), or the season reverses the gap, or a one-month
+   fit. On the year, walk-forward, 13 of 34 neighbour terms predicted
+   worse than the plain offset; the neighbours of every losing term
+   are lone sensors with no track, so nothing tells their move. No
+   learning-time rule (a cap on k, k stable across halves or months,
+   refusing a term the held-out tenth did not confirm as a gap)
+   refused the losers without refusing winners. Clamping the gap to
+   the range fitted helps `predict` alone (0.885 against 1.050 °C)
+   but nothing once blended with `Recent` (0.681 against 0.683), and
+   is neutral to slightly worse for the Fusion (left-out RMS 0.296 to
+   0.301), where the Tracker removes a broken part within about 36 h.
+   Worth watching in production.
 6. **Two sensors left without their reference** still stand still
    until a relearn, a reset or a jump clearing: their disagreement
    cannot be put on either. The witness that could move them is gone
