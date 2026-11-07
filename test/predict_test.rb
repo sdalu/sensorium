@@ -54,6 +54,17 @@ class PredictTest < Minitest::Test
         assert_in_delta 20.0 - 0.8, alone.value
     end
 
+    # A Shift is a Mode's doing while it holds: one given with
+    # held: false is the caller's contradiction, refused on both paths.
+    def test_a_shift_without_a_mode_holding_is_refused
+        assert_raises(ArgumentError) do
+            offset.predict(20.0, shifts: [shift], held: false)
+        end
+        assert_raises(ArgumentError) do
+            offset.correct(19.0, shifts: [shift], held: false)
+        end
+    end
+
     def test_the_knowledge_finds_a_sensors_offset
         knowledge = Sensorium::Knowledge.new(offsets: [offset])
         assert_equal offset, knowledge.offset("a", "s", "winter")

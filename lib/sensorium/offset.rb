@@ -42,9 +42,11 @@ module Sensorium
         # moment: what else holds (Offset::Moment). While a Mode holds,
         # or when the neighbour, a Series' value or dr/dt is not known,
         # the plain offset: a Shift was learned over it, and one not
-        # learned is not known, as any term's input may not be.
+        # learned is not known, as any term's input may not be. A Shift
+        # is what a Mode does while it holds: one given with held: false
+        # is refused (ArgumentError).
         def correct(reading, shifts: [], held: shifts.any?, **moment)
-            now = Offset::Moment.new(**moment)
+            now = moment(shifts, held, moment)
             return plain_correct(reading, shifts) if held || unknown?(now)
             model_correct(reading - constant - known(now), now.neighbour.to_f,
                           now)
@@ -61,7 +63,7 @@ module Sensorium
         # reference's σ, and a Track's delta (Track#foresee), are the
         # caller's.
         def predict(r, shifts: [], held: shifts.any?, **moment)
-            now = Offset::Moment.new(**moment)
+            now = moment(shifts, held, moment)
             return plain_predict(r, shifts) if held || unknown?(now)
             model_predict(r, now)
         end
@@ -76,6 +78,15 @@ module Sensorium
         private
 
         def k = coefficient || 0.0
+
+        # The Moment of a call, its shifts checked against held: a Shift
+        # given while no Mode holds contradicts itself, and the fallback
+        # alone would add it.
+        def moment(shifts, held, given)
+            raise ArgumentError, "shifts given with held: false" if
+                shifts.any? && !held
+            Offset::Moment.new(**given)
+        end
 
         def unknown?(now)
             (neighbour && now.neighbour.nil?) || (rate && now.dr_dt.nil?) ||
