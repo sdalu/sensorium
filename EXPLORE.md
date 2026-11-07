@@ -150,4 +150,12 @@ records:
   step on the tado unflagged);
 - carrying a track across a relearn (false jumps 30 to 34);
 - judging the reference by its own σ in the Tracker (two false
-  reference jumps on the year).
+  reference jumps on the year);
+- against a neighbour term that breaks: k stable across halves or
+  months, refusing terms the held-out tenth did not confirm as a gap,
+  refusing every k above 0, clamping the gap to the range fitted
+  (DESIGN.md, Ruled out);
+- a Series on a valve's power as a heating-effort term (refused
+  everywhere; forced in, it over-corrected);
+- a table of Recent gaps learned on a schedule (a day stale, 4.6 %
+  worse than computing it when asked).

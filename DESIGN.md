@@ -781,6 +781,24 @@ the README's order; what was tried and dropped is under Ruled out.
 - **A cap on a neighbour's k**, instead of the keep rule on the
   correction: of two principled caps tried on MadHouse's year, one
   changed nothing where it mattered and the other removed the gain.
+- **Other learning-time rules against a neighbour that breaks**:
+  requiring k stable across the span's halves or months, refusing a
+  term the held-out tenth did not confirm as a gap, refusing every k
+  above 0. A term breaks when the gap r − neighbour leaves the range
+  it was fitted on, which happens after the span (EXPLORE.md, item
+  5): on MadHouse's year, walk-forward, none of them refused the 13
+  losing terms without refusing winners (0.876 to 0.917 °C against
+  0.914 for the plain offset and 1.050 for the rule as it is). **A
+  clamp of the gap to the range fitted**, in `predict` or `correct`:
+  0.885 for `predict` alone, but nothing once blended with `Recent`
+  (0.681 against 0.683), and for the Fusion neutral to slightly
+  worse (left-out RMS 0.296 to 0.301; falling back to the plain
+  offset outside the range instead toggled the correction and added
+  three jumps). **A heating-effort term** (a Series on the valve's
+  power): refused on every sensor, and forced in, a line
+  over-corrected at high power (14.8 °C RMS on one sensor). **A
+  table of Recent gaps** learned on a schedule: a day stale, 4.6 %
+  worse, for a schema and the stores.
 - **Raising the 80 % threshold, splitting the mid regime, or keeping
   every confirmed term at the refit**, beside the keep rule on the
   correction: on MadHouse's year none gained beyond its spread.
