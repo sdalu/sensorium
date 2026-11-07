@@ -27,7 +27,8 @@ class LearnerReferencesTest < Minitest::Test
     end
 
     # No ceiling or floor sensor measures humidity: a wall unit is its
-    # reference, else a radiator valve.
+    # reference, else a radiator valve. Temperature takes them too, but
+    # only where neither a ceiling nor a floor is.
     def test_humidity_has_places_of_its_own
         sensors = [sensor("ceil", "a", "ceiling"), sensor("tado", "a", "valve"),
                    sensor("airzone", "a", "wall"), sensor("tado", "b", "valve")]
@@ -38,7 +39,7 @@ class LearnerReferencesTest < Minitest::Test
         temperature = Sensorium::Learner::References.new(
             sensors, {}, Sensorium::Presets.room
         ).all
-        assert_equal({ "a" => %w[ceil] }, temperature)
+        assert_equal({ "a" => %w[ceil], "b" => %w[tado] }, temperature)
     end
 
     # What the source listed, and the references set: what a store keeps

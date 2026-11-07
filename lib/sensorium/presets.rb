@@ -8,8 +8,11 @@ module Sensorium
     # creep of a sensor for six hours after its room's reference read
     # above 80 % ("creep"). The temperature's
     # reference is a smoke detector on the ceiling, else a leak sensor
-    # on the floor; neither measures humidity, whose reference is a
-    # wall unit (an aircon's), else a radiator valve's. The source tells
+    # on the floor, else, in a room with neither, a wall unit (an
+    # aircon's), else a radiator valve's: a room heated and cooled by
+    # its own units is learned too. Neither ceiling nor floor measures
+    # humidity, whose reference is a wall unit, else a radiator
+    # valve's. The source tells
     # the events under those names, and tags the sensors "ceiling",
     # "floor", "wall" and "valve".
     module Presets
@@ -24,7 +27,7 @@ module Sensorium
                                 drift: 0.5, max_age: 120,
                                 transform: Transform::AbsoluteHumidity)
 
-        PLACES = { "temperature" => %w[ceiling floor],
+        PLACES = { "temperature" => %w[ceiling floor wall valve],
                    "humidity" => %w[wall valve] }.freeze
 
         HEATING = Influence::Switch.new(name: "heating", scope: :site,

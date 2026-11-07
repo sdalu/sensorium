@@ -368,7 +368,13 @@ the README's order; what was tried and dropped is under Ruled out.
   gives.
 - **Settings per quantity**: a smoke detector may be the temperature
   reference and not measure humidity at all, hence the humidity
-  preset's own places (wall, valve).
+  preset's own places (wall, valve). Temperature falls back on them
+  after the ceiling and the floor: a room with only its aircon's unit
+  and its radiator's valve was left unlearned, its tado the very
+  device a caller drives. The unit before the valve, which its
+  radiator warms; on one house's year, the two such rooms' tados came
+  out at σ 0.26 to 0.74 against their unit, the other rooms' 26
+  offsets unchanged.
 - **A sole reference's σ from its collocation.** A sole reference's σ
   was the quantity's, a hand-set 0.1 °C, yet it anchors every weight:
   on NoisyRoom, a reference three times noisier made the fused value

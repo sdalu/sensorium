@@ -252,7 +252,9 @@ regime of one's own (anything answering `names`, `of(time)` and
 A location's **reference** is the devices its `Location` names (their
 mean when several, each then learned against it too), else its first
 sensor tagged with one of the setup's `places` (for temperature,
-"ceiling", then "floor"). A location with none is not learned.
+"ceiling", then "floor", then "wall", then "valve": a room with only
+its aircon's unit and its radiator's valve is learned against the
+unit). A location with none is not learned.
 
 ### Measuring σ
 
