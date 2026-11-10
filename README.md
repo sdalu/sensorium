@@ -50,7 +50,13 @@ sensor - r = constant
            + rate × dr/dt
 ```
 
-- **constant**: the median gap.
+- **constant**: the median gap, recentred on the last weeks: once the
+  terms are fitted, the constant (and the plain one) moves by the
+  median of what the model leaves, each bin's weight halved by every
+  `Setup#recent` of its age before the last (a week; `nil`, every bin
+  alike). A gap that drifts with the season inside a regime is then
+  learned as it stands at the relearn, and a fresh track does not
+  start on a bias (DESIGN.md, Learning).
 - **switches**: an influence that is on or off (the radiators' water
   hot, house-wide, for an hour after a valve opened). A Switch given a
   time constant (`tau:`) is *filtered*: its term is term × exposure,

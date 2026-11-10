@@ -38,13 +38,24 @@ class BinTest < Minitest::Test
         end
     end
 
+    # Alike within 0.01 °C: a constant recentred on the last bins
+    # (Setup#recent) takes its median from bins of another width.
     def test_the_house_is_learned_alike_at_every_bin
-        found = [300, 600, 1200].map { learned(it) }
-        assert_equal 1, found.uniq.size, found.inspect
-        assert_equal 4, found.first[:offsets].size
+        first, *others = [300, 600, 1200].map { learned(it) }
+        assert_equal 4, first[:offsets].size
+        others.each { assert_alike(first, it) }
     end
 
     private
+
+    def assert_alike(first, other)
+        assert_equal first[:profiles], other[:profiles]
+        assert_equal first[:offsets].keys, other[:offsets].keys
+        first[:offsets].each do |key, constant|
+            assert_in_delta constant, other[:offsets][key], 0.0101,
+                            key.inspect
+        end
+    end
 
     def learned(bin)
         setup = Sensorium::Presets.room(bin:)

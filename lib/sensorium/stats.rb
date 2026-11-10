@@ -31,6 +31,15 @@ module Sensorium
             pairs.last.first
         end
 
+        # Weights of times (seconds), summing to 1, each halved by every
+        # half seconds it comes before the last.
+        def recency(times, half)
+            last = times.max
+            weights = times.map { 0.5**((last - it) / half.to_f) }
+            total = weights.sum
+            weights.map { it / total }
+        end
+
         # p90 - p10: how widely the values spread, outliers aside.
         def spread(values)
             quantile(values, 0.9) - quantile(values, 0.1)

@@ -84,22 +84,25 @@ module Sensorium
         end
 
         # The Offset, its model's widths widened by what the bins held
-        # out confirmed (Fit::Validated).
+        # out confirmed (Fit::Validated), its constants recentred on the
+        # recent bins (setup.recent).
         def fit(one, calm)
             learned = Fit::Validated.learn(calm, @setup,
                                            levels: carried(one.location),
                                            **terms(one.location))
-            model = learned.model
-            Offset.new(**one.to_h, **widths(learned, model),
+            model, plain = [learned.model, learned.fit.plain].map do |kept|
+                Learned.recentred(kept, @setup.recent)
+            end
+            Offset.new(**one.to_h, **widths(learned, model, plain),
                        block_share: Learned.block_share(model.residuals,
                                                         @setup))
         end
 
         # The Offset's values and widths of the model, widened.
-        def widths(learned, model)
-            fit = learned.fit
-            Learned.widened({ **Learned.values(model, fit.plain),
-                              **fit.states(model) }, learned.inflation)
+        def widths(learned, model, plain)
+            Learned.widened({ **Learned.values(model, plain),
+                              **learned.fit.states(model) },
+                            learned.inflation)
         end
 
         # What a location's sensors may be fitted with (Fit::Terms).

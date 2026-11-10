@@ -45,11 +45,15 @@ module Sensorium
     #               (Stats.least_squares; 0, none)
     #   nonnegative whether a joint fit keeps every slope 0 or more
     #               (Stats.nonnegative)
+    #   recent      seconds of age that halve a bin's weight in an
+    #               offset's constant (Learner): a week, the bias the
+    #               last weeks hold; nil, every bin alike
     Setup = Data.define(:quantity, :regime, :influences, :places, :bin,
                         :carry, :min_samples, :min_shift, :min_part,
                         :narrows, :covers, :gain, :rate, :outside,
                         :dynamics_margin, :scale_floor, :transient_windows,
-                        :transient_rate, :joint, :ridge, :nonnegative)
+                        :transient_rate, :joint, :ridge, :nonnegative,
+                        :recent)
 
     class Setup
         DEFAULTS = { regime: Regime::Constant.new, influences: [],
@@ -59,7 +63,7 @@ module Sensorium
                      outside: nil, dynamics_margin: 0.98,
                      scale_floor: 0.5, transient_windows: [600, 1200],
                      transient_rate: 0.2, joint: false, ridge: 0.0,
-                     nonnegative: false }.freeze
+                     nonnegative: false, recent: 7 * 86_400 }.freeze
 
         # The bin DEFAULTS' counts (min_samples, min_shift, min_part) are
         # for; with another bin they cover the same time, and the

@@ -19,7 +19,7 @@ room's width, a sensor judged against its reference alone, no suspect
 below three, no lone-reading jump against a single other, a sole
 reference's σ from its collocation, the Tracker's widths in the
 correction's space, no witness, no model aging in the Fusion).
-Ranked by the gain expected. Items 1 to 7 are this gem's; item 8
+Ranked by the gain expected. Items 1 to 6 are this gem's; item 7
 belongs to its users, MadHouse and ClimatControl.
 
 The evidence comes from two sources: a room recorded over 30 winter days
@@ -29,26 +29,21 @@ a Tick every ten minutes), read-only.
 
 ## Worth doing next
 
-1. **A fresh track starting on a bias.** Four of the year's false jumps
-   came within hours of a relearn, the two-month fit not knowing a bias
-   standing that week (−0.3 to −0.9 °C). A track's prior from the
-   Offset's width absorbed the real steps too; the cause is in the
-   Learner (weight the recent weeks in the constant), not the Tracker.
-2. **The downstairs Airzone's spikes.** A σ 0.7–1.4 unit that reads
+1. **The downstairs Airzone's spikes.** A σ 0.7–1.4 unit that reads
    +1.5 to +3.4 °C for 3 to 6 hours: flagged in two or three blocks,
    cleared one to five days later. A cause of its own; its own
    transient profile is the first thing to try.
 
 ## Smaller
 
-3. **The delta held at a jump** is the one at the jump, which has taken
+2. **The delta held at a jump** is the one at the jump, which has taken
    in part of a step during the detection delay: a part whose step was
    real, then undone, may not clear. A field for the delta at the start
    of the flagged run (a store column) would fix it.
-4. **Blame in a room whose third sensor is noisy**: a step between the
+3. **Blame in a room whose third sensor is noisy**: a step between the
    two tight ones is put on either by noise (October on the year: the
    reference flagged for the tado's step).
-5. **A neighbour with k above 0 that breaks mid-season** leaves a biased
+4. **A neighbour with k above 0 that breaks mid-season** leaves a biased
    correction until the next relearn drops it, or the Tracker flags
    the part. The cause is the gap r − neighbour leaving the range it
    was fitted on, not k's size: the neighbour's own level moves (the
@@ -66,12 +61,12 @@ a Tick every ten minutes), read-only.
    is neutral to slightly worse for the Fusion (left-out RMS 0.296 to
    0.301), where the Tracker removes a broken part within about 36 h.
    Worth watching in production.
-6. **Two sensors left without their reference** still stand still
+5. **Two sensors left without their reference** still stand still
    until a relearn, a reset or a jump clearing: their disagreement
    cannot be put on either. The witness that could move them is gone
    (DESIGN.md, Tracking: no var(z) gain).
 
-7. **Regressions beyond the gas.** Untried: the aircon's energy room by
+6. **Regressions beyond the gas.** Untried: the aircon's energy room by
    room (the outdoor unit's meter against each room's Mode as a Switch
    per location), where the rooms' units run together as the valves
    open together, so pooled first; a heat pump's COP against the
@@ -81,7 +76,7 @@ a Tick every ten minutes), read-only.
 
 ## On the users' side
 
-8. **Around sensorium 0.3.0:**
+7. **Around sensorium 0.3.0:**
    - The API changed: a `Tracker` is made without `dynamics:`,
      `Tracker#update` and `Tick#call` take no `previous:`, and a
      `Fusion` is made without `dynamics:`; `collocations:` is new to
@@ -128,6 +123,11 @@ a Tick every ten minutes), read-only.
      three of MadHouse's 32 tado offsets (green-room mid and winter,
      yellow-room winter); a Regression fitted together no longer stops
      at the first regressor the bins held out refuse.
+     After 0.5.0: an offset's constant is recentred on the last weeks
+     (`Setup#recent`, a week by default; `nil` for the former
+     constant), so a relearn moves constants toward the gap the last
+     week held, and a part whose gap drifts with the season is jumped
+     less after a relearn.
    - MadHouse's tables need the five columns added in 0.2.0 if it opens
      the store with `migrate: false`: `block_share` on offsets;
      `block_sum`, `block_noise`, `block_count` and `block_at` on tracks.
@@ -185,3 +185,5 @@ records:
   everywhere; forced in, it over-corrected);
 - a table of Recent gaps learned on a schedule (a day stale, 4.6 %
   worse than computing it when asked).
+- half-lives of 3, 5 or 14 days for the recent constant (a week did
+  best; DESIGN.md, Learning).

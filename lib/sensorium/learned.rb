@@ -60,6 +60,20 @@ module Sensorium
               rate: model.rate&.round(3) }
         end
 
+        # The model, its constant moved by the median of what it leaves,
+        # each bin's weight halved by every half seconds of its age
+        # before the last: the bias the last bins hold. As it is when
+        # half is nil.
+        def self.recentred(model, half)
+            return model unless half
+            residuals = model.residuals
+            shift = Stats.weighted_quantile(
+                residuals.values, Stats.recency(residuals.keys, half), 0.5
+            )
+            model.with(constant: model.constant + shift,
+                       residuals: residuals.transform_values { it - shift })
+        end
+
         # Offset#block_share of a model's residuals ({ bin => value }):
         # the spread of their means over blocks of the quantity's
         # cusum_block, as a share of their own spread; nil with fewer

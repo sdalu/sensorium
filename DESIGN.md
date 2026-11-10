@@ -8,6 +8,26 @@ the README's order; what was tried and dropped is under Ruled out.
 - **Medians for the constant and the switch terms**, least squares
   only for the linear terms. A median shrugs off the minutes a door is
   open.
+- **The constant recentred on the last weeks.** A regime's gap drifts
+  inside it (garage's branch sensor, summer: −1.3 °C in early June,
+  +1.3 in August), and a fit over every bin alike learns the regime's
+  middle: a track restarted by the relearn met the bias the last week
+  held and jumped within hours. Once the terms are fitted, the
+  constant moves by the weighted median of what the model leaves, a
+  bin's weight halved by each week of its age (`Setup#recent`); the
+  terms stay as fitted on all the bins, and the widths are what the
+  recentred constant leaves. On MadHouse's year, walk-forward: jumps
+  within a day of a relearn (the first learning aside) 6 to 1, within
+  two days 16 to 10, all jumps 69 to 65, jumped part-hours 17 758 to
+  15 676; hourly left-out var(z) 0.509 to 0.506, RMS 0.306 to 0.300.
+  The real August step on downstairs' tado (−0.30 °C) is flagged
+  earlier (jumped 560 h that month instead of 276) and still in
+  September (159 h, as before). Half-lives of 3, 5 and 14 days did
+  worse: 3 lost a tenth of the left-out hours to jumped parts, 14
+  kept 12 jumps within two days. The cost: a real step that has stood
+  a week or more at a relearn is taken in as the sensor's offset (the
+  last week weighs half), so it is no longer flagged after it; a
+  younger one still is.
 - **A term is kept when it narrows p10..p90 to 80 %**, both spreads
   measured over the bins the term covers. A spread between quantiles,
   not a variance, for the same reason as the medians; the same bins,
