@@ -948,3 +948,14 @@ the README's order; what was tried and dropped is under Ruled out.
   model would without the width rule: it caught small reference steps
   on the recorded room, but added two false reference jumps on
   MadHouse's year. The width is kept until a second house can tell.
+- **The downstairs Airzone's spikes as an event of their own.** On
+  MadHouse's year its gap stands 1.5 °C or more above its week's
+  median, for an hour or more, 32 times (+1.7 to +4.6 °C, 1 to 10 h);
+  22 of them under no aircon event, the others under a Mode the unit
+  reports every minute all day, running or not, so no event tells
+  one. Of its 10 jumps on the year, 3 follow a spike and the others
+  a slow swing (−0.9 °C held for 8 h and more), which an event would
+  not catch. Its σ (0.66 to 0.87 °C, against the tado's 0.16 and the
+  reference's 0.1) leaves it about 1.5 % of the location's weight:
+  in or out, 0.03 °C on the fused value at most. Not tried; nothing
+  to gain.
