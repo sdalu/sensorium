@@ -58,6 +58,16 @@ class RecentConstantTest < Minitest::Test
         assert_in_delta(-1.0, learn(7 * 86_400).constant, 0.05)
     end
 
+    # A half-life of 0 made every weight NaN, and the constant the
+    # largest residual; a negative one weighed the oldest bins most.
+    def test_a_half_life_not_positive_is_refused
+        [0, 0.0, -86_400, "week"].each do |recent|
+            assert_raises(ArgumentError, recent.inspect) do
+                Sensorium::Presets.room(recent:)
+            end
+        end
+    end
+
     def test_the_widths_are_what_the_recentred_constant_leaves
         offset = learn(86_400)
         assert_in_delta 0.6, offset.p10.abs, 0.1

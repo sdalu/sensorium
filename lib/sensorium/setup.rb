@@ -47,7 +47,8 @@ module Sensorium
     #               (Stats.nonnegative)
     #   recent      seconds of age that halve a bin's weight in an
     #               offset's constant (Learner): a week, the bias the
-    #               last weeks hold; nil, every bin alike
+    #               last weeks hold; nil, every bin alike; 0 or less is
+    #               refused
     Setup = Data.define(:quantity, :regime, :influences, :places, :bin,
                         :carry, :min_samples, :min_shift, :min_part,
                         :narrows, :covers, :gain, :rate, :outside,
@@ -78,6 +79,7 @@ module Sensorium
             end
             given = Setup.defaults(bin).merge(settings)
             Setup.check_windows(given[:transient_windows], bin)
+            Setup.check_recent(given[:recent])
             @given = { quantity:, **settings }
             super(quantity:, **given)
         end
@@ -98,6 +100,12 @@ module Sensorium
                 COUNTS.to_h { [it, (DEFAULTS[it] * BIN / bin.to_f).round] },
                 transient_windows: [bin, 2 * bin]
             )
+        end
+
+        # A half-life of 0 or less weighs no bin, or the oldest most.
+        def self.check_recent(recent)
+            return if recent.nil? || (recent.is_a?(Numeric) && recent.positive?)
+            raise ArgumentError, "recent: #{recent.inspect}, not seconds over 0"
         end
 
         # A window not a whole number of bins would find no bin to start
