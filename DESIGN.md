@@ -593,7 +593,9 @@ the README's order; what was tried and dropped is under Ruled out.
   flagged while their error stood, and the time to a first jump was
   unchanged at every start. The limit: the delta held is the one at
   the jump, which has taken in part of a step during the detection
-  delay, so such a part may not clear.
+  delay, so a part whose step is undone may not clear before the
+  relearn. Holding the delta the run started from instead was worse
+  on the year (Ruled out).
 - **References tracked, but pinned.** A reference's reading is the
   location's definition of truth. Untracked, a reference that jumps
   makes every sensor beside it look jumped; tracked like the others,
@@ -959,3 +961,20 @@ the README's order; what was tried and dropped is under Ruled out.
   reference's 0.1) leaves it about 1.5 % of the location's weight:
   in or out, 0.03 °C on the fused value at most. Not tried; nothing
   to gain.
+- **The delta held at a jump taken where the flagged run started**
+  (each side of the CUSUM keeping the delta it had when last at 0,
+  Page's estimate of the change). A step of 0.4 to 0.8 °C on a σ 0.2
+  sensor, flagged after 7 to 17 hours with 0.12 to 0.15 °C taken in,
+  then undone, never cleared in 200 h with the jump's delta held and
+  cleared in 31 h with the run's. On MadHouse's year it held a delta
+  0.1 to 0.35 °C back on the side that fired, and the error settled
+  near the filter's delta, not the run's: jumps 65 to 62, cleared
+  within the month 51 to 43, standing 14 to 19, left-out var(z) 0.506
+  to 0.509, RMS 0.300 to 0.306. The CUSUM runs on innovations against
+  a delta the filter moves, so the run starts where they began to
+  lean, not at the level the error returns to; what the filter took
+  in was mostly a real level shift. Only two of the year's jumps
+  cleared with it and not without (May and July); the relearn clears
+  such a part.
+  Clearing when back at either delta was not tried: two levels, each
+  within k, clear anywhere between, by magnitude, not by time.

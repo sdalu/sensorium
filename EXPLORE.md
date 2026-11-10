@@ -19,7 +19,7 @@ room's width, a sensor judged against its reference alone, no suspect
 below three, no lone-reading jump against a single other, a sole
 reference's σ from its collocation, the Tracker's widths in the
 correction's space, no witness, no model aging in the Fusion).
-Ranked by the gain expected. Items 1 to 5 are this gem's; item 6
+Ranked by the gain expected. Items 1 to 4 are this gem's; item 5
 belongs to its users, MadHouse and ClimatControl.
 
 The evidence comes from two sources: a room recorded over 30 winter days
@@ -29,14 +29,10 @@ a Tick every ten minutes), read-only.
 
 ## Smaller
 
-1. **The delta held at a jump** is the one at the jump, which has taken
-   in part of a step during the detection delay: a part whose step was
-   real, then undone, may not clear. A field for the delta at the start
-   of the flagged run (a store column) would fix it.
-2. **Blame in a room whose third sensor is noisy**: a step between the
+1. **Blame in a room whose third sensor is noisy**: a step between the
    two tight ones is put on either by noise (October on the year: the
    reference flagged for the tado's step).
-3. **A neighbour with k above 0 that breaks mid-season** leaves a biased
+2. **A neighbour with k above 0 that breaks mid-season** leaves a biased
    correction until the next relearn drops it, or the Tracker flags
    the part. The cause is the gap r − neighbour leaving the range it
    was fitted on, not k's size: the neighbour's own level moves (the
@@ -54,12 +50,12 @@ a Tick every ten minutes), read-only.
    is neutral to slightly worse for the Fusion (left-out RMS 0.296 to
    0.301), where the Tracker removes a broken part within about 36 h.
    Worth watching in production.
-4. **Two sensors left without their reference** still stand still
+3. **Two sensors left without their reference** still stand still
    until a relearn, a reset or a jump clearing: their disagreement
    cannot be put on either. The witness that could move them is gone
    (DESIGN.md, Tracking: no var(z) gain).
 
-5. **Regressions beyond the gas.** Untried: the aircon's energy room by
+4. **Regressions beyond the gas.** Untried: the aircon's energy room by
    room (the outdoor unit's meter against each room's Mode as a Switch
    per location), where the rooms' units run together as the valves
    open together, so pooled first; a heat pump's COP against the
@@ -69,7 +65,7 @@ a Tick every ten minutes), read-only.
 
 ## On the users' side
 
-6. **Around sensorium 0.3.0:**
+5. **Around sensorium 0.3.0:**
    - The API changed: a `Tracker` is made without `dynamics:`,
      `Tracker#update` and `Tick#call` take no `previous:`, and a
      `Fusion` is made without `dynamics:`; `collocations:` is new to
@@ -182,3 +178,5 @@ records:
   best; DESIGN.md, Learning).
 - the downstairs Airzone's spikes as an event of their own (its weight
   in the fusion about 1.5 %: 0.03 °C at most; DESIGN.md, Ruled out).
+- the delta held at a jump taken where the flagged run started (on the
+  year cleared 51 to 43, RMS 0.300 to 0.306; DESIGN.md, Ruled out).
