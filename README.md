@@ -1191,6 +1191,23 @@ fit no better than their sum: a room's share is the pooled term × its
 own valve-%-hours, and about 7 kWh a day of winter gas follows no
 valve (12.09 against summer's 5.35).
 
+The same on MadHouse's aircon, by the hour (`bin: 3600`), November 2023
+to November 2026 (16 798 hours): its energy (one meter on the whole
+system, outdoor and indoor units) against each room's Airzone unit
+calling, in hours a room's unit had a demand set (heating or
+cooling, by its mode; `local/aircon.rb`), joint, ≥ 0:
+
+| Model | Winter | Mid-season | Summer |
+|---|---|---|---|
+| heat and cool hours pooled | 0.023 kWh + 0.90 per heating hour, R² 0.80 | 0.020 + 1.02 heating, 0.28 cooling, R² 0.70 | 0.053 + 0.35 per cooling hour, R² 0.67 |
+| room by room, `narrows: 0.99` | 3 rooms, 0.76 to 1.29 per heating hour, R² 0.85 | 5 terms, R² 0.64 | 5 rooms, 0.25 to 0.45 per cooling hour, R² 0.69 |
+| pooled, learned before 2025-11 and scored on the year after | R² 0.68 | 0.22 | 0.55 |
+
+A room's heating hour costs about three times its cooling hour. The
+mid-season, heating and cooling hours mixed, holds least on the year
+after. A unit's `speed` is no witness of its own running: the Airzone
+reports the system's fan on one zone.
+
 ### Following a regression
 
 `follow` is the Tracker's step (Tracking) on a Regression: each value

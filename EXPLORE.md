@@ -60,13 +60,14 @@ a Tick every ten minutes), read-only.
    every lone neighbour (one with no Offset and no reference role, so
    no track) and the earlier learning-time rules and clamp are ruled
    out (DESIGN.md, Ruled out). Worth watching in production.
-3. **Regressions beyond the gas.** Untried: the aircon's energy room by
-   room (the outdoor unit's meter against each room's Mode as a Switch
-   per location), where the rooms' units run together as the valves
-   open together, so pooled first; a heat pump's COP against the
-   outside, which needs the heat delivered, no meter of which exists;
-   a daily bin aligned to local days, if a source cannot shift its
-   times onto them (README, Regressions: GRDF's gas day).
+3. **Regressions beyond the gas.** The aircon's energy by the hour
+   against each room's unit calling is fitted (README, Regressions:
+   R² 0.80 winter, 0.67 summer; 0.22 in the mid-season on the year
+   after, where heating and cooling hours mix). Untried: a heat pump's
+   COP against the outside, which needs the heat delivered, no meter
+   of which exists; a daily bin aligned to local days, if a source
+   cannot shift its times onto them (README, Regressions: GRDF's gas
+   day).
 
 ## On the users' side
 
