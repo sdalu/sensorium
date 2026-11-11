@@ -172,6 +172,9 @@ records:
   (DESIGN.md, Ruled out);
 - a Series on a valve's power as a heating-effort term (refused
   everywhere; forced in, it over-corrected);
+- the valve's opening, capped at 50 %, as a location's Series: kept by
+  blue-room's tado, no gain in the Fusion, and the gap per opening
+  moved between last winter and November (DESIGN.md, Ruled out).
 - a table of Recent gaps learned on a schedule (a day stale, 4.6 %
   worse than computing it when asked).
 - half-lives of 3, 5 or 14 days for the recent constant (a week did

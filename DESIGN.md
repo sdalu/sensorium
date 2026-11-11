@@ -370,7 +370,9 @@ the README's order; what was tried and dropped is under Ruled out.
   instead: a Series on the valve's power was refused on every sensor,
   and forced in, a line over-corrected (14.8 °C RMS on one sensor at
   high power); the level a valve will regulate at is not predictable
-  from the weather (R² 0.01 to 0.16).
+  from the weather (R² 0.01 to 0.16). Shaped (capped at 50 % open) it
+  is kept, but the gap per opening moves from one season to the next
+  (Ruled out): a trim learned live per level, the caller's, follows it.
 - **Two parts by inverse variance, σ widened by their disagreement.**
   Student-t reweighting of two parts that disagree slides to the one
   with the smaller σ: on the recorded room, a 3 % change of one σ
@@ -881,7 +883,20 @@ the README's order; what was tried and dropped is under Ruled out.
   offset outside the range instead toggled the correction and added
   three jumps). **A heating-effort term** (a Series on the valve's
   power): refused on every sensor, and forced in, a line
-  over-corrected at high power (14.8 °C RMS on one sensor). **A
+  over-corrected at high power (14.8 °C RMS on one sensor).
+  Shaped, the opening capped at 50 % (a sensor's gap rises with it,
+  then flattens: blue-room's tado +0.4 °C closed, +2.0 past half
+  open, on the year), a location's Series on it is kept by blue-room's
+  and downstairs' tado in winter, blue-room's widths 1.91 to 1.51 °C;
+  yellow-room's is carried by the house-wide heating Switch already.
+  Walk-forward on the year it moves nothing in the Fusion (jumps,
+  left-out var(z) and RMS identical), and predicting blue-room's tado
+  from its reference with the live opening it turns a +0.2 °C bias
+  while heating into −0.15, RMS 0.65 to 0.58 at 25–49 % open and 0.70
+  to 0.75 past half. And the curve does not hold: learned on last
+  winter it says +0.65, +1.4 and +1.8 °C closed, at 25–49 % and past
+  half, where November 2026 read +0.30, +1.10 and +1.20, worse than
+  the plain offset while heating. **A
   table of Recent gaps** learned on a schedule: a day stale, 4.6 %
   worse, for a schema and the stores.
 - **Raising the 80 % threshold, splitting the mid regime, or keeping
