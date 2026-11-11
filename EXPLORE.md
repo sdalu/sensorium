@@ -131,7 +131,9 @@ a Tick every ten minutes), read-only.
    - MadHouse: a room's reference goes silent for days (on the year,
      13 spells of 48 h or more, the longest 193 h, downstairs'), its
      two sensors' tracks standing still meanwhile (DESIGN.md, Ruled
-     out); a reference silent for hours is worth an alert there.
+     out). Done in MadHouse (2026-11-11, live, not yet committed): an
+     alert once a reference has no reading for 6 h; and MadHouse pins
+     v0.5.1 (f31707a).
    - MadHouse's tables need the five columns added in 0.2.0 if it opens
      the store with `migrate: false`: `block_share` on offsets;
      `block_sum`, `block_noise`, `block_count` and `block_at` on tracks.
