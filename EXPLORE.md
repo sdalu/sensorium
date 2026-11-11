@@ -19,7 +19,7 @@ room's width, a sensor judged against its reference alone, no suspect
 below three, no lone-reading jump against a single other, a sole
 reference's σ from its collocation, the Tracker's widths in the
 correction's space, no witness, no model aging in the Fusion).
-Ranked by the gain expected. Items 1 to 3 are this gem's; item 4
+Ranked by the gain expected. Items 1 and 2 are this gem's; item 3
 belongs to its users, MadHouse and ClimatControl.
 
 The evidence comes from two sources: a room recorded over 30 winter days
@@ -29,17 +29,7 @@ a Tick every ten minutes), read-only.
 
 ## Smaller
 
-1. **Blame in a room whose third sensor is noisy**: a step between the
-   two tight ones is put on either by noise. At 0.5.0 and the
-   recentred constant the October case is gone; red-room's reference
-   is flagged twice in January (11th and 24th) for the tado's moves
-   (tado − reference swung −1.26 °C, then +0.5 to +0.8, while Airzone −
-   reference held near −0.3), cleared in about three days each. Once
-   the reference is the suspect, the tado's only other truth is the
-   noisy Airzone and it stands still. A suspect chosen by leave-one-out
-   disagreement instead of the highest CUSUM did not help (DESIGN.md,
-   Ruled out).
-2. **A neighbour with k above 0 that breaks mid-season** leaves a biased
+1. **A neighbour with k above 0 that breaks mid-season** leaves a biased
    correction until the next relearn drops it, or the Tracker flags
    the part. The cause is the gap r − neighbour leaving the range it
    was fitted on, not k's size: the neighbour's own level moves, or
@@ -54,13 +44,13 @@ a Tick every ten minutes), read-only.
    0.766 °C, ahead of the plain offset, and the Fusion's left-out
    var(z) goes from 0.506 to 0.494 (downstairs' tado 0.451 to 0.397,
    its reference 0.535 to 0.459; every other part unchanged): MadHouse's
-   to set (item 4). What breaks after that is smaller (corridor/nite-owl
+   to set (item 3). What breaks after that is smaller (corridor/nite-owl
    in August, 1.05 against 0.52; blue-room's tado on shower-room's
    reference in November, −0.84 °C with the valve closed). Refusing
    every lone neighbour (one with no Offset and no reference role, so
    no track) and the earlier learning-time rules and clamp are ruled
    out (DESIGN.md, Ruled out). Worth watching in production.
-3. **Regressions beyond the gas.** The aircon's energy by the hour
+2. **Regressions beyond the gas.** The aircon's energy by the hour
    against each room's unit calling is fitted (README, Regressions:
    R² 0.80 winter, 0.67 summer; 0.22 in the mid-season on the year
    after, where heating and cooling hours mix). Untried: a heat pump's
@@ -71,7 +61,7 @@ a Tick every ten minutes), read-only.
 
 ## On the users' side
 
-4. **Around sensorium 0.3.0:**
+3. **Around sensorium 0.3.0:**
    - The API changed: a `Tracker` is made without `dynamics:`,
      `Tracker#update` and `Tick#call` take no `previous:`, and a
      `Fusion` is made without `dynamics:`; `collocations:` is new to
@@ -124,7 +114,7 @@ a Tick every ten minutes), read-only.
      week held, and a part whose gap drifts with the season is jumped
      less after a relearn.
    - MadHouse: under-the-sink/kuang-si as a neighbour cost more than
-     every other neighbour term gained (item 2). Done in MadHouse
+     every other neighbour term gained (item 1). Done in MadHouse
      958f02e (2026-11-11): a named list of sensors no neighbour; its
      relearn moved bathroom's tado in summer to shower-room's
      reference, downstairs' Airzone having dropped kuang-si already
@@ -205,7 +195,10 @@ records:
   year 0.814 against 0.923, but only through kuang-si; without it 0.796
   against 0.755 (DESIGN.md, Ruled out).
 
-- the suspect chosen by leave-one-out disagreement (red-room's two
-  misblames stayed; reference jumps 5 to 8; DESIGN.md, Ruled out).
+- the suspect chosen by leave-one-out disagreement (reference jumps 5
+  to 8; DESIGN.md, Ruled out); blame in a room whose third sensor is
+  noisy, its October case gone at 0.5.0, red-room's January ones
+  each two corrected parts agreeing against the reference (DESIGN.md,
+  Ruled out).
 - moving two sensors left without their reference (only their
   difference is seen; DESIGN.md, Ruled out).

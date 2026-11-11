@@ -873,7 +873,7 @@ the README's order; what was tried and dropped is under Ruled out.
   term the held-out tenth did not confirm as a gap, refusing every k
   above 0. A term breaks when the gap r − neighbour leaves the range
   it was fitted on, which happens after the span (EXPLORE.md, item
-  2): on MadHouse's year, walk-forward, none of them refused the 13
+  1): on MadHouse's year, walk-forward, none of them refused the 13
   losing terms without refusing winners (0.876 to 0.917 °C against
   0.914 for the plain offset and 1.050 for the rule as it is). **A
   clamp of the gap to the range fitted**, in `predict` or `correct`:
@@ -893,10 +893,18 @@ the README's order; what was tried and dropped is under Ruled out.
   disagreement** (the part whose leaving out leaves the others' readings,
   deltas taken out, closest by their σ) instead of the highest CUSUM:
   on MadHouse's year red-room's reference was still flagged twice in
-  January for the tado's moves, and three reference jumps came that
-  had not (downstairs in January and May, green-room in October):
+  January, and three reference jumps came that had not (downstairs
+  in January and May, green-room in October):
   jumps 65 to 69, jumped part-hours 15 676 to 16 259, left-out var(z)
   0.506 to 0.502, RMS unchanged. One moment's readings choose by noise.
+  Nor were red-room's two January jumps the noise picking a side, as
+  first thought from the raw gaps: traced tick by tick, the tado and
+  the Airzone, corrected (the tado's delta +0.48 on the 24th), read
+  0.2 to 0.6 °C above the reference for eight hours and more, within
+  0.3 of each other, the valve closed and the aircon off; two parts
+  agreeing outvote the third, as the model is meant to. Whether the
+  reference was off, or both heater sensors erred together (errors
+  are taken as independent, Fusion), these data cannot tell.
   **Moving two sensors left without their reference.** On
   MadHouse's year a room of three's reference was silent while both
   its sensors read 840 to 1 376 hours (10 to 17 %), 13 spells of 48 h
