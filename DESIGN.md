@@ -889,7 +889,15 @@ the README's order; what was tried and dropped is under Ruled out.
   rule loses, 0.796 against 0.755, refusing the lone neighbours that
   help (a boiler pipe's casing 0.435 against 0.674 plain, an upstairs
   toilet's 0.520 against 0.596). One broken sensor is the caller's to
-  mark (`Sensor#neighbour`). **A heating-effort term** (a Series on the valve's
+  mark (`Sensor#neighbour`). **The suspect chosen by leave-one-out
+  disagreement** (the part whose leaving out leaves the others' readings,
+  deltas taken out, closest by their σ) instead of the highest CUSUM:
+  on MadHouse's year red-room's reference was still flagged twice in
+  January for the tado's moves, and three reference jumps came that
+  had not (downstairs in January and May, green-room in October):
+  jumps 65 to 69, jumped part-hours 15 676 to 16 259, left-out var(z)
+  0.506 to 0.502, RMS unchanged. One moment's readings choose by noise.
+  **A heating-effort term** (a Series on the valve's
   power): refused on every sensor, and forced in, a line
   over-corrected at high power (14.8 °C RMS on one sensor).
   Shaped, the opening capped at 50 % (a sensor's gap rises with it,

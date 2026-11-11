@@ -30,8 +30,15 @@ a Tick every ten minutes), read-only.
 ## Smaller
 
 1. **Blame in a room whose third sensor is noisy**: a step between the
-   two tight ones is put on either by noise (October on the year: the
-   reference flagged for the tado's step).
+   two tight ones is put on either by noise. At 0.5.0 and the
+   recentred constant the October case is gone; red-room's reference
+   is flagged twice in January (11th and 24th) for the tado's moves
+   (tado − reference swung −1.26 °C, then +0.5 to +0.8, while Airzone −
+   reference held near −0.3), cleared in about three days each. Once
+   the reference is the suspect, the tado's only other truth is the
+   noisy Airzone and it stands still. A suspect chosen by leave-one-out
+   disagreement instead of the highest CUSUM did not help (DESIGN.md,
+   Ruled out).
 2. **A neighbour with k above 0 that breaks mid-season** leaves a biased
    correction until the next relearn drops it, or the Tracker flags
    the part. The cause is the gap r − neighbour leaving the range it
@@ -120,10 +127,12 @@ a Tick every ten minutes), read-only.
      constant), so a relearn moves constants toward the gap the last
      week held, and a part whose gap drifts with the season is jumped
      less after a relearn.
-   - MadHouse: under-the-sink/kuang-si as a neighbour costs more than
-     every other neighbour term gains (item 2). Its source sets
-     `neighbour:` from the hub flag alone; a sensor marked otherwise
-     (a placement, or a device setting) is MadHouse's change.
+   - MadHouse: under-the-sink/kuang-si as a neighbour cost more than
+     every other neighbour term gained (item 2). Done in MadHouse
+     958f02e (2026-11-11): a named list of sensors no neighbour; its
+     relearn moved bathroom's tado in summer to shower-room's
+     reference, downstairs' Airzone having dropped kuang-si already
+     with the recentred constant.
    - MadHouse's tables need the five columns added in 0.2.0 if it opens
      the store with `migrate: false`: `block_share` on offsets;
      `block_sum`, `block_noise`, `block_count` and `block_at` on tracks.
@@ -193,3 +202,6 @@ records:
 - refusing every lone neighbour (no Offset, no reference role): on the
   year 0.814 against 0.923, but only through kuang-si; without it 0.796
   against 0.755 (DESIGN.md, Ruled out).
+
+- the suspect chosen by leave-one-out disagreement (red-room's two
+  misblames stayed; reference jumps 5 to 8; DESIGN.md, Ruled out).
