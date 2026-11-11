@@ -122,7 +122,7 @@ a Tick every ten minutes), read-only.
      three of MadHouse's 32 tado offsets (green-room mid and winter,
      yellow-room winter); a Regression fitted together no longer stops
      at the first regressor the bins held out refuse.
-     After 0.5.0: an offset's constant is recentred on the last weeks
+     Since 0.5.1: an offset's constant is recentred on the last weeks
      (`Setup#recent`, a week by default; `nil` for the former
      constant), so a relearn moves constants toward the gap the last
      week held, and a part whose gap drifts with the season is jumped
