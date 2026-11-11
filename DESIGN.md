@@ -897,6 +897,15 @@ the README's order; what was tried and dropped is under Ruled out.
   had not (downstairs in January and May, green-room in October):
   jumps 65 to 69, jumped part-hours 15 676 to 16 259, left-out var(z)
   0.506 to 0.502, RMS unchanged. One moment's readings choose by noise.
+  **Moving two sensors left without their reference.** On
+  MadHouse's year a room of three's reference was silent while both
+  its sensors read 840 to 1 376 hours (10 to 17 %), 13 spells of 48 h
+  or more (the longest 193 h, downstairs'), and jumped 337 hours
+  more; the two tracks stand still meanwhile. Only their difference is
+  seen then, and a disagreement between two is put on neither (Fusion,
+  Tracking); splitting it by their σ is a prior, not a measurement,
+  and the witness that could have moved them gained 0.0025 °C (No
+  witness). A reference silent for days is the source's to alert on.
   **A heating-effort term** (a Series on the valve's
   power): refused on every sensor, and forced in, a line
   over-corrected at high power (14.8 °C RMS on one sensor).

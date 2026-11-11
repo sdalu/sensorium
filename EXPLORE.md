@@ -19,7 +19,7 @@ room's width, a sensor judged against its reference alone, no suspect
 below three, no lone-reading jump against a single other, a sole
 reference's σ from its collocation, the Tracker's widths in the
 correction's space, no witness, no model aging in the Fusion).
-Ranked by the gain expected. Items 1 to 4 are this gem's; item 5
+Ranked by the gain expected. Items 1 to 3 are this gem's; item 4
 belongs to its users, MadHouse and ClimatControl.
 
 The evidence comes from two sources: a room recorded over 30 winter days
@@ -54,18 +54,13 @@ a Tick every ten minutes), read-only.
    0.766 °C, ahead of the plain offset, and the Fusion's left-out
    var(z) goes from 0.506 to 0.494 (downstairs' tado 0.451 to 0.397,
    its reference 0.535 to 0.459; every other part unchanged): MadHouse's
-   to set (item 5). What breaks after that is smaller (corridor/nite-owl
+   to set (item 4). What breaks after that is smaller (corridor/nite-owl
    in August, 1.05 against 0.52; blue-room's tado on shower-room's
    reference in November, −0.84 °C with the valve closed). Refusing
    every lone neighbour (one with no Offset and no reference role, so
    no track) and the earlier learning-time rules and clamp are ruled
    out (DESIGN.md, Ruled out). Worth watching in production.
-3. **Two sensors left without their reference** still stand still
-   until a relearn, a reset or a jump clearing: their disagreement
-   cannot be put on either. The witness that could move them is gone
-   (DESIGN.md, Tracking: no var(z) gain).
-
-4. **Regressions beyond the gas.** Untried: the aircon's energy room by
+3. **Regressions beyond the gas.** Untried: the aircon's energy room by
    room (the outdoor unit's meter against each room's Mode as a Switch
    per location), where the rooms' units run together as the valves
    open together, so pooled first; a heat pump's COP against the
@@ -75,7 +70,7 @@ a Tick every ten minutes), read-only.
 
 ## On the users' side
 
-5. **Around sensorium 0.3.0:**
+4. **Around sensorium 0.3.0:**
    - The API changed: a `Tracker` is made without `dynamics:`,
      `Tracker#update` and `Tick#call` take no `previous:`, and a
      `Fusion` is made without `dynamics:`; `collocations:` is new to
@@ -133,6 +128,10 @@ a Tick every ten minutes), read-only.
      relearn moved bathroom's tado in summer to shower-room's
      reference, downstairs' Airzone having dropped kuang-si already
      with the recentred constant.
+   - MadHouse: a room's reference goes silent for days (on the year,
+     13 spells of 48 h or more, the longest 193 h, downstairs'), its
+     two sensors' tracks standing still meanwhile (DESIGN.md, Ruled
+     out); a reference silent for hours is worth an alert there.
    - MadHouse's tables need the five columns added in 0.2.0 if it opens
      the store with `migrate: false`: `block_share` on offsets;
      `block_sum`, `block_noise`, `block_count` and `block_at` on tracks.
@@ -205,3 +204,5 @@ records:
 
 - the suspect chosen by leave-one-out disagreement (red-room's two
   misblames stayed; reference jumps 5 to 8; DESIGN.md, Ruled out).
+- moving two sensors left without their reference (only their
+  difference is seen; DESIGN.md, Ruled out).
