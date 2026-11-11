@@ -873,7 +873,7 @@ the README's order; what was tried and dropped is under Ruled out.
   term the held-out tenth did not confirm as a gap, refusing every k
   above 0. A term breaks when the gap r − neighbour leaves the range
   it was fitted on, which happens after the span (EXPLORE.md, item
-  5): on MadHouse's year, walk-forward, none of them refused the 13
+  2): on MadHouse's year, walk-forward, none of them refused the 13
   losing terms without refusing winners (0.876 to 0.917 °C against
   0.914 for the plain offset and 1.050 for the rule as it is). **A
   clamp of the gap to the range fitted**, in `predict` or `correct`:
@@ -881,7 +881,15 @@ the README's order; what was tried and dropped is under Ruled out.
   (0.681 against 0.683), and for the Fusion neutral to slightly
   worse (left-out RMS 0.296 to 0.301; falling back to the plain
   offset outside the range instead toggled the correction and added
-  three jumps). **A heating-effort term** (a Series on the valve's
+  three jumps). **Refusing every lone neighbour** (a sensor with no
+  Offset and no reference role, so no track tells its move): on the
+  year, walk-forward, the terms' prediction went from 0.923 to 0.814
+  °C RMS, but all of it from one neighbour (under-the-sink/kuang-si,
+  its level 4 °C lower from February); without its two months the
+  rule loses, 0.796 against 0.755, refusing the lone neighbours that
+  help (a boiler pipe's casing 0.435 against 0.674 plain, an upstairs
+  toilet's 0.520 against 0.596). One broken sensor is the caller's to
+  mark (`Sensor#neighbour`). **A heating-effort term** (a Series on the valve's
   power): refused on every sensor, and forced in, a line
   over-corrected at high power (14.8 °C RMS on one sensor).
   Shaped, the opening capped at 50 % (a sensor's gap rises with it,

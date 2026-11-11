@@ -35,21 +35,24 @@ a Tick every ten minutes), read-only.
 2. **A neighbour with k above 0 that breaks mid-season** leaves a biased
    correction until the next relearn drops it, or the Tracker flags
    the part. The cause is the gap r − neighbour leaving the range it
-   was fitted on, not k's size: the neighbour's own level moves (the
-   downstairs Airzone's, under-the-sink, about 4 °C lower from 1
-   February: every bin of the month outside the fit, −3.0 °C of bias
-   on its prediction), or the season reverses the gap, or a one-month
-   fit. On the year, walk-forward, 13 of 34 neighbour terms predicted
-   worse than the plain offset; the neighbours of every losing term
-   are lone sensors with no track, so nothing tells their move. No
-   learning-time rule (a cap on k, k stable across halves or months,
-   refusing a term the held-out tenth did not confirm as a gap)
-   refused the losers without refusing winners. Clamping the gap to
-   the range fitted helps `predict` alone (0.885 against 1.050 °C)
-   but nothing once blended with `Recent` (0.681 against 0.683), and
-   is neutral to slightly worse for the Fusion (left-out RMS 0.296 to
-   0.301), where the Tracker removes a broken part within about 36 h.
-   Worth watching in production.
+   was fitted on, not k's size: the neighbour's own level moves, or
+   the season reverses the gap, or a one-month fit. On the year,
+   walk-forward (relearned each month, at 0.5.0 and the recentred
+   constant), 16 of 41 neighbour term-months predicted worse than the
+   plain offset: 0.923 °C RMS against 0.840. Most of the loss is one
+   neighbour, under-the-sink/kuang-si (its level about 4 °C lower
+   from 1 February), taken by downstairs' Airzone with k 0.99, then
+   0.76 (2.80 °C RMS in February against 1.12 plain). Learned with it
+   not a neighbour (`Sensor#neighbour` false), the terms predict at
+   0.766 °C, ahead of the plain offset, and the Fusion's left-out
+   var(z) goes from 0.506 to 0.494 (downstairs' tado 0.451 to 0.397,
+   its reference 0.535 to 0.459; every other part unchanged): MadHouse's
+   to set (item 5). What breaks after that is smaller (corridor/nite-owl
+   in August, 1.05 against 0.52; blue-room's tado on shower-room's
+   reference in November, −0.84 °C with the valve closed). Refusing
+   every lone neighbour (one with no Offset and no reference role, so
+   no track) and the earlier learning-time rules and clamp are ruled
+   out (DESIGN.md, Ruled out). Worth watching in production.
 3. **Two sensors left without their reference** still stand still
    until a relearn, a reset or a jump clearing: their disagreement
    cannot be put on either. The witness that could move them is gone
@@ -117,6 +120,10 @@ a Tick every ten minutes), read-only.
      constant), so a relearn moves constants toward the gap the last
      week held, and a part whose gap drifts with the season is jumped
      less after a relearn.
+   - MadHouse: under-the-sink/kuang-si as a neighbour costs more than
+     every other neighbour term gains (item 2). Its source sets
+     `neighbour:` from the hub flag alone; a sensor marked otherwise
+     (a placement, or a device setting) is MadHouse's change.
    - MadHouse's tables need the five columns added in 0.2.0 if it opens
      the store with `migrate: false`: `block_share` on offsets;
      `block_sum`, `block_noise`, `block_count` and `block_at` on tracks.
@@ -183,3 +190,6 @@ records:
   in the fusion about 1.5 %: 0.03 °C at most; DESIGN.md, Ruled out).
 - the delta held at a jump taken where the flagged run started (on the
   year cleared 51 to 43, RMS 0.300 to 0.306; DESIGN.md, Ruled out).
+- refusing every lone neighbour (no Offset, no reference role): on the
+  year 0.814 against 0.923, but only through kuang-si; without it 0.796
+  against 0.755 (DESIGN.md, Ruled out).
