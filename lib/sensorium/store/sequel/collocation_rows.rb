@@ -17,6 +17,7 @@ module Sensorium
 
                 # Replaces those of the same location and regime.
                 def keep_collocations(quantity, list)
+                    Store.same_quantity!(quantity, list)
                     @db.transaction do
                         list.each do |one|
                             scope(:collocations,

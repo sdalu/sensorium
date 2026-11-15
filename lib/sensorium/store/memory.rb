@@ -115,6 +115,7 @@ module Sensorium
             end
 
             def keep_dynamics(quantity, models)
+                Store.same_quantity!(quantity, models)
                 @dynamics = replaced(@dynamics, quantity, models)
             end
 
@@ -123,6 +124,7 @@ module Sensorium
             end
 
             def keep_collocations(quantity, list)
+                Store.same_quantity!(quantity, list)
                 @collocations = replaced(@collocations, quantity, list)
             end
 
@@ -131,6 +133,7 @@ module Sensorium
             end
 
             def keep_transients(quantity, profiles)
+                Store.same_quantity!(quantity, profiles)
                 @transients = replaced(@transients, quantity, profiles,
                                        %i[location device regime])
             end

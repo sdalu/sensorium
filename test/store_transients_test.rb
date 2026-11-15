@@ -35,6 +35,15 @@ module StoreTransientsBehaviour
         assert_equal [found("airzone")], sorted("temperature")
     end
 
+    # Kept under another quantity, a store would file it under either.
+    def test_a_profile_of_another_quantity_is_refused
+        @store.keep_transients("temperature", [found])
+        assert_raises(ArgumentError) do
+            @store.keep_transients("humidity", [found])
+        end
+        assert_equal [found], sorted("temperature")
+    end
+
     private
 
     def sorted(quantity)

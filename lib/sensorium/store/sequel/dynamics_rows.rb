@@ -16,6 +16,7 @@ module Sensorium
 
                 # Replaces the models of the same location and regime.
                 def keep_dynamics(quantity, models)
+                    Store.same_quantity!(quantity, models)
                     @db.transaction do
                         models.each { drop_dynamics(quantity, it) }
                         put(:dynamics, models.map do |model|

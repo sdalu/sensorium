@@ -16,6 +16,7 @@ module Sensorium
 
                 # Replaces those of the same location, device and regime.
                 def keep_transients(quantity, profiles)
+                    Store.same_quantity!(quantity, profiles)
                     @db.transaction do
                         profiles.each do |one|
                             scope(:transients,

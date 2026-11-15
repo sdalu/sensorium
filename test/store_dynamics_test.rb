@@ -24,6 +24,15 @@ module StoreDynamicsBehaviour
         assert_equal [again, model("b")], sorted("temperature")
     end
 
+    # Kept under another quantity, a store would file it under either.
+    def test_a_model_of_another_quantity_is_refused
+        @store.keep_dynamics("temperature", [model])
+        assert_raises(ArgumentError) do
+            @store.keep_dynamics("humidity", [model])
+        end
+        assert_equal [model], sorted("temperature")
+    end
+
     private
 
     def sorted(quantity)

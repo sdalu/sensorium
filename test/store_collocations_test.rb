@@ -24,6 +24,15 @@ module StoreCollocationsBehaviour
         assert_equal [again, found("b")], sorted("temperature")
     end
 
+    # Kept under another quantity, a store would file it under either.
+    def test_a_collocation_of_another_quantity_is_refused
+        @store.keep_collocations("temperature", [found])
+        assert_raises(ArgumentError) do
+            @store.keep_collocations("humidity", [found])
+        end
+        assert_equal [found], sorted("temperature")
+    end
+
     private
 
     def sorted(quantity)
