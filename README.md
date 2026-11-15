@@ -1468,6 +1468,21 @@ And what changes without a call changing: a Switch's text values
 at once (`aircon+fan`), a Mode with no Shift for its value (the plain
 offset), and regimes asked of local times.
 
+After 0.5.1, what a caller must change:
+
+- A `Setup`'s `transient_windows` not Integers raise ArgumentError
+  (`1200.0` was taken, and no transient learned).
+- `keep_dynamics`, `keep_collocations` and `keep_transients` raise
+  ArgumentError on a row of another quantity; `keep_tracks` and
+  `keep_regression_tracks` on a track under another key than its own.
+
+What changes without a call changing: a filtered Switch's tau is
+chosen as a term is kept, balanced, so a Switch seldom on is kept
+beside a wrong tau acting on many; `Stats.least_squares` refuses
+columns as `Stats.plane` does, in either order and any units, so a
+joint fit of columns in other units may keep a pair it refused; and
+`Store::Sequel#set_location` writes only the settings given.
+
 ## Gate
 
 `bundle exec rake`: the tests, then RuboCop.
