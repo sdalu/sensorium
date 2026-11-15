@@ -229,8 +229,8 @@ setup   = Sensorium::Presets.room.with(
 The bin is a setting (`Presets.room(bin: 300)`): the counts given in
 bins (`min_samples`, `min_shift`, `min_part`) then cover the same time
 as their defaults do at ten minutes, and the transient windows are one
-bin and two, unless given; a window not a whole number of bins is
-refused. `Setup#with` and `Quantity#with` rebuild from the arguments
+bin and two, unless given; a window not a whole number of bins, or
+not an Integer (`1200.0`), is refused. `Setup#with` and `Quantity#with` rebuild from the arguments
 first given plus the changes, so what is derived and was not given
 (the counts and windows from the bin, `floor` and `track_q` from σ)
 is derived again (`Presets.room.with(bin: 900)` takes windows of 900

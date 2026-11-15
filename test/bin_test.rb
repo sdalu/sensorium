@@ -30,6 +30,14 @@ class BinTest < Minitest::Test
         end
     end
 
+    def test_a_window_not_whole_seconds_is_refused
+        [1200.0, 1200r, nil].each do |window|
+            assert_raises(ArgumentError, window.inspect) do
+                Sensorium::Presets.room(transient_windows: [600, window])
+            end
+        end
+    end
+
     def test_a_bin_not_whole_seconds_is_refused
         [0, -600, 600.5, nil].each do |bin|
             assert_raises(ArgumentError, bin.inspect) do

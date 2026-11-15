@@ -109,9 +109,13 @@ module Sensorium
         end
 
         # A window not a whole number of bins would find no bin to start
-        # its change from.
+        # its change from, nor would one not whole seconds (1200.0): the
+        # bins are keyed by Integer.
         def self.check_windows(windows, bin)
-            wrong = windows.reject { it.positive? && (it % bin).zero? }
+            wrong = windows.reject do |window|
+                window.is_a?(Integer) && window.positive? &&
+                    (window % bin).zero?
+            end
             return if wrong.empty?
             raise ArgumentError, "transient_windows #{wrong.inspect}: " \
                                  "not whole bins of #{bin} s"
