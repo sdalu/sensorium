@@ -96,13 +96,15 @@ module Sensorium
                     .to_h { [it[:location], location(it)] }
             end
 
+            # Writes only the settings given, so that another process
+            # setting others meanwhile keeps them.
             def set_location(quantity, name, settings)
                 key = { location: name, quantity: }
-                row = scope(:locations, key).first || key
-                row = row.merge(columns(settings))
+                given = columns(settings)
                 @db.transaction do
-                    scope(:locations, key).delete
-                    put(:locations, [row])
+                    set = scope(:locations, key)
+                    found = given.empty? ? set.count : set.update(named(given))
+                    put(:locations, [key.merge(given)]) if found.zero?
                 end
             end
 
