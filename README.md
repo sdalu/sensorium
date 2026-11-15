@@ -1468,6 +1468,43 @@ And what changes without a call changing: a Switch's text values
 at once (`aircon+fan`), a Mode with no Shift for its value (the plain
 offset), and regimes asked of local times.
 
+From 0.2.x to 0.5.1, what a caller must change:
+
+- `Offset#predict` and `#correct` raise ArgumentError on a Shift given
+  with `held: false` (after 0.3.0).
+- `keep_tracks` raises ArgumentError on a track of another quantity
+  than the one it is kept under (0.4.0).
+- A `Setup#recent` of 0 or less raises ArgumentError (0.5.1).
+- A store gains the Regressions' two tables (0.4.0); a Sequel store
+  opened with `migrate: false` needs them made by hand first.
+
+What changes without a call changing:
+
+- An `Offset::Moment` takes a Symbol name as its String (0.4.0): a
+  Series' value or an exposure so named was taken as unknown.
+- A term is judged with the bins it acts on weighing as much as the
+  others (`Fit::Balanced`, 0.5.0), so a relearn may keep other terms
+  (three of MadHouse's 32 tado offsets); a Regression fitted together
+  no longer stops at the first regressor the bins held out refuse.
+- An offset's constant is recentred on the last weeks (`Setup#recent`,
+  a week by default; `nil` for the former constant, 0.5.1), so a
+  relearn moves constants toward the gap the last week held (30 of
+  MadHouse's 32 offsets).
+
+What is new: `Stats.constant?`, `Transient::DIGITS`, `.canonical`,
+`.sides` and `.past`, `Influence::Switch::OFF`, an optional `near` to
+`Dynamics::Forecast.new`, and `Setup#with` and `Quantity#with`
+deriving again what was not given (0.2.2); a `Quantity` and a `Setup`
+through Marshal, and two `Regime::Calendar` of the same months equal
+(0.2.3); `Offset#predict`, `Knowledge#offset`, `#shift` and `#track`,
+`Track#foresee` and `Store::Sequel`'s `read_only: true` (0.3.0);
+`Sensorium::Recent` (after 0.3.0, Predicting); `Regression`, the
+store's regressions and their tracks, `Setup#joint`, `#ridge` and
+`#nonnegative`, `Influence::Series#weighted`, `Timeline.of`, `#on_of`
+and `#levels_of`, `Series#of(total:)`, `#sums`, `#added` and
+`#weighted`, `Stats.least_squares(ridge:)` and `Stats.nonnegative`
+(0.4.0, Regressions and Toolkit); `Setup#recent` (0.5.1).
+
 After 0.5.1, what a caller must change:
 
 - A `Setup`'s `transient_windows` not Integers raise ArgumentError
