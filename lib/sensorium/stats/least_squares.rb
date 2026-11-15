@@ -6,10 +6,13 @@ module Sensorium
 
         # [intercept, *slopes] of y on any number of columns, least
         # squares: the normal equations of the centred columns, solved by
-        # Gaussian elimination with partial pivoting; nil when a column
-        # does not vary (Stats.constant?), or not apart from the others
-        # (its pivot below 1e-9 of its own sum of squares, as Stats.plane
-        # refuses). ridge: a penalty on the slopes, each column's own
+        # Gaussian elimination, each column on its own row (the matrix is
+        # a sum of squares: no pivot to search); nil when a column does
+        # not vary (Stats.constant?), or not apart from the others (what
+        # it keeps once those before it are taken out below 1e-9 of its
+        # own sum of squares, as Stats.plane refuses: 1 - rho² for two,
+        # in either order and any units). ridge: a penalty on the
+        # slopes, each column's own
         # sum of squares times ridge added to it (a ridge regression
         # that does not depend on the columns' units; 0, none): columns
         # that nearly tell the same share it rather than swing apart.
@@ -43,20 +46,12 @@ module Sensorium
             back(rows) if rows.each_index.all? { pivoted?(rows, it, limits) }
         end
 
-        # Whether column j has a pivot above its limit; if so, column j
-        # is cleared below it.
+        # Whether column j keeps more than its limit; if so, column j is
+        # cleared below it.
         def pivoted?(rows, j, limits)
-            pivot(rows, j)
-            return false unless rows[j][j].abs > limits[j]
+            return false unless rows[j][j] > limits[j]
             reduce(rows, j)
             true
-        end
-
-        # The row of the largest |value| in column j, from j down,
-        # swapped into row j.
-        def pivot(rows, j)
-            best = (j...rows.size).max_by { rows[it][j].abs }
-            rows[j], rows[best] = rows[best], rows[j]
         end
 
         # Column j cleared below row j.

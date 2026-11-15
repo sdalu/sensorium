@@ -53,6 +53,19 @@ class StatsTest < Minitest::Test
         assert_nil Stats.least_squares([[1.0] * 6], three_ys)
     end
 
+    # Columns a thousand times apart in units and nearly one (1 - rho²
+    # about 1e-7): solved in either order, as the plane solves them.
+    def test_least_squares_depends_on_neither_order_nor_units
+        small, large, ys = apart
+        plane = Stats.plane(small, large, ys)
+        found = [Stats.least_squares([small, large], ys),
+                 Stats.least_squares([large, small], ys)&.values_at(0, 2, 1)]
+        found.each do |one|
+            refute_nil one
+            plane.zip(one).each { |e, f| assert_in_delta e, f, 1e-6 }
+        end
+    end
+
     def test_a_reading_is_carried_an_hour
         carried = Sensorium::Series.new(600)
                                    .carried({ 0 => 20.0, 6000 => 21.0 }, 3600)
@@ -72,6 +85,16 @@ class StatsTest < Minitest::Test
         random = Random.new(5)
         x1, x2, noise = Array.new(3) { Array.new(50) { random.rand } }
         [x1, x2, x1.zip(x2, noise).map { |a, b, e| 1 + (2 * a) - (3 * b) + e }]
+    end
+
+    # small, large = 1000 (small + a little noise), y = 1 + 2 small +
+    # 0.003 large.
+    def apart
+        random = Random.new(2)
+        small = Array.new(200) { random.rand }
+        large = small.map { 1000 * (it + (3e-4 * (random.rand - 0.5))) }
+        [small, large,
+         small.zip(large).map { |a, b| 1 + (2 * a) + (0.003 * b) }]
     end
 
     def assert_close(expected, found)
