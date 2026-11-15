@@ -1505,7 +1505,7 @@ and `#levels_of`, `Series#of(total:)`, `#sums`, `#added` and
 `#weighted`, `Stats.least_squares(ridge:)` and `Stats.nonnegative`
 (0.4.0, Regressions and Toolkit); `Setup#recent` (0.5.1).
 
-After 0.5.1, what a caller must change:
+From 0.5.1 to 0.5.2, what a caller must change:
 
 - A `Setup`'s `transient_windows` not Integers raise ArgumentError
   (`1200.0` was taken, and no transient learned).
