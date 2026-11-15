@@ -13,17 +13,22 @@ module Sensorium
                 tried
             end
 
-            # Whether tried narrows what kept left to setup.narrows, as
-            # the correction's (over each model's scale), the bins the
-            # term acts on weighing as much as the others (Balanced),
-            # setup.min_part of them at least.
+            # Whether tried narrows what kept left to setup.narrows.
             def narrows?(kept, tried)
+                narrowing(kept, tried) <= @setup.narrows
+            end
+
+            # The spread tried leaves over what kept left, as the
+            # correction's (over each model's scale), the bins the term
+            # acts on weighing as much as the others (Balanced):
+            # infinite when it acts on fewer than setup.min_part.
+            def narrowing(kept, tried)
                 found = Balanced.ratio(kept.residuals, tried.residuals,
                                        @setup.min_part,
                                        Balanced.regressor(kept, tried,
                                                           @terms)) or
-                    return false
-                found * kept.scale / tried.scale <= @setup.narrows
+                    return Float::INFINITY
+                found * kept.scale / tried.scale
             end
         end
     end

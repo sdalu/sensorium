@@ -69,7 +69,13 @@ the README's order; what was tried and dropped is under Ruled out.
   what the season showed for the noise of a few days; the widths carry
   that noise instead (below). The last tenth, not a random one:
   neighbouring bins are correlated, so bins drawn at random would
-  confirm whatever was fitted beside them.
+  confirm whatever was fitted beside them. A term they refuse leaves
+  no alternative its turn: a filtered Switch's taus, and the gain, the
+  neighbours and the pair, are alternatives for one term, and trying
+  the next would make the tenth, some 9 independent bins (below),
+  choose among them, the winner of several tries confirmed partly by
+  chance. A joint fit's Series are no alternatives, each a term of its
+  own kept or not, so one refused leaves the next its turn.
 
   ```text
   a sensor's calm bins, in time order
@@ -162,7 +168,9 @@ the README's order; what was tried and dropped is under Ruled out.
 - **Influences of four kinds.** A Switch is on or off (the radiators'
   water hot); with `tau:` its term follows a first-order filter of its
   on-state, since heat arrives and leaves gradually, the time constant
-  chosen among those given as the one that narrows most. A Series is a
+  chosen among those given as the one that narrows most, as a term is
+  kept (balanced: a Switch seldom on narrows p10..p90 of all the bins
+  less than a wrong tau acting on many). A Series is a
   level that moves the sensor in proportion (a PV inverter's power is a
   fair irradiance meter, and the sun is the largest error of an
   unshielded sensor). A Threshold is a Switch derived from the

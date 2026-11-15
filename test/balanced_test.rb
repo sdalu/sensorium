@@ -58,7 +58,23 @@ class BalancedTest < Minitest::Test
         assert_in_delta 1.0, model.switches.fetch("s"), 0.05
     end
 
+    # The tau is chosen as the term is kept, balanced: plainly, the
+    # loose exposure at tau 2 narrows more (0.93 against 0.99), but kept
+    # only at tau 1.
+    def test_a_rare_filtered_switch_keeps_its_tau_beside_a_denser_one
+        diffs = BINS.to_h { [it, (3 * @rare[it]) + @noise[it]] }
+        model = fit(diffs, filtered: { "s" => { 1 => @rare, 2 => loose } })
+        assert_equal({ "s" => 1 }, model.taus)
+        assert_in_delta 3.0, model.switches.fetch("s"), 0.05
+    end
+
     private
+
+    # Noise, partly the diffs own: wide, it narrows them a little.
+    def loose
+        other = Random.new(11)
+        BINS.to_h { [it, @noise[it] + ((other.rand - 0.5) * 0.5)] }
+    end
 
     def fit(diffs, **terms)
         Sensorium::Fit.new(diffs, SETUP.with(min_part: 30), levels: {},

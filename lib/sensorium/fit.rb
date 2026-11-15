@@ -124,12 +124,14 @@ module Sensorium
             tried if tried && tried.scale >= @setup.scale_floor
         end
 
-        # The filtered Switch with the time constant that narrows most.
+        # The filtered Switch with the time constant that narrows most,
+        # as it is kept (Keep#narrowing): a Switch seldom on narrows
+        # p10..p90 of all the bins less than a wrong tau acting on many.
         def filtered(model, name, by_tau)
             tried = by_tau.filter_map do |tau, exposures|
                 Linear.exposure(model, name, tau, exposures, @setup)
             end
-            tried.min_by { ratio(model, it) }
+            tried.min_by { narrowing(model, it) }
         end
 
         def series(model)
