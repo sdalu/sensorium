@@ -1337,7 +1337,9 @@ of the same location and regime; transient profiles
 (`keep_transients`), those of the same location, device and regime;
 and tracks (`keep_tracks`), those of the same location and device.
 Each of them, given the quantity, raises ArgumentError on a row of
-another: it would be dropped under one and kept under the other.
+another, and `keep_tracks` and `keep_regression_tracks` on a track
+under another key than its own: it would be dropped under one and
+kept under the other.
 
 Keeping a learning replaces the offsets (and shifts) of the sensors it
 learned again, and every offset of a location whose reference it found

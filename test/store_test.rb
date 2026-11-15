@@ -56,6 +56,14 @@ module StoreBehaviour
         assert_empty @store.tracks("temperature")
     end
 
+    # Under another key than its own, a store would file it under either.
+    def test_a_track_under_another_key_is_refused
+        assert_raises(ArgumentError) do
+            @store.keep_tracks("temperature", { %w[room other] => track(:ok) })
+        end
+        assert_empty @store.tracks("temperature")
+    end
+
     def test_a_references_track_comes_back
         tracks = { %w[room ceil] => track(:jumped, device: "ceil")
                                     .with(constant: nil, plain: nil) }

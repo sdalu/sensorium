@@ -19,7 +19,7 @@ module Sensorium
             end
 
             def keep_regression_tracks(quantity, tracks)
-                Store.same_quantity!(quantity, tracks.values)
+                Store.own_tracks!(quantity, tracks, &:device)
                 @regression_tracks[quantity] =
                     regression_tracks(quantity).merge(tracks).freeze
             end

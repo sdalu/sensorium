@@ -55,6 +55,14 @@ module StoreRegressionsBehaviour
         assert_empty @store.regression_tracks("gas")
     end
 
+    # Under another name than its own, a store would file it under either.
+    def test_a_track_under_another_name_is_refused
+        assert_raises(ArgumentError) do
+            @store.keep_regression_tracks("gas", { "boiler" => track })
+        end
+        assert_empty @store.regression_tracks("gas")
+    end
+
     def test_a_regression_forgotten
         @store.keep_regressions("gas", [regression, regression("summer")])
         @store.keep_regression_tracks("gas", { "house" => track })

@@ -38,7 +38,7 @@ module Sensorium
                 # tracks: { name => Track }; replaces those of the same
                 # name.
                 def keep_regression_tracks(quantity, tracks)
-                    Store.same_quantity!(quantity, tracks.values)
+                    Store.own_tracks!(quantity, tracks, &:device)
                     @db.transaction do
                         tracks.each_key do |name|
                             scope(:regression_tracks, { quantity:, name: })

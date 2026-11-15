@@ -95,7 +95,7 @@ module Sensorium
             def tracks(quantity) = @tracks.fetch(quantity, {})
 
             def keep_tracks(quantity, tracks)
-                Store.same_quantity!(quantity, tracks.values)
+                Store.own_tracks!(quantity, tracks) { [it.location, it.device] }
                 @tracks[quantity] =
                     @tracks.fetch(quantity, {}).merge(tracks).freeze
             end
